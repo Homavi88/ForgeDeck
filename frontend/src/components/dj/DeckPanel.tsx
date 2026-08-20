@@ -152,16 +152,18 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
           }}
         />
       </label>
-      {side === "A" && file && <StemRack fileId={file.id} stems={analysis?.stems} stemMute={stemMute} />}
+      {file && <StemRack side={side} fileId={file.id} stems={analysis?.stems} stemMute={stemMute} />}
     </section>
   );
 }
 
 function StemRack({
+  side,
   fileId,
   stems,
   stemMute,
 }: {
+  side: "A" | "B";
   fileId: string;
   stems?: Record<string, string>;
   stemMute: Record<string, boolean>;
@@ -183,7 +185,7 @@ function StemRack({
             }
             const map = fresh?.analysis?.stems || {};
             const loaded = STEMS.filter((s) => map[s]);
-            if (loaded.length) await getEngine().loadStems(fileId, [...loaded]);
+            if (loaded.length) await getEngine().loadStems(side, fileId, [...loaded]);
             useStudio.setState({ error: null });
           } catch (err) {
             useStudio.setState({ error: err instanceof Error ? err.message : "Stem split failed" });

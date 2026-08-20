@@ -106,6 +106,12 @@ export default function StudioPage() {
         e.preventDefault();
         void useStudio.getState().save();
       }
+      if (e.code === "Space") {
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        e.preventDefault();
+        void useStudio.getState().togglePlay();
+      }
     };
     window.addEventListener("keydown", keys);
     return () => {

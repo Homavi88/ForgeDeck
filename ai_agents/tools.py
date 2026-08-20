@@ -163,7 +163,10 @@ def suggest_compatible_tracks(db: Session, project_id: str, bpm: float | None = 
     project = db.get(Project, project_id)
     bpm = bpm or (project.bpm if project else 120)
     key = key or (project.musical_key if project else "C minor")
-    files = db.query(AudioFile).filter(AudioFile.analysis_status == "ready").all()
+    files = db.query(AudioFile).filter(
+        AudioFile.analysis_status == "ready",
+        AudioFile.user_id == project.user_id if project else "",
+    ).all()
     code = camelot(key)
     matches = []
     for f in files:

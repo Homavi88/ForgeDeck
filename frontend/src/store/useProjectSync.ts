@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getEngine } from "../audio-engine/AudioEngine";
+import { getToken } from "../api/client";
 import { currentUser } from "./auth";
 import { useStudio } from "../store/useStudio";
 import type { MixerStripState, MidiNote, StudioMode, SynthParams, TimelineClip, DrumSteps } from "../types";
@@ -73,7 +74,9 @@ export function useProjectSync(projectId: string | undefined): void {
   useEffect(() => {
     if (!projectId) return;
     const proto = WS || `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}`;
-    const socket = new WebSocket(`${proto}/ws/projects/${projectId}`);
+    const token = getToken();
+    const q = token ? `?token=${encodeURIComponent(token)}` : "";
+    const socket = new WebSocket(`${proto}/ws/projects/${projectId}${q}`);
     wsRef.current = socket;
     sendRoom = (msg) => {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg));

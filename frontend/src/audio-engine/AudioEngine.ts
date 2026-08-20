@@ -34,8 +34,8 @@ export class AudioEngine {
   micGain: GainNode | null = null;
   private micStream: MediaStream | null = null;
   private micSource: MediaStreamAudioSourceNode | null = null;
-  stemDecks: Record<string, Deck> = {};
-  stemsActive = false;
+  stemDecks: { A: Record<string, Deck>; B: Record<string, Deck> } = { A: {}, B: {} };
+  stemsActive: { A: boolean; B: boolean } = { A: false, B: false };
   private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
   private clipSources: AudioBufferSourceNode[] = [];
 
@@ -54,9 +54,11 @@ export class AudioEngine {
     this.automation = new AutomationEngine();
     this.piano = new PianoRoll();
     this.launcher = new ClipLauncher();
-    this.decks.A.onPlay = () => this.followStems("play");
-    this.decks.A.onPause = () => this.followStems("pause");
-    this.decks.A.onSeek = (t) => this.followStems("seek", t);
+    for (const side of ["A", "B"] as const) {
+      this.decks[side].onPlay = () => this.followStems(side, "play");
+      this.decks[side].onPause = () => this.followStems(side, "pause");
+      this.decks[side].onSeek = (t) => this.followStems(side, "seek", t);
+    }
   }
 
   async init(): Promise<void> {
@@ -263,38 +265,45 @@ export class AudioEngine {
     return "Mic off";
   }
 
-  async loadStems(audioId: string, names: string[]): Promise<void> {
+  async loadStems(side: "A" | "B", audioId: string, names: string[]): Promise<void> {
     await this.init();
-    this.clearStems();
+    this.clearStems(side);
+    const dest = this.mixer.channels[side].input;
     for (const name of names) {
-      const deck = new Deck(this.ctx, this.mixer.channels.A.input);
+      const deck = new Deck(this.ctx, dest);
       const buf = await decodeUrl(this.ctx, api.audio.stemUrl(audioId, name));
-      await deck.loadBuffer(buf, this.decks.A.beats);
-      this.stemDecks[name] = deck;
+      await deck.loadBuffer(buf, this.decks[side].beats);
+      this.stemDecks[side][name] = deck;
     }
-    this.stemsActive = true;
-    this.decks.A.output.gain.value = 0;
-    if (this.decks.A.playing) this.followStems("play");
+    this.stemsActive[side] = true;
+    this.decks[side].output.gain.value = 0;
+    if (this.decks[side].playing) this.followStems(side, "play");
   }
 
-  clearStems(): void {
-    for (const d of Object.values(this.stemDecks)) d.stop();
-    this.stemDecks = {};
-    this.stemsActive = false;
-    this.decks.A.output.gain.value = 1;
+  clearStems(side?: "A" | "B"): void {
+    const sides = side ? [side] : (["A", "B"] as const);
+    for (const s of sides) {
+      for (const d of Object.values(this.stemDecks[s])) d.stop();
+      this.stemDecks[s] = {};
+      this.stemsActive[s] = false;
+      this.decks[s].output.gain.value = 1;
+    }
   }
 
   setStemMute(name: string, muted: boolean): void {
-    const d = this.stemDecks[name];
-    if (d) d.output.gain.value = muted ? 0 : 1;
+    for (const side of ["A", "B"] as const) {
+      const d = this.stemDecks[side][name];
+      if (d) d.output.gain.value = muted ? 0 : 1;
+    }
   }
 
-  private followStems(kind: "play" | "pause" | "seek", time?: number): void {
-    if (!this.stemsActive) return;
-    const t = time ?? this.decks.A.position;
-    for (const d of Object.values(this.stemDecks)) {
-      d.pitch = this.decks.A.pitch;
-      d.keyLock = this.decks.A.keyLock;
+  private followStems(side: "A" | "B", kind: "play" | "pause" | "seek", time?: number): void {
+    if (!this.stemsActive[side]) return;
+    const master = this.decks[side];
+    const t = time ?? master.position;
+    for (const d of Object.values(this.stemDecks[side])) {
+      d.pitch = master.pitch;
+      d.keyLock = master.keyLock;
       if (kind === "pause") {
         d.pause();
         continue;

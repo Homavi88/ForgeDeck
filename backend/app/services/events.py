@@ -15,8 +15,9 @@ class ConnectionManager:
         self.locks: dict[str, dict[str, dict[str, str]]] = {}
         self.chat: dict[str, list[dict[str, Any]]] = {}
 
-    async def connect(self, project_id: str, websocket: WebSocket) -> None:
-        await websocket.accept()
+    async def connect(self, project_id: str, websocket: WebSocket, already_accepted: bool = False) -> None:
+        if not already_accepted:
+            await websocket.accept()
         self.rooms.setdefault(project_id, []).append(websocket)
         self.meta[id(websocket)] = {"project_id": project_id, "client_id": None}
 

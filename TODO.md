@@ -33,6 +33,7 @@
 - [x] Collab presence, room chat, edit locks
 - [x] Generated SECRET_KEY, 250 MB uploads, 2 GB quota
 - [x] Public share page `/share/:token`, X-Forwarded-Proto
+- [x] Project/audio/WS owner checks, Anthropic provider, global FX delete guard
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [ ] Rubber Band / SoundTouch WASM (studio-grade timestretch) — denser WSOLA is the working substitute

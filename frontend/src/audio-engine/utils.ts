@@ -7,6 +7,8 @@
  * the same AudioBuffer in memory.
  */
 
+import { getToken } from "../api/client";
+
 export function dbToGain(db: number): number {
   return Math.pow(10, db / 20);
 }
@@ -17,7 +19,11 @@ export function equalPower(x: number): { a: number; b: number } {
 }
 
 export async function decodeUrl(ctx: AudioContext, url: string): Promise<AudioBuffer> {
-  const res = await fetch(url);
+  const headers: HeadersInit = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`Audio fetch failed (${res.status})`);
   const buf = await res.arrayBuffer();
   return ctx.decodeAudioData(buf.slice(0));
 }

@@ -15,6 +15,17 @@ Realtime-звук идёт **только в браузере** (Web Audio API /
 | Frontend | React 18, TypeScript, Vite, Tailwind, Zustand |
 | Engine | Web Audio API, AudioWorklet bitcrusher, Web MIDI |
 
+## Быстрый старт на Windows
+
+В папке [`bat/`](bat/README.txt) — скрипты для двойного клика:
+
+1. Один раз (или сразу `start.bat` — он сам доустановит): **`bat\setup.bat`**
+   создаёт `.venv`, копирует `.env`, ставит Python- и npm-зависимости, пишет демо-wav.
+2. **`bat\start.bat`** поднимает API и UI в двух окнах и открывает http://127.0.0.1:5173
+3. Остановка: закрыть окна или **`bat\stop.bat`**
+
+Нужны Python 3 (галочка Add to PATH) и Node.js LTS. Docker — отдельно: `bat\start-docker.bat`.
+
 ## Быстрый старт (local, SQLite)
 
 ```bash

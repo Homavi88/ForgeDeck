@@ -1,6 +1,6 @@
 # ForgeDeck TODO / roadmap
 
-Живой чеклист **сделанного**. Как устроен код: [`docs/README.md`](docs/README.md). Что ещё удобно сделать: [`docs/roadmap.md`](docs/roadmap.md). История релизов: [`CHANGELOG.md`](CHANGELOG.md).
+Живой чеклист **сделанного**. История релизов: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Done
 - [x] Monorepo, Docker Compose, FastAPI, Alembic, OpenAPI

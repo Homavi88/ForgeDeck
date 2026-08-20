@@ -11,7 +11,7 @@ if [ ! -x "$PY" ]; then
 fi
 [ -f "$ROOT/.env" ] || cp "$ROOT/.env.example" "$ROOT/.env"
 
-echo "PulseForge API  http://127.0.0.1:8000/docs"
+echo "ForgeDeck API  http://127.0.0.1:8000/docs"
 echo "Не закрывай это окно, пока работает студия."
 echo
 cd "$ROOT/backend" || exit 1

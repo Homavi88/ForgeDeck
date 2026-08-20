@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "backend"))
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_pulseforge.db"
+os.environ["DATABASE_URL"] = "sqlite:///./test_forgedeck.db"
 os.environ["STORAGE_DIR"] = str(ROOT / "storage" / "test-audio")
 os.environ["USE_CELERY"] = "false"
 os.environ["AI_PROVIDER"] = "mock"

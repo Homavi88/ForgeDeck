@@ -7,13 +7,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
 
-    app_name: str = "PulseForge"
+    app_name: str = "ForgeDeck"
     app_env: str = "development"
     secret_key: str = "change-me-to-a-long-random-string"
     debug: bool = True
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    database_url: str = "sqlite:///./pulseforge.db"
+    database_url: str = "sqlite:///./forgedeck.db"
     redis_url: str = "redis://localhost:6379/0"
     use_celery: bool = False
 
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     local_llm_url: str = ""
     ai_model: str = "mock-producer-v1"
 
-    demo_user_email: str = "producer@pulseforge.local"
+    demo_user_email: str = "producer@forgedeck.local"
     demo_user_name: str = "Demo Producer"
     demo_user_password: str = "demo"
     require_auth: bool = False
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     aws_s3_region: str = "us-east-1"
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
-    s3_prefix: str = "pulseforge"
+    s3_prefix: str = "forgedeck"
 
     @property
     def cors_origin_list(self) -> list[str]:

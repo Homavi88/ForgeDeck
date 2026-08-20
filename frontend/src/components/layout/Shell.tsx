@@ -14,7 +14,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-full flex flex-col">
       <header className="h-12 border-b border-line bg-ink-900 flex items-center px-4 gap-6">
         <Link to="/" className="font-semibold tracking-[0.2em] text-accent uppercase text-sm">
-          PulseForge
+          ForgeDeck
         </Link>
         <nav className="flex gap-4 text-sm text-zinc-400">
           <NavLink to="/projects" className={({ isActive }) => (isActive ? "text-white" : "hover:text-white")}>

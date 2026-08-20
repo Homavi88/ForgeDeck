@@ -1,4 +1,4 @@
-"""Tool implementations that mutate PulseForge projects.
+"""Tool implementations that mutate ForgeDeck projects.
 
 Each tool returns a structured result the orchestrator can attach to an action.
 Apply happens only after the user confirms in the UI.

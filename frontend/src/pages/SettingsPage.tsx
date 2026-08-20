@@ -41,7 +41,7 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-semibold">Settings</h1>
           <p className="text-zinc-400 text-sm mt-2">
             JWT login is at <code className="text-accent">/login</code>. Demo account:{" "}
-            <code className="text-accent">producer@pulseforge.local</code> / <code className="text-accent">demo</code>{" "}
+            <code className="text-accent">producer@forgedeck.local</code> / <code className="text-accent">demo</code>{" "}
             when <code>REQUIRE_AUTH=false</code>. Realtime audio stays in the browser. Optional S3, Demucs, and OpenAI
             keys live in <code className="text-accent">.env</code>.
           </p>

@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: pulseforge
-      POSTGRES_PASSWORD: pulseforge
-      POSTGRES_DB: pulseforge
+      POSTGRES_USER: forgedeck
+      POSTGRES_PASSWORD: forgedeck
+      POSTGRES_DB: forgedeck
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pulseforge"]
+      test: ["CMD-SHELL", "pg_isready -U forgedeck"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -31,7 +31,7 @@ services:
       dockerfile: backend/Dockerfile
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://pulseforge:pulseforge@postgres:5432/pulseforge
+      DATABASE_URL: postgresql+psycopg://forgedeck:forgedeck@postgres:5432/forgedeck
       REDIS_URL: redis://redis:6379/0
       USE_CELERY: "true"
       STORAGE_DIR: /data/audio
@@ -53,7 +53,7 @@ services:
     command: celery -A workers.celery_app worker --loglevel=info
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://pulseforge:pulseforge@postgres:5432/pulseforge
+      DATABASE_URL: postgresql+psycopg://forgedeck:forgedeck@postgres:5432/forgedeck
       REDIS_URL: redis://redis:6379/0
       USE_CELERY: "true"
       STORAGE_DIR: /data/audio

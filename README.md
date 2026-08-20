@@ -1,4 +1,4 @@
-# PulseForge
+# ForgeDeck
 
 Веб-приложение для DJ-сетов, продакшена и живого исполнения: **2 деки + микшер**, драм-машина, синтезатор, таймлайн и AI Producer.
 
@@ -54,7 +54,7 @@ npm run dev
 
 Открой [http://localhost:5173](http://localhost:5173). API-документация: [http://localhost:8000/docs](http://localhost:8000/docs).
 
-Логин: [http://localhost:5173/login](http://localhost:5173/login) — demo `producer@pulseforge.local` / `demo` (пока `REQUIRE_AUTH=false`, API принимает и запросы без токена).
+Логин: [http://localhost:5173/login](http://localhost:5173/login) — demo `producer@forgedeck.local` / `demo` (пока `REQUIRE_AUTH=false`, API принимает и запросы без токена).
 
 Создай проект → студия сразу кладёт демо-петлю на Deck A. Кликни по UI (браузер разблокирует AudioContext) → Play. Свой трек: Library Upload (mp3/wav/flac/ogg).
 

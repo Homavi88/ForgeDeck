@@ -6,7 +6,7 @@ source "./_lib.sh"
 cd "$ROOT" || exit 1
 
 echo
-echo "=== PulseForge: создание окружения (macOS) ==="
+echo "=== ForgeDeck: создание окружения (macOS) ==="
 echo "Папка проекта: $ROOT"
 echo
 

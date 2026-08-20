@@ -5,7 +5,7 @@ source "./_lib.sh"
 export PF_NOPAUSE=1
 cd "$ROOT" || exit 1
 
-echo "=== PulseForge: запуск (macOS) ==="
+echo "=== ForgeDeck: запуск (macOS) ==="
 echo
 
 if [ ! -x "$PY" ] || [ ! -d "$ROOT/frontend/node_modules" ]; then

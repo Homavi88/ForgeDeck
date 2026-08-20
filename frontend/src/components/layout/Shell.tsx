@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
+import { PowerOffButton } from "./PowerOffButton";
 import { currentUser, logout, type AuthUser } from "../../store/auth";
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </NavLink>
         </nav>
         <div className="flex-1" />
+        <PowerOffButton compact />
         {user ? (
           <div className="flex items-center gap-3 text-xs text-zinc-400">
             <span className="hidden sm:inline">{user.name}</span>

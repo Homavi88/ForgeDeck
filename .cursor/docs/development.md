@@ -25,6 +25,8 @@ Demo: `producer@forgedeck.local` / `demo`
 
 Или `make backend` / `make frontend` из корня. Windows: `bat/setup.bat` затем `bat/start.bat`. macOS: `mac/setup.command` / `mac/start.command`.
 
+Остановка из UI: кнопка **Выключить** (`POST /api/shutdown`, только с этой машины). То же делают `bat/stop.bat` / `mac/stop.command`. Окна лаунчера называются `ForgeDeck API` / `ForgeDeck UI` / `ForgeDeck launcher`.
+
 Кликни по UI один раз — браузер разблокирует `AudioContext`. Первый проект кладёт демо-петлю на Deck A.
 
 ## Docker
@@ -62,7 +64,7 @@ cd frontend && npm run build          # tsc --noEmit && vite build
 cd frontend && npx playwright test    # нужен dev/preview; см. playwright.config.ts
 ```
 
-Backend сейчас ~28 тестов: auth, projects, audio, analysis, stems (GPU путь мокается), share/quota, ownership, AI, demo loop.
+Backend тесты: auth, projects, audio, analysis, stems (GPU путь мокается), share/quota, ownership, AI, demo loop, shutdown (мок `schedule_shutdown`).
 
 Vite на `buildStart` копирует `rubberband-web` worklet в `public/worklets/rubberband-processor.js` (файл в `.gitignore`).
 

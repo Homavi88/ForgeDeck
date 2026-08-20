@@ -41,7 +41,7 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 - `synth` — `SynthPanel` + piano roll
 - `sampler` — `SamplerPanel`
 
-`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys). `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
+`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys, **Выключить**). `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`. `PowerOffButton` также в `Shell` (домашняя / projects / library / settings). `api.shutdown()` → `POST /api/shutdown`.
 
 DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Camelot-соседи: `frontend/src/lib/camelot.ts` (как `harmony.compatible_camelot`). Drag трека: `lib/trackDrag.ts`.
 

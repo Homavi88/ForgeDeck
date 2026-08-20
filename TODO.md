@@ -43,6 +43,7 @@
 - [x] Hide AI / library / fullscreen decks
 - [x] Tap tempo, pitch range ±8/±16/±100, per-track zoom/key lock, recent projects on home
 - [x] Pioneer-ish MIDI map as the default CC layout
+- [x] In-app Quit (Выключить): close launcher terminals and stop API/UI
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

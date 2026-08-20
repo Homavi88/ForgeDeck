@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Кнопка **Выключить** в шапке (домашняя и студия): закрывает окна API/UI/launcher и останавливает процессы на :8000 / :5173 (`POST /api/shutdown`, только localhost)
 - macOS `setup.command`: ищет Node в Homebrew/nvm/fnm/volta; если нет — ставит через `brew install node` (двойной клик из Finder не видит `~/.zshrc`)
 - Внутренние docs перенесены в `.cursor/docs/` (не на GitHub-лендинге); агент читает их по `docs-sync` правилу
 - DJ: CDJ-клавиатура (focus A/B, cue, hotcue 1–4, loop, beat jump, crate load, sync, PFL, tap tempo)

@@ -90,6 +90,64 @@ pf_root() {
   fi
 }
 
+# Title used by AppleScript close (Quit button / stop.command). Keep in sync
+# with backend/app/services/shutdown.py WINDOW_TITLES.
+pf_set_window_title() {
+  local title="${1:-ForgeDeck}"
+  printf '\033]0;%s\007' "$title"
+  osascript >/dev/null 2>&1 <<APPLESCRIPT || true
+tell application "System Events"
+  set termRunning to (exists process "Terminal")
+  set itermRunning to ((exists process "iTerm2") or (exists process "iTerm"))
+end tell
+if termRunning then
+  tell application "Terminal"
+    try
+      set custom title of front window to "${title}"
+    end try
+  end tell
+end if
+if itermRunning then
+  tell application "iTerm"
+    try
+      tell current session of current window to set name to "${title}"
+    end try
+  end tell
+end if
+APPLESCRIPT
+}
+
+pf_close_forgedeck_windows() {
+  osascript >/dev/null 2>&1 <<'APPLESCRIPT' || true
+tell application "System Events"
+  set termRunning to (exists process "Terminal")
+  set itermRunning to ((exists process "iTerm2") or (exists process "iTerm"))
+end tell
+if termRunning then
+  tell application "Terminal"
+    repeat with w in (get windows)
+      try
+        if name of w contains "ForgeDeck" then
+          close w
+        end if
+      end try
+    end repeat
+  end tell
+end if
+if itermRunning then
+  tell application "iTerm"
+    repeat with w in windows
+      try
+        if name of w contains "ForgeDeck" then
+          close w
+        end if
+      end try
+    end repeat
+  end tell
+end if
+APPLESCRIPT
+}
+
 # Open a new Terminal or iTerm window running the given script path.
 pf_open_terminal() {
   local script="$1"

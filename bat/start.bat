@@ -38,7 +38,7 @@ echo API docs:   http://127.0.0.1:8000/docs
 echo Демо-wav:   %ROOT%\storage\audio\demo-loop.wav
 echo.
 echo Создай проект → кликни по студии ^(звук^) → Library Upload → A / B → Play.
-echo Остановить: закрой окна API/UI или запусти stop.bat
+echo Остановить: кнопка «Выключить» в приложении, закрыть окна или stop.bat
 echo.
 pause
 endlocal

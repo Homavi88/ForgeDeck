@@ -12,7 +12,7 @@
 | `app/models/entities.py` | SQLAlchemy |
 | `app/schemas.py` | Pydantic |
 | `app/api/` | Роутеры |
-| `app/services/` | analysis, stems, storage, object_store, project_graph, security, events |
+| `app/services/` | analysis, stems, storage, object_store, project_graph, security, events, shutdown |
 | `alembic/` | миграции |
 
 ## Модели (коротко)
@@ -37,6 +37,8 @@ Presets: effects / kits / midi; seeded FX нельзя удалить.
 Share: `GET /api/share/{token}` публично.
 
 Health: `GET /api/health`.
+
+Shutdown: `POST /api/shutdown` — только с loopback (`127.0.0.1`, `::1`, `localhost`). Закрывает окна с заголовком ForgeDeck API/UI/launcher, убивает слушателей :8000 и :5173 (включая parent uvicorn `--reload`), затем `os._exit`. Без JWT: граница безопасности — localhost, не логин. Тесты мокают `schedule_shutdown`, иначе pytest умрёт.
 
 Owner: проект и файл чужого user_id → 404/403. Compatible-search только по библиотеке владельца.
 

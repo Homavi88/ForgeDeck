@@ -2,6 +2,7 @@
 cd "$(dirname "$0")" || exit 1
 # shellcheck disable=SC1091
 source "./_lib.sh"
+pf_set_window_title "ForgeDeck UI"
 cd "$ROOT" || exit 1
 
 if ! pf_ensure_node; then

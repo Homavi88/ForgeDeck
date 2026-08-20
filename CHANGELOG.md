@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- macOS `setup.command`: ищет Node в Homebrew/nvm/fnm/volta; если нет — ставит через `brew install node` (двойной клик из Finder не видит `~/.zshrc`)
 - Внутренние docs перенесены в `.cursor/docs/` (не на GitHub-лендинге); агент читает их по `docs-sync` правилу
 - DJ: CDJ-клавиатура (focus A/B, cue, hotcue 1–4, loop, beat jump, crate load, sync, PFL, tap tempo)
 - Library: поиск, сортировка BPM/Camelot/recent, подсветка совместимых с Deck A, drag-and-drop на деку

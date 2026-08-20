@@ -4,8 +4,7 @@ cd "$(dirname "$0")" || exit 1
 source "./_lib.sh"
 cd "$ROOT" || exit 1
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "Не найден Node.js. https://nodejs.org/  или  brew install node"
+if ! pf_ensure_node; then
   pf_wait
   exit 1
 fi

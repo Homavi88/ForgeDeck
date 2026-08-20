@@ -10,9 +10,7 @@ echo "=== ForgeDeck: создание окружения (macOS) ==="
 echo "Папка проекта: $ROOT"
 echo
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "[Ошибка] Не найден Node.js."
-  echo "Поставь LTS: https://nodejs.org/  или  brew install node"
+if ! pf_ensure_node; then
   pf_wait
   exit 1
 fi

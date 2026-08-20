@@ -108,6 +108,26 @@ docker compose up --build
 
 Провайдер по умолчанию — **mock**. При `AI_PROVIDER=openai` и `OPENAI_API_KEY` используется OpenAI JSON tool-calling, иначе mock.
 
+## Документация
+
+Полный набор для разработки (не дублирует этот README):
+
+| | |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Оглавление |
+| [docs/architecture.md](docs/architecture.md) | Браузер vs Python, graph, auth |
+| [docs/development.md](docs/development.md) | Запуск, env, тесты |
+| [docs/conventions.md](docs/conventions.md) | Куда класть правку |
+| [docs/backend.md](docs/backend.md) | API, WS, stems, jobs |
+| [docs/frontend.md](docs/frontend.md) | React, store, маршруты |
+| [docs/audio-engine.md](docs/audio-engine.md) | Деки, FX, key lock, bounce |
+| [docs/ai.md](docs/ai.md) | Producer tools |
+| [docs/studio.md](docs/studio.md) | Режимы UI |
+| [docs/roadmap.md](docs/roadmap.md) | Удобства, ещё не в коде |
+| [CHANGELOG.md](CHANGELOG.md) | Что влито в `main` |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Как коммитить |
+| [TODO.md](TODO.md) | Чеклист готового продукта |
+
 ## Тесты
 
 ```bash
@@ -129,4 +149,4 @@ npx playwright test
 - Auth — JWT есть; в dev `REQUIRE_AUTH=false` оставляет demo-пользователя. `SECRET_KEY` пишется setup-скриптами.
 - Upload до 250 MB, квота 2 GB на пользователя. HTTPS: `X-Forwarded-Proto` через ProxyHeadersMiddleware.
 
-Подробный roadmap: [TODO.md](TODO.md).
+Подробный чеклист продукта: [TODO.md](TODO.md). Удобства в бэклоге: [docs/roadmap.md](docs/roadmap.md).

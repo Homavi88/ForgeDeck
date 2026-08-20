@@ -22,7 +22,7 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
-Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S; успешный save даёт тост «Saved».
+Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S; graph пишется одним `PUT`. Паттерн `Main` больше не дублируется отдельным POST на каждый save. Успешный save даёт тост «Saved».
 
 Undo/redo: снимки в `history` / `future` (не весь engine).
 

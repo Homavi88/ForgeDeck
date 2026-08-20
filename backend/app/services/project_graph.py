@@ -2,21 +2,37 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy.orm import Session
 
 from app.models import DrumPattern, MixerChannel, Project, SynthPreset
 
+T = TypeVar("T")
+
+
+def keep_named(db: Session, model: type[T], project_id: str, name: str) -> T | None:
+    """Return one row for (project, name); delete extras left by old autosave."""
+    rows = (
+        db.query(model)
+        .filter(model.project_id == project_id, model.name == name)
+        .order_by(model.created_at.asc(), model.id.asc())
+        .all()
+    )
+    if not rows:
+        return None
+    keeper = rows[0]
+    for extra in rows[1:]:
+        db.delete(extra)
+    if len(rows) > 1:
+        db.flush()
+    return keeper
+
 
 def persist_graph(db: Session, project: Project, graph: dict[str, Any]) -> None:
     drums = graph.get("drums") or {}
     if drums.get("steps"):
-        pattern = (
-            db.query(DrumPattern)
-            .filter(DrumPattern.project_id == project.id, DrumPattern.name == "Main")
-            .one_or_none()
-        )
+        pattern = keep_named(db, DrumPattern, project.id, "Main")
         if pattern is None:
             pattern = DrumPattern(project_id=project.id, name="Main")
             db.add(pattern)
@@ -27,11 +43,7 @@ def persist_graph(db: Session, project: Project, graph: dict[str, Any]) -> None:
 
     synth = graph.get("synth")
     if synth:
-        preset = (
-            db.query(SynthPreset)
-            .filter(SynthPreset.project_id == project.id, SynthPreset.name == "Current")
-            .one_or_none()
-        )
+        preset = keep_named(db, SynthPreset, project.id, "Current")
         if preset is None:
             preset = SynthPreset(project_id=project.id, name="Current", params=synth)
             db.add(preset)
@@ -44,11 +56,7 @@ def persist_graph(db: Session, project: Project, graph: dict[str, Any]) -> None:
         state = mixer.get(key)
         if not isinstance(state, dict):
             continue
-        channel = (
-            db.query(MixerChannel)
-            .filter(MixerChannel.project_id == project.id, MixerChannel.name == ch_name)
-            .one_or_none()
-        )
+        channel = keep_named(db, MixerChannel, project.id, ch_name)
         if not channel:
             continue
         if "volume" in state:

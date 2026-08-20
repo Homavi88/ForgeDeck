@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- TopBar студии в две строки: режимы не обрезаются, транспорт/Save/Rec/Bounce сверху, панели и язык снизу
 - Audio clips on Session / Arrange warp to project BPM (Rubber Band, playbackRate fallback); optional Key follow to project `musical_key`. Bounce schedules the same warp.
 - Session rec / Capture to arrange: launched scenes write drums/synth/audio clips onto the Arrange timeline, quantized to bars
 - Stem rack: ISO solo plus drag a stem onto sampler/drum pads or Arrange as its own clip (offline Demucs/HPSS, not realtime)

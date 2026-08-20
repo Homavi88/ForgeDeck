@@ -51,7 +51,7 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 - `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum)
 - `sampler` — `SamplerPanel` (стемы на пады)
 
-`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, **тональность**, **Session rec**, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys, **язык RU/EN**, **Выключить**). Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
+`AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы (горизонтальный скролл, `whitespace-nowrap`), Play / BPM / Key / Click, Save / Rec / Bounce; (2) Session rec, undo/redo, MIDI / mic / Keys, тогглы AI / Library / Decks (подсветка = включено, без «Hide …»), язык EN/RU, Share, Выключить. Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
 
 DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Микс-хелперы (offset, gain match): `lib/djMix.ts`. Camelot-соседи и next-crate: `frontend/src/lib/camelot.ts`. Clip warp math: `lib/clipWarp.ts`. Гаммы/аккорды/arp/strum piano roll: `lib/musicTheory.ts` + `lib/pianoRoll.ts`. MIDI-паттерны и ghost: `graph.midiPatterns` / `activeMidiPatternId` / `ghostNotes` в `useStudio`. Drag трека/стема: `lib/trackDrag.ts`. Graph extras: `fxReturns`, clip `keyFollow` / `sourceBpm` / `stem`.
 

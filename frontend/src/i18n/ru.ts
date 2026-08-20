@@ -1,7 +1,7 @@
 import type { Dict } from "./en";
 
 export const ru: Dict = {
-  lang: { en: "English", ru: "Русский", label: "Язык" },
+  lang: { en: "English", ru: "Русский", label: "Язык", enShort: "EN", ruShort: "RU" },
   nav: {
     projects: "Проекты",
     library: "Библиотека",
@@ -120,7 +120,7 @@ export const ru: Dict = {
     bouncing: "Bounce…",
     modeDj: "DJ",
     modeSession: "Сессия",
-    modeArrange: "Аранж.",
+    modeArrange: "Arrange",
     modeDrums: "Drums",
     modeSynth: "Синтез",
     modeSampler: "Сэмплер",

@@ -64,10 +64,28 @@ if (typeof document !== "undefined") {
   document.documentElement.lang = detect();
 }
 
-export function LanguageSelect({ compact = false }: { compact?: boolean }) {
+export function LanguageSelect({ compact = false, segmented = false }: { compact?: boolean; segmented?: boolean }) {
   const locale = useI18n((s) => s.locale);
   const setLocale = useI18n((s) => s.setLocale);
   const label = t("lang.label");
+  if (segmented) {
+    return (
+      <div className="flex items-center rounded-md bg-ink-800 p-0.5" role="group" aria-label={label}>
+        {(["ru", "en"] as const).map((code) => (
+          <button
+            key={code}
+            type="button"
+            onClick={() => setLocale(code)}
+            className={`h-7 px-2 rounded text-[11px] font-medium ${
+              locale === code ? "bg-ink-600 text-white" : "text-zinc-500 hover:text-zinc-200"
+            }`}
+          >
+            {t(code === "ru" ? "lang.ruShort" : "lang.enShort")}
+          </button>
+        ))}
+      </div>
+    );
+  }
   return (
     <label className={`flex items-center gap-1 ${compact ? "text-[10px] uppercase tracking-wider text-zinc-400" : "text-xs text-zinc-400"}`}>
       {!compact && <span>{label}</span>}

@@ -17,14 +17,26 @@ export class ChannelStrip {
   duck: GainNode;
   /** Pre-fader listen tap (after FX/duck, before mute/volume). */
   pflOut: GainNode;
+  /** Gain into the FX chain. Echo-out ramps this to 0 so delay/reverb can ring out. */
+  fxSend: GainNode;
+  /** Aux send into mixer return reverb (post-EQ, pre-insert FX). */
+  sendRev: GainNode;
+  /** Aux send into mixer return delay. */
+  sendDly: GainNode;
   muted = false;
   soloed = false;
+  echoOutActive = false;
 
   constructor(ctx: BaseAudioContext) {
     this.input = ctx.createGain();
     this.trim = ctx.createGain();
     this.eq = new EQ3(ctx);
     this.filter = new Filter(ctx);
+    this.fxSend = ctx.createGain();
+    this.sendRev = ctx.createGain();
+    this.sendDly = ctx.createGain();
+    this.sendRev.gain.value = 0;
+    this.sendDly.gain.value = 0;
     this.fx = new EffectChain(ctx);
     this.duck = ctx.createGain();
     this.pflOut = ctx.createGain();
@@ -41,7 +53,10 @@ export class ChannelStrip {
       .connect(this.trim)
       .connect(this.eq.input);
     this.eq.output.connect(this.filter.input);
-    this.filter.output.connect(this.fx.input);
+    this.filter.output.connect(this.fxSend);
+    this.filter.output.connect(this.sendRev);
+    this.filter.output.connect(this.sendDly);
+    this.fxSend.connect(this.fx.input);
     this.fx.output.connect(this.duck);
     this.duck.connect(this.mute);
     this.duck.connect(this.pflOut);
@@ -68,6 +83,14 @@ export class ChannelStrip {
     this.panner.pan.value = v;
   }
 
+  setSendRev(v: number): void {
+    this.sendRev.gain.value = Math.max(0, Math.min(1, v));
+  }
+
+  setSendDly(v: number): void {
+    this.sendDly.gain.value = Math.max(0, Math.min(1, v));
+  }
+
   setMute(on: boolean): void {
     this.muted = on;
     this.mute.gain.value = on ? 0 : 1;
@@ -82,6 +105,30 @@ export class ChannelStrip {
     g.cancelScheduledValues(time);
     g.setValueAtTime(Math.max(0.05, 1 - amount), time);
     g.exponentialRampToValueAtTime(1, time + recovery);
+  }
+
+  /** Raise delay/reverb then starve new audio so the FX tail keeps playing (live echo-out). */
+  armEchoOut(delayTime: number, feedback: number, wet: number, reverbWet: number): void {
+    this.echoOutActive = true;
+    this.fx.delay.set(delayTime, feedback, wet);
+    this.fx.reverb.setWet(reverbWet);
+  }
+
+  starveFxSend(seconds = 0.12): void {
+    const ctx = this.input.context;
+    const now = ctx.currentTime;
+    const g = this.fxSend.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(Math.max(0.0001, g.value), now);
+    g.exponentialRampToValueAtTime(0.0001, now + Math.max(0.04, seconds));
+  }
+
+  restoreFxSend(): void {
+    const ctx = this.input.context;
+    const now = ctx.currentTime;
+    this.fxSend.gain.cancelScheduledValues(now);
+    this.fxSend.gain.setValueAtTime(1, now);
+    this.echoOutActive = false;
   }
 
   get level(): number {

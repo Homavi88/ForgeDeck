@@ -115,8 +115,9 @@ export class Deck {
     else this.play();
   }
 
-  seek(time: number): void {
-    const t = Math.max(0, Math.min(this.snap(time), this.duration));
+  seek(time: number, quantize = true): void {
+    const raw = Math.max(0, Math.min(time, this.duration));
+    const t = quantize ? this.snap(raw) : raw;
     const was = this.playing;
     this.killSource();
     this.offset = t;

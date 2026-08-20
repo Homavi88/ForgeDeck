@@ -5,6 +5,7 @@ import { PAD_IDS } from "./DrumMachine";
 import { midiToFreq } from "./demo";
 import { applyKeyLock, createKeyLockNode } from "./rubberband";
 import { applyStripState, snapshotStrip } from "./stripState";
+import { scheduleWarpedClip } from "./clipPlayback";
 import type { MidiNote, SynthParams, TimelineClip } from "../types";
 import { useStudio } from "../store/useStudio";
 
@@ -50,8 +51,11 @@ export async function renderOfflineWav(): Promise<Blob> {
     applyStripState(mixer.channels[id], snapshotStrip(eng.mixer.channels[id]));
   }
   applyStripState(mixer.master, snapshotStrip(eng.mixer.master));
+  mixer.setXfaderCurve(eng.mixer.xfaderCurve);
   mixer.setCrossfader(eng.mixer.crossfader);
   mixer.sidechain = eng.mixer.sidechain;
+  mixer.setReturnLevel("reverb", eng.mixer.returnRevLevel.gain.value);
+  mixer.setReturnLevel("delay", eng.mixer.returnDlyLevel.gain.value);
   mixer.applySolo();
 
   const transplant = (buf: AudioBuffer): AudioBuffer => {
@@ -130,11 +134,20 @@ export async function renderOfflineWav(): Promise<Blob> {
     }
   }
 
-  scheduleSynth(offline, mixer.channels.synth.input, s.notes, s.synth, s.clips, s.mode, stepSec, seconds);
-  await scheduleTimelineAudio(offline, mixer.channels.A.input, mixer.channels.B.input, s.clips, barSec, (id) => {
-    const live = eng.buffers.get(id);
-    return live ? transplant(live) : null;
-  });
+  scheduleSynth(offline, mixer.channels.synth.input, s.notes, s.synth, s.clips, s.mode, stepSec, seconds, Math.max(16, s.drumLength || 16));
+  await scheduleTimelineAudio(
+    offline,
+    mixer,
+    s.clips,
+    barSec,
+    s.bpm,
+    s.musicalKey,
+    async (id, stem) => {
+      const key = eng.bufferKey(id, stem);
+      const live = eng.buffers.get(key) || (!stem ? eng.buffers.get(id) : undefined);
+      return live ? transplant(live) : null;
+    },
+  );
 
   const rendered = await offline.startRendering();
   return encodeWav(rendered);
@@ -149,9 +162,9 @@ function scheduleSynth(
   mode: string,
   stepSec: number,
   seconds: number,
+  loop: number,
 ): void {
   if (!notes.length) return;
-  const loop = 16;
   const totalSteps = Math.ceil(seconds / stepSec);
   for (let cycle = 0; cycle * loop < totalSteps; cycle++) {
     const bar = Math.floor((cycle * loop) / 16);
@@ -191,22 +204,40 @@ function scheduleSynth(
 
 async function scheduleTimelineAudio(
   offline: OfflineAudioContext,
-  inA: AudioNode,
-  inB: AudioNode,
+  mixer: Mixer,
   clips: TimelineClip[],
   barSec: number,
-  getBuf: (id: string) => AudioBuffer | null,
+  projectBpm: number,
+  projectKey: string,
+  getBuf: (id: string, stem?: string | null) => Promise<AudioBuffer | null>,
 ): Promise<void> {
-  void offline;
   for (const clip of clips) {
     if (clip.kind !== "audio" || !clip.audioFileId) continue;
-    const buf = getBuf(clip.audioFileId);
+    const buf = await getBuf(clip.audioFileId, clip.stem);
     if (!buf) continue;
-    const src = offline.createBufferSource();
-    src.buffer = buf;
-    const dest = clip.trackId === "deckB" ? inB : inA;
-    src.connect(dest);
-    src.start(clip.startBar * barSec);
+    const dest =
+      clip.trackId === "deckB"
+        ? mixer.channels.B.input
+        : clip.trackId === "drums"
+          ? mixer.channels.drums.input
+          : clip.trackId === "synth"
+            ? mixer.channels.synth.input
+            : mixer.channels.A.input;
+    await scheduleWarpedClip(
+      offline,
+      buf,
+      dest,
+      clip.startBar * barSec,
+      Math.max(0.05, clip.lengthBars * barSec),
+      {
+        sourceBpm: clip.sourceBpm,
+        projectBpm,
+        sourceKey: clip.sourceKey,
+        projectKey,
+        keyFollow: !!clip.keyFollow,
+      },
+      false,
+    );
   }
 }
 

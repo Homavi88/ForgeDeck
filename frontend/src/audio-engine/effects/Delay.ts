@@ -29,4 +29,12 @@ export class DelayFx {
     this.wet.gain.value = wet;
     this.dry.gain.value = 1 - wet * 0.5;
   }
+
+  /** 100% wet, no dry — mix-bus return. */
+  setReturn(time: number, feedback: number, wet = 1): void {
+    this.delay.delayTime.value = time;
+    this.feedback.gain.value = feedback;
+    this.wet.gain.value = wet;
+    this.dry.gain.value = 0;
+  }
 }

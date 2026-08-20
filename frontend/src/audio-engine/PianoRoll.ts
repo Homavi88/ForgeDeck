@@ -12,19 +12,29 @@ export class PianoRoll {
     this.notes = notes;
   }
 
+  setLoopSteps(n: number): void {
+    this.loopSteps = Math.max(1, n);
+  }
+
   attach(transport: Transport, synth: Synth): void {
     transport.onTick((step, time) => {
       if (!this.enabled) return;
-      const idx = step % Math.max(1, this.loopSteps);
+      const loop = Math.max(1, this.loopSteps);
+      const idx = step % loop;
+      const toOn = new Map<number, number>();
+      const toOff = new Set<number>();
       for (const n of this.notes) {
-        if (n.startStep === idx) {
-          synth.noteOn(n.pitch, n.velocity);
-          this.held.add(n.pitch);
-        }
-        if ((n.startStep + n.length) % this.loopSteps === idx) {
-          synth.noteOff(n.pitch);
-          this.held.delete(n.pitch);
-        }
+        if (n.startStep === idx) toOn.set(n.pitch, n.velocity);
+        if ((n.startStep + n.length) % loop === idx) toOff.add(n.pitch);
+      }
+      for (const p of toOff) {
+        if (toOn.has(p)) continue;
+        synth.noteOff(p);
+        this.held.delete(p);
+      }
+      for (const [p, vel] of toOn) {
+        synth.noteOn(p, vel);
+        this.held.add(p);
       }
       void time;
     });

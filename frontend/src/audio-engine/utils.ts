@@ -13,9 +13,31 @@ export function dbToGain(db: number): number {
   return Math.pow(10, db / 20);
 }
 
+export type XfaderCurve = "smooth" | "sharp" | "cut";
+
 export function equalPower(x: number): { a: number; b: number } {
   const t = Math.min(1, Math.max(0, x));
   return { a: Math.cos(t * 0.5 * Math.PI), b: Math.sin(t * 0.5 * Math.PI) };
+}
+
+/** DJ xfader: smooth = constant-power mix, sharp = small center overlap, cut = both-on until the edges (scratch). */
+export function xfaderGains(x: number, curve: XfaderCurve = "smooth"): { a: number; b: number } {
+  const t = Math.min(1, Math.max(0, x));
+  if (curve === "smooth") return equalPower(t);
+  if (curve === "sharp") {
+    const width = 0.22;
+    const start = 0.5 - width / 2;
+    const end = 0.5 + width / 2;
+    if (t <= start) return { a: 1, b: 0 };
+    if (t >= end) return { a: 0, b: 1 };
+    return equalPower((t - start) / width);
+  }
+  const edge = 0.07;
+  let a = 1;
+  let b = 1;
+  if (t <= edge) b = t / edge;
+  else if (t >= 1 - edge) a = (1 - t) / edge;
+  return { a, b };
 }
 
 export async function decodeUrl(ctx: AudioContext, url: string): Promise<AudioBuffer> {

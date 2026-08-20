@@ -1,22 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import type { XfaderCurve } from "../../audio-engine/utils";
 import { t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 
 const FX = ["delay", "reverb", "flanger", "distortion", "bitcrush"] as const;
+const CURVES: XfaderCurve[] = ["smooth", "sharp", "cut"];
+const CURVE_KEY: Record<XfaderCurve, "mixer.curveSmooth" | "mixer.curveSharp" | "mixer.curveCut"> = {
+  smooth: "mixer.curveSmooth",
+  sharp: "mixer.curveSharp",
+  cut: "mixer.curveCut",
+};
 
 export function MixerPanel() {
-  const { mixer, levels, masterLevel, crossfader, sidechain, cueMix, splitCue } = useStudio();
+  const { mixer, levels, masterLevel, crossfader, xfaderCurve, sidechain, cueMix, splitCue, fxReturns } = useStudio();
   useI18n((s) => s.locale);
 
   return (
     <section className="w-[300px] shrink-0 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-3 shadow-panel overflow-auto">
       <div className="text-[10px] tracking-[0.3em] uppercase text-zinc-500 text-center">{t("mixer.title")}</div>
+      <div className="flex gap-1">
+        <button
+          className="flex-1 text-[9px] uppercase tracking-wider bg-ink-700 rounded py-1 hover:bg-ink-600"
+          onClick={() => void useStudio.getState().instantDouble("A")}
+        >
+          {t("mixer.doubleAB")}
+        </button>
+        <button
+          className="flex-1 text-[9px] uppercase tracking-wider bg-ink-700 rounded py-1 hover:bg-ink-600"
+          onClick={() => void useStudio.getState().instantDouble("B")}
+        >
+          {t("mixer.doubleBA")}
+        </button>
+      </div>
       <div className="flex gap-2">
         <Strip id="A" label="A" level={levels.A} />
         <Strip id="B" label="B" level={levels.B} />
       </div>
+      <SendRow />
+      <label className="text-[10px] uppercase tracking-wider text-zinc-500">
+        {t("mixer.returnRev")} {Math.round(fxReturns.reverb * 100)}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={fxReturns.reverb}
+          className="w-full"
+          onChange={(e) => useStudio.getState().setFxReturns({ reverb: Number(e.target.value) })}
+        />
+      </label>
+      <label className="text-[10px] uppercase tracking-wider text-zinc-500">
+        {t("mixer.returnDly")} {Math.round(fxReturns.delay * 100)}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={fxReturns.delay}
+          className="w-full"
+          onChange={(e) => useStudio.getState().setFxReturns({ delay: Number(e.target.value) })}
+        />
+      </label>
+      <OffsetRow />
       <HeadphonesSection cueMix={cueMix} splitCue={splitCue} />
       <label className="text-[10px] uppercase tracking-wider text-zinc-500">
         {t("mixer.crossfader")}
@@ -34,6 +81,19 @@ export function MixerPanel() {
           }}
         />
       </label>
+      <div className="flex gap-1">
+        {CURVES.map((c) => (
+          <button
+            key={c}
+            className={`flex-1 text-[9px] uppercase rounded py-0.5 ${
+              xfaderCurve === c ? "bg-accent text-black" : "bg-ink-700 text-zinc-400"
+            }`}
+            onClick={() => useStudio.getState().setXfaderCurve(c)}
+          >
+            {t(CURVE_KEY[c])}
+          </button>
+        ))}
+      </div>
       <div className="flex gap-3 items-end justify-center">
         <Vu level={masterLevel} />
         <label className="text-[10px] uppercase tracking-wider text-zinc-500">
@@ -101,6 +161,39 @@ export function MixerPanel() {
   );
 }
 
+function OffsetRow() {
+  const posA = useStudio((s) => s.deckPos.A);
+  const posB = useStudio((s) => s.deckPos.B);
+  const hasA = useStudio((s) => !!s.deckFiles.A);
+  const hasB = useStudio((s) => !!s.deckFiles.B);
+  useI18n((s) => s.locale);
+  const off = hasA && hasB ? useStudio.getState().beatOffsetReadout() : null;
+  void posA;
+  void posB;
+  const locked = off != null && Math.abs(off.beats) < 0.03;
+  const label =
+    off == null
+      ? "—"
+      : locked
+        ? t("mixer.onGrid")
+        : `${off.ms >= 0 ? "+" : ""}${off.ms.toFixed(0)} ms · ${off.beats >= 0 ? "+" : ""}${off.beats.toFixed(2)}`;
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex-1 text-[9px] uppercase text-zinc-500 text-center">
+        {t("mixer.offset")}{" "}
+        <span className={`font-mono ${locked ? "text-mint" : "text-zinc-300"}`}>{label}</span>
+      </div>
+      <button
+        className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-ink-700 hover:bg-ink-600"
+        onClick={() => useStudio.getState().quantizeSync()}
+      >
+        {t("mixer.qSync")}
+      </button>
+    </div>
+  );
+}
+
 function FxPresetBar() {
   useI18n((s) => s.locale);
   const [list, setList] = useState<Array<{ id: string; name: string; params: Record<string, number> }>>([]);
@@ -154,6 +247,7 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
   const ch = () => getEngine().mixer.channels[id];
   const state = useStudio((s) => s.mixer[id]);
   useI18n((s) => s.locale);
+  const kills = state.eqKill || [false, false, false];
   const patch = (partial: Partial<typeof state>) => {
     useStudio.setState({ mixer: { ...useStudio.getState().mixer, [id]: { ...state, ...partial } } });
   };
@@ -164,14 +258,17 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
       <Vu level={level} />
       {(["low", "mid", "high"] as const).map((band, i) => (
         <label key={band} className="text-[9px] uppercase text-zinc-500 w-full text-center">
-{t(`mixer.${band}`)}
+          <span className="flex items-center justify-between gap-1">
+            {t(`mixer.${band}`)}
+            <KillBtn id={id} band={i as 0 | 1 | 2} on={kills[i]} />
+          </span>
           <input
             type="range"
             min={-12}
             max={12}
             step={0.1}
-            defaultValue={0}
-            className="w-full"
+            value={state.eq[i] ?? 0}
+            className={`w-full ${kills[i] ? "opacity-40" : ""}`}
             onChange={(e) => {
               const eq = [...state.eq] as [number, number, number];
               eq[i] = Number(e.target.value);
@@ -188,7 +285,7 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
           min={-1}
           max={1}
           step={0.01}
-          defaultValue={0}
+          value={state.filter}
           className="w-full"
           onChange={(e) => {
             const v = Number(e.target.value);
@@ -204,18 +301,28 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
           min={-12}
           max={12}
           step={0.1}
-          defaultValue={0}
+          value={state.gain}
           className="w-full"
-          onChange={(e) => ch().setGainDb(Number(e.target.value))}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            ch().setGainDb(v);
+            patch({ gain: v });
+          }}
         />
       </label>
+      <button
+        className="text-[9px] uppercase w-full px-1 py-0.5 rounded bg-ink-700 hover:bg-ink-600"
+        onClick={() => useStudio.getState().matchGain(id)}
+      >
+        {t("mixer.match")}
+      </button>
       <input
         type="range"
         min={0}
         max={1}
         step={0.01}
-        defaultValue={state.volume}
-            className="h-24"
+        value={state.volume}
+        className="h-24"
         style={{ writingMode: "vertical-lr", direction: "rtl" }}
         onChange={(e) => {
           const v = Number(e.target.value);
@@ -242,6 +349,12 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
         </button>
         <PflButton id={id} />
       </div>
+      <button
+        className="text-[9px] uppercase w-full px-1 py-0.5 rounded bg-ink-700 hover:bg-ink-600"
+        onClick={() => useStudio.getState().echoOut(id)}
+      >
+        {t("mixer.echoOut")}
+      </button>
       <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
         {t("mixer.pan")}
         <input
@@ -249,12 +362,136 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
           min={-1}
           max={1}
           step={0.01}
-          defaultValue={0}
+          value={state.pan}
           className="w-full"
-          onChange={(e) => useStudio.getState().applyMixerChannel(id, { pan: Number(e.target.value) })}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            ch().setPan(v);
+            patch({ pan: v });
+          }}
+        />
+      </label>
+      <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
+        {t("mixer.sendRev")}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={state.sendRev ?? 0}
+          className="w-full"
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            ch().setSendRev(v);
+            patch({ sendRev: v });
+          }}
+        />
+      </label>
+      <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
+        {t("mixer.sendDly")}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={state.sendDly ?? 0}
+          className="w-full"
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            ch().setSendDly(v);
+            patch({ sendDly: v });
+          }}
         />
       </label>
     </div>
+  );
+}
+
+function SendRow() {
+  useI18n((s) => s.locale);
+  const mixer = useStudio((s) => s.mixer);
+  const ids = ["drums", "synth"] as const;
+  return (
+    <div className="border border-line rounded p-2 space-y-1">
+      <div className="text-[9px] uppercase tracking-wider text-zinc-500">{t("mixer.sends")}</div>
+      {ids.map((id) => {
+        const st = mixer[id] || { sendRev: 0, sendDly: 0 };
+        return (
+          <div key={id} className="grid grid-cols-[3rem_1fr_1fr] gap-1 items-center">
+            <span className="text-[9px] uppercase text-zinc-400">{id}</span>
+            <label className="text-[8px] uppercase text-zinc-500">
+              {t("mixer.sendRev")}
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={st.sendRev ?? 0}
+                className="w-full"
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  getEngine().mixer.channels[id]?.setSendRev(v);
+                  const cur = useStudio.getState().mixer;
+                  useStudio.setState({ mixer: { ...cur, [id]: { ...cur[id], sendRev: v } } });
+                }}
+              />
+            </label>
+            <label className="text-[8px] uppercase text-zinc-500">
+              {t("mixer.sendDly")}
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={st.sendDly ?? 0}
+                className="w-full"
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  getEngine().mixer.channels[id]?.setSendDly(v);
+                  const cur = useStudio.getState().mixer;
+                  useStudio.setState({ mixer: { ...cur, [id]: { ...cur[id], sendDly: v } } });
+                }}
+              />
+            </label>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function KillBtn({ id, band, on }: { id: "A" | "B"; band: 0 | 1 | 2; on: boolean }) {
+  const held = useRef(false);
+  const downAt = useRef(0);
+  const wasOn = useRef(false);
+  useI18n((s) => s.locale);
+  return (
+    <button
+      type="button"
+      title={t("mixer.killTitle")}
+      className={`text-[8px] px-1 rounded ${on ? "bg-danger text-white" : "bg-ink-700 text-zinc-400"}`}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        wasOn.current = on;
+        downAt.current = performance.now();
+        held.current = true;
+        if (!on) useStudio.getState().setEqKill(id, band, true);
+      }}
+      onMouseUp={() => {
+        if (!held.current) return;
+        held.current = false;
+        const long = performance.now() - downAt.current >= 280;
+        if (long) useStudio.getState().setEqKill(id, band, wasOn.current);
+        else useStudio.getState().setEqKill(id, band, !wasOn.current);
+      }}
+      onMouseLeave={() => {
+        if (!held.current) return;
+        held.current = false;
+        if (performance.now() - downAt.current >= 280) useStudio.getState().setEqKill(id, band, wasOn.current);
+      }}
+    >
+      {t("mixer.kill")}
+    </button>
   );
 }
 

@@ -30,3 +30,31 @@ export function isMixCompatible(fromCamelot: string | undefined, fromBpm: number
   if (fromBpm && toBpm && !bpmCompatible(fromBpm, toBpm)) return false;
   return true;
 }
+
+/** Lower is better. Camelot neighbors first, then energy proximity (Mixed In Key lite). */
+export function crateNextScore(
+  from: { camelot?: string; energy?: number },
+  to: { camelot?: string; energy?: number },
+): number {
+  const camOk = !!(from.camelot && to.camelot && compatibleCamelot(from.camelot).has(to.camelot.toUpperCase()));
+  const eDelta = Math.abs((to.energy ?? 5) - (from.energy ?? 5));
+  return (camOk ? 0 : 8) + eDelta;
+}
+
+export function suggestNextCrateId(
+  from: { id: string; analysis?: { camelot?: string; energy?: number } | null } | null,
+  queue: Array<{ id: string; analysis?: { camelot?: string; energy?: number } | null }>,
+): string | null {
+  if (!from || !queue.length) return null;
+  let bestId: string | null = null;
+  let best = Infinity;
+  for (const f of queue) {
+    if (f.id === from.id) continue;
+    const score = crateNextScore(from.analysis || {}, f.analysis || {});
+    if (score < best) {
+      best = score;
+      bestId = f.id;
+    }
+  }
+  return bestId;
+}

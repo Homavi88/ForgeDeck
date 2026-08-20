@@ -9,7 +9,12 @@
 | Чтобы bounce звучал как live | те же классы + `offlineRender.ts` + `stripState.ts` |
 | Кнопка на деке / mixer | `components/dj/*`, стейт в `useStudio.ts` |
 | Подпись в UI (EN/RU) | `frontend/src/i18n/en.ts` + `ru.ts`, в компоненте `t("…")` и `useI18n((s) => s.locale)` |
+| Piano roll / гамма / штамп аккордов | `components/synth/PianoRollPanel.tsx`, теория `lib/musicTheory.ts`, операции `lib/pianoRoll.ts`, playback `audio-engine/PianoRoll.ts` |
+| Clip warp (BPM/key) | `lib/clipWarp.ts`, `audio-engine/clipPlayback.ts`, Rubber Band как на деке |
+| FX send / return | `ChannelStrip.sendRev/sendDly`, `Mixer.returnRev/returnDly` |
+| Channel Rack (drums graph/fill) | `components/drums/DrumMachinePanel.tsx` |
 | CDJ-клавиши | `frontend/src/lib/djHotkeys.ts` (только mode=dj) |
+| DJ mix math (offset, gain match) | `frontend/src/lib/djMix.ts` |
 | PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor` |
 | Сохранить новое поле проекта | graph в `useStudio.save`, типы в `types/index.ts`, при необходимости `project_graph.py` |
 | REST endpoint | `backend/app/api/*.py`, схема в `schemas.py`, owner check через `require_*` |

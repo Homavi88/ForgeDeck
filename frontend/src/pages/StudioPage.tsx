@@ -38,15 +38,22 @@ export default function StudioPage() {
     queue,
     autoAdvance,
     drumSteps,
+    musicalKey,
     notes,
+    midiPatterns,
+    activeMidiPatternId,
+    ghostNotes,
     clips,
     synth,
     crossfader,
+    xfaderCurve,
     sidechain,
     deckFiles,
     keyLock,
     trackView,
     pitchRange,
+    sessionClips,
+    fxReturns,
     aiPanelOpen,
     libraryOpen,
     decksFullscreen,
@@ -85,15 +92,22 @@ export default function StudioPage() {
     queue,
     autoAdvance,
     drumSteps,
+    musicalKey,
     notes,
+    midiPatterns,
+    activeMidiPatternId,
+    ghostNotes,
     clips,
     synth,
     crossfader,
+    xfaderCurve,
     sidechain,
     deckFiles,
     keyLock,
     trackView,
     pitchRange,
+    sessionClips,
+    fxReturns,
   ]);
 
   useEffect(() => {
@@ -112,6 +126,10 @@ export default function StudioPage() {
     };
     window.addEventListener("pointerdown", unlock);
     const keys = (e: KeyboardEvent) => {
+      if (e.type === "keyup") {
+        handleDjHotkey(e);
+        return;
+      }
       if (e.key === "Escape") {
         const st = useStudio.getState();
         if (st.keymapOpen) {
@@ -140,14 +158,17 @@ export default function StudioPage() {
       }
     };
     window.addEventListener("keydown", keys);
+    window.addEventListener("keyup", keys);
     return () => {
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", keys);
+      window.removeEventListener("keyup", keys);
     };
   }, [bootAudio, undo, redo]);
 
   const showAi = aiPanelOpen && !decksFullscreen;
-  const showLib = libraryOpen && !decksFullscreen && mode === "dj";
+  const showLib =
+    libraryOpen && !decksFullscreen && (mode === "dj" || mode === "session" || mode === "arrange" || mode === "sampler");
 
   return (
     <div className="h-full flex flex-col bg-ink-950">
@@ -169,11 +190,26 @@ export default function StudioPage() {
               {showLib && <LibraryBrowser />}
             </>
           )}
-          {mode === "session" && <SessionPanel />}
+          {mode === "session" && (
+            <>
+              <SessionPanel />
+              {showLib && <LibraryBrowser />}
+            </>
+          )}
           {mode === "drums" && <DrumMachinePanel />}
           {mode === "synth" && <SynthPanel />}
-          {mode === "arrange" && <TimelinePanel />}
-          {mode === "sampler" && <SamplerPanel />}
+          {mode === "arrange" && (
+            <>
+              <TimelinePanel />
+              {showLib && <LibraryBrowser />}
+            </>
+          )}
+          {mode === "sampler" && (
+            <>
+              <SamplerPanel />
+              {showLib && <LibraryBrowser />}
+            </>
+          )}
         </div>
         {showAi && <AIPanel />}
       </div>

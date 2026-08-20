@@ -1,8 +1,10 @@
 import { MixerPanel } from "../dj/MixerPanel";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { t, useI18n } from "../../i18n";
+import { peekStemDrag, peekTrackDrag, readStemDrag, readTrackDragId } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
 import type { TimelineClip } from "../../types";
+import type { DragEvent } from "react";
 
 const TRACK_IDS = [
   { id: "drums", nameKey: "session.drums", color: "#ff6a00" },
@@ -14,7 +16,7 @@ const TRACK_IDS = [
 const PX = 28;
 
 export function TimelinePanel() {
-  const { clips, bpm, currentStep } = useStudio();
+  const { clips, bpm, currentStep, library } = useStudio();
   const playhead = (currentStep / 16) * PX * 4;
   useI18n((s) => s.locale);
 
@@ -25,9 +27,24 @@ export function TimelinePanel() {
   };
 
   const trim = (id: string, lengthBars: number) => {
-    useStudio.setState({
-      clips: clips.map((c) => (c.id === id ? { ...c, lengthBars: Math.max(1, lengthBars) } : c)),
-    });
+    const next = clips.map((c) => (c.id === id ? { ...c, lengthBars: Math.max(1, lengthBars) } : c));
+    useStudio.setState({ clips: next });
+    getEngine().timeline.clips = next;
+  };
+
+  const dropOnTrack = (trackId: string, e: DragEvent) => {
+    e.preventDefault();
+    const parent = e.currentTarget.getBoundingClientRect();
+    const bar = Math.max(0, Math.round((e.clientX - parent.left) / (PX * 4)));
+    const stem = readStemDrag(e.dataTransfer);
+    if (stem) {
+      const file = library.find((f) => f.id === stem.audioFileId);
+      if (file) useStudio.getState().placeLoopOnArrange(trackId, bar, file, stem.stem);
+      return;
+    }
+    const id = readTrackDragId(e.dataTransfer);
+    const file = id ? library.find((f) => f.id === id) : null;
+    if (file) useStudio.getState().placeLoopOnArrange(trackId, bar, file);
   };
 
   return (
@@ -46,7 +63,13 @@ export function TimelinePanel() {
         {TRACK_IDS.map((tr) => (
           <div key={tr.id} className="flex h-14 border-b border-line relative">
             <div className="w-24 shrink-0 text-xs pt-2 text-zinc-400">{t(tr.nameKey)}</div>
-            <div className="flex-1 relative bg-ink-900">
+            <div
+              className="flex-1 relative bg-ink-900"
+              onDragOver={(e) => {
+                if (peekTrackDrag(e.dataTransfer) || peekStemDrag(e.dataTransfer)) e.preventDefault();
+              }}
+              onDrop={(e) => dropOnTrack(tr.id, e)}
+            >
               {clips
                 .filter((c) => c.trackId === tr.id)
                 .map((c) => (
@@ -110,9 +133,13 @@ function ClipView({
   onMove: (id: string, bar: number) => void;
   onTrim: (id: string, bars: number) => void;
 }) {
+  useI18n((s) => s.locale);
+  const file = useStudio((s) => s.library.find((f) => f.id === clip.audioFileId));
+  const bpm = clip.sourceBpm ?? file?.analysis?.bpm;
+  const key = clip.sourceKey ?? file?.analysis?.key;
   return (
     <div
-      className="absolute top-1 h-10 rounded text-[10px] px-2 flex items-center cursor-grab"
+      className="absolute top-1 h-10 rounded text-[10px] px-2 flex items-center gap-1 cursor-grab overflow-hidden"
       style={{ left: clip.startBar * PX * 4, width: clip.lengthBars * PX * 4, background: clip.color, color: "#111" }}
       draggable
       onDragEnd={(e) => {
@@ -138,13 +165,32 @@ function ClipView({
           return [left, right];
         });
         useStudio.setState({ clips: next });
+        getEngine().timeline.clips = next;
       }}
       onWheel={(e) => {
         e.preventDefault();
         onTrim(clip.id, clip.lengthBars + (e.deltaY > 0 ? -1 : 1));
       }}
     >
-      {clip.name}
+      <span className="truncate font-medium">{clip.name}</span>
+      {clip.kind === "audio" && (
+        <>
+          <span className="shrink-0 bg-black/20 rounded px-1 font-mono">
+            {bpm ? `${Math.round(bpm)}` : "—"} {key ? key.split(" ")[0] : ""}
+            {clip.stem ? ` · ${clip.stem}` : ""}
+          </span>
+          <button
+            className={`shrink-0 rounded px-1 ${clip.keyFollow ? "bg-black text-mint" : "bg-black/20"}`}
+            title={t("arrange.keyFollow")}
+            onClick={(e) => {
+              e.stopPropagation();
+              useStudio.getState().toggleClipKeyFollow(clip.id, "timeline");
+            }}
+          >
+            {t("arrange.keyFollowShort")}
+          </button>
+        </>
+      )}
     </div>
   );
 }

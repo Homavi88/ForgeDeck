@@ -26,6 +26,16 @@ Realtime-звук идёт **только в браузере** (Web Audio API /
 
 Нужны Python 3 (галочка Add to PATH) и Node.js LTS. Docker — отдельно: `bat\start-docker.bat`.
 
+## Быстрый старт на macOS
+
+В папке [`mac/`](mac/README.txt) — `.command` для двойного клика в Finder (откроется Terminal):
+
+1. Один раз (или сразу `start.command`): **`mac/setup.command`**
+2. **`mac/start.command`** — API + UI в двух окнах и браузер на http://127.0.0.1:5173
+3. Остановка: закрыть окна или **`mac/stop.command`**
+
+Нужны `python3` и Node.js (с python.org / nodejs.org или `brew install python node`). Если Gatekeeper ругается — правый клик → Открыть. Docker — `mac/start-docker.command`.
+
 ## Быстрый старт (local, SQLite)
 
 ```bash

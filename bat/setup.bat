@@ -65,7 +65,7 @@ if not exist "%ROOT%\.env" copy /Y "%ROOT%\.env.example" "%ROOT%\.env" >nul
 if not exist "%ROOT%\storage\audio" mkdir "%ROOT%\storage\audio"
 
 echo [5/5] Демо-петля WAV для первой загрузки в Library
-"%PY%" "%~dp0seed_demo.py"
+"%PY%" "%ROOT%\scripts\seed_demo.py"
 if errorlevel 1 echo [Предупреждение] Демо-wav не собран — можно загрузить свой трек.
 
 where ffmpeg >nul 2>&1

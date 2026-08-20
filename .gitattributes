@@ -1,2 +1,6 @@
 # Windows launchers must keep CRLF so cmd.exe parses them correctly.
 bat/*.bat text eol=crlf
+# macOS .command files are bash; keep LF and executable checkout.
+mac/*.command text eol=lf
+mac/*.sh text eol=lf
+

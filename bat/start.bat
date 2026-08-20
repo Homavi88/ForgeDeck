@@ -22,7 +22,7 @@ if not exist "%ROOT%\frontend\node_modules" (
 )
 if not exist "%ROOT%\.env" copy /Y "%ROOT%\.env.example" "%ROOT%\.env" >nul
 if not exist "%ROOT%\storage\audio\demo-loop.wav" (
-  "%PY%" "%~dp0seed_demo.py" 2>nul
+  "%PY%" "%ROOT%\scripts\seed_demo.py" 2>nul
 )
 
 echo Открываю API и UI в отдельных окнах...

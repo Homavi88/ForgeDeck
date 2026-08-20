@@ -1,7 +1,11 @@
+import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
 import { useStudio } from "../../store/useStudio";
 import { Platter } from "./Platter";
 import { Waveform } from "./Waveform";
+
+const STEMS = ["vocals", "drums", "bass", "other"] as const;
 
 function fmt(t: number): string {
   if (!Number.isFinite(t) || t < 0) t = 0;
@@ -16,21 +20,35 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
   const pos = useStudio((s) => s.deckPos[side]);
   const bpmMaster = useStudio((s) => s.bpm);
   const locked = useStudio((s) => s.keyLock[side]);
+  const locks = useStudio((s) => s.locks);
+  const stemMute = useStudio((s) => s.stemMute);
   const analysis = file?.analysis;
   const duration = analysis?.duration ?? getEngine().decks[side].duration;
   const remain = Math.max(0, duration - pos);
   const color = side === "A" ? "#ff6a00" : "#3dfff3";
   const deck = () => getEngine().decks[side];
+  const lockKey = side === "A" ? "deckA" : "deckB";
+  const lock = locks[lockKey];
+  const blocked = !!lock && lock.clientId !== getCollabId();
+  const mine = lock?.clientId === getCollabId();
 
   return (
-    <section className="flex-1 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-2 shadow-panel min-w-0">
+    <section className={`flex-1 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-2 shadow-panel min-w-0 ${blocked ? "opacity-60" : ""}`}>
       <div className="flex items-center justify-between">
         <div className="text-xs tracking-[0.3em] uppercase text-zinc-500">Deck {side}</div>
         <div className="font-mono text-xs text-zinc-400">
           {analysis?.bpm?.toFixed(1) ?? "—"} BPM · {analysis?.key ?? "—"} {analysis?.camelot ? `· ${analysis.camelot}` : ""}
         </div>
       </div>
-      <div className="text-sm truncate">{file?.original_filename ?? "Empty — drop a track"}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm truncate">{file?.original_filename ?? "Empty — drop a track"}</div>
+        <button
+          className={`text-[9px] uppercase px-2 py-0.5 rounded ${mine ? "bg-accent text-black" : "bg-ink-700 text-zinc-400"}`}
+          onClick={() => sendCollab({ type: mine ? "unlock" : "lock", resource: lockKey, name: collabName() })}
+        >
+          {blocked ? `Locked by ${lock.name}` : mine ? "Unlock" : "Lock"}
+        </button>
+      </div>
       <div className="flex gap-3 items-start">
         <Platter side={side} />
         <div className="flex-1 min-w-0">
@@ -128,12 +146,67 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
           step={0.1}
           className="flex-1"
           defaultValue={0}
+          disabled={blocked}
           onChange={(e) => {
             deck().setPitch(Number(e.target.value));
           }}
         />
       </label>
+      {side === "A" && file && <StemRack fileId={file.id} stems={analysis?.stems} stemMute={stemMute} />}
     </section>
+  );
+}
+
+function StemRack({
+  fileId,
+  stems,
+  stemMute,
+}: {
+  fileId: string;
+  stems?: Record<string, string>;
+  stemMute: Record<string, boolean>;
+}) {
+  const names = STEMS.filter((s) => stems?.[s]);
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase text-zinc-500">
+      <button
+        className="px-2 py-1 bg-ink-700 rounded text-zinc-300"
+        onClick={async () => {
+          try {
+            await api.audio.splitStems(fileId);
+            await useStudio.getState().refreshLibrary();
+            const fresh = useStudio.getState().library.find((f) => f.id === fileId);
+            if (fresh) {
+              const decks = useStudio.getState().deckFiles;
+              const side = decks.A?.id === fileId ? "A" : decks.B?.id === fileId ? "B" : "A";
+              useStudio.setState({ deckFiles: { ...decks, [side]: fresh } });
+            }
+            const map = fresh?.analysis?.stems || {};
+            const loaded = STEMS.filter((s) => map[s]);
+            if (loaded.length) await getEngine().loadStems(fileId, [...loaded]);
+            useStudio.setState({ error: null });
+          } catch (err) {
+            useStudio.setState({ error: err instanceof Error ? err.message : "Stem split failed" });
+          }
+        }}
+      >
+        {names.length ? "Reload stems" : "Split stems"}
+      </button>
+      {names.map((name) => (
+        <label key={name} className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            checked={!stemMute[name]}
+            onChange={(e) => {
+              const muted = !e.target.checked;
+              getEngine().setStemMute(name, muted);
+              useStudio.setState({ stemMute: { ...useStudio.getState().stemMute, [name]: muted } });
+            }}
+          />
+          {name}
+        </label>
+      ))}
+    </div>
   );
 }
 

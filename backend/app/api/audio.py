@@ -13,7 +13,7 @@ from app.deps import get_current_user
 from app.models import AudioFile, User
 from app.schemas import AudioFileOut, CuePointCreate, CuePointOut, LoopCreate, LoopOut
 from app.services.analysis import analyze_file, persist_analysis
-from app.services.storage import save_upload
+from app.services.storage import save_upload, usage_bytes
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 settings = get_settings()
@@ -58,7 +58,7 @@ async def upload_audio(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    file_id, path, size = save_upload(file)
+    file_id, path, size = save_upload(file, used_bytes=usage_bytes(db, user.id))
     audio = AudioFile(
         id=file_id,
         user_id=user.id,

@@ -2,7 +2,7 @@
 import { getEngine } from "./AudioEngine";
 import { PAD_IDS } from "./DrumMachine";
 import { midiToFreq } from "./demo";
-import { equalPower } from "./utils";
+import { equalPower, impulseResponse } from "./utils";
 import type { MixerStripState, MidiNote, SynthParams, TimelineClip } from "../types";
 import { useStudio } from "../store/useStudio";
 
@@ -63,7 +63,8 @@ export async function renderOfflineWav(): Promise<Blob> {
     high.type = "highshelf";
     high.frequency.value = 4200;
     high.gain.value = state.eq?.[2] ?? 0;
-    input.connect(low).connect(mid).connect(high).connect(vol).connect(pan).connect(master);
+    input.connect(low).connect(mid).connect(high).connect(vol).connect(pan);
+    attachBounceFx(offline, pan, master, state);
     return input;
   };
 
@@ -129,6 +130,41 @@ export async function renderOfflineWav(): Promise<Blob> {
 
   const rendered = await offline.startRendering();
   return encodeWav(rendered);
+}
+
+function attachBounceFx(
+  offline: OfflineAudioContext,
+  source: AudioNode,
+  dest: AudioNode,
+  state: MixerStripState | undefined,
+): void {
+  const delayWet = state?.fx?.delay ?? 0;
+  const reverbWet = state?.fx?.reverb ?? 0;
+  if (delayWet <= 0.001 && reverbWet <= 0.001) {
+    source.connect(dest);
+    return;
+  }
+  const dry = offline.createGain();
+  dry.gain.value = 1 - Math.max(delayWet, reverbWet) * 0.45;
+  source.connect(dry).connect(dest);
+  if (delayWet > 0.001) {
+    const delay = offline.createDelay(2);
+    delay.delayTime.value = 0.375;
+    const fb = offline.createGain();
+    fb.gain.value = 0.35;
+    const wet = offline.createGain();
+    wet.gain.value = delayWet;
+    source.connect(delay);
+    delay.connect(fb).connect(delay);
+    delay.connect(wet).connect(dest);
+  }
+  if (reverbWet > 0.001) {
+    const conv = offline.createConvolver();
+    conv.buffer = impulseResponse(offline, 1.8, 2.4);
+    const wet = offline.createGain();
+    wet.gain.value = reverbWet;
+    source.connect(conv).connect(wet).connect(dest);
+  }
 }
 
 function scheduleSynth(

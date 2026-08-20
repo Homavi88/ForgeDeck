@@ -23,7 +23,7 @@ export async function decodeUrl(ctx: AudioContext, url: string): Promise<AudioBu
 }
 
 /** Generate a short decaying impulse for convolution reverb. */
-export function impulseResponse(ctx: AudioContext, seconds = 1.8, decay = 2.2): AudioBuffer {
+export function impulseResponse(ctx: BaseAudioContext, seconds = 1.8, decay = 2.2): AudioBuffer {
   const rate = ctx.sampleRate;
   const length = Math.floor(rate * seconds);
   const ir = ctx.createBuffer(2, length, rate);

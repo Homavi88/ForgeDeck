@@ -1,4 +1,5 @@
 from copy import deepcopy
+import secrets
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -179,6 +180,23 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
     db.delete(project)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/{project_id}/share")
+def create_share(
+    project_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    project = db.get(Project, project_id)
+    if not project or project.user_id != user.id:
+        raise HTTPException(404, "Project not found")
+    if not project.share_token:
+        project.share_token = secrets.token_urlsafe(18)
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+    return {"token": project.share_token, "path": f"/share/{project.share_token}"}
 
 
 @router.post("/{project_id}/duplicate", response_model=ProjectDetail)

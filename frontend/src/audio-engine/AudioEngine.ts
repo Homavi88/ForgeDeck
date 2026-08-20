@@ -31,6 +31,11 @@ export class AudioEngine {
   buffers = new Map<string, AudioBuffer>();
   midiBindings: MidiBindings = loadMidiBindings();
   recorder = new LiveRecorder();
+  micGain: GainNode | null = null;
+  private micStream: MediaStream | null = null;
+  private micSource: MediaStreamAudioSourceNode | null = null;
+  stemDecks: Record<string, Deck> = {};
+  stemsActive = false;
   private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
   private clipSources: AudioBufferSourceNode[] = [];
 
@@ -49,6 +54,9 @@ export class AudioEngine {
     this.automation = new AutomationEngine();
     this.piano = new PianoRoll();
     this.launcher = new ClipLauncher();
+    this.decks.A.onPlay = () => this.followStems("play");
+    this.decks.A.onPause = () => this.followStems("pause");
+    this.decks.A.onSeek = (t) => this.followStems("seek", t);
   }
 
   async init(): Promise<void> {
@@ -227,6 +235,73 @@ export class AudioEngine {
 
   stopRecording(): AudioBuffer | null {
     return this.recorder.stop();
+  }
+
+  async setMic(on: boolean): Promise<string> {
+    await this.init();
+    if (on) {
+      if (this.micStream) return "Mic already on";
+      this.micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      this.micSource = this.ctx.createMediaStreamSource(this.micStream);
+      this.micGain = this.ctx.createGain();
+      this.micGain.gain.value = 0.85;
+      this.micSource.connect(this.micGain).connect(this.mixer.master.input);
+      return "Mic live into master (Rec captures it)";
+    }
+    this.micStream?.getTracks().forEach((t) => t.stop());
+    try {
+      this.micSource?.disconnect();
+      this.micGain?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    this.micStream = null;
+    this.micSource = null;
+    this.micGain = null;
+    return "Mic off";
+  }
+
+  async loadStems(audioId: string, names: string[]): Promise<void> {
+    await this.init();
+    this.clearStems();
+    for (const name of names) {
+      const deck = new Deck(this.ctx, this.mixer.channels.A.input);
+      const buf = await decodeUrl(this.ctx, api.audio.stemUrl(audioId, name));
+      await deck.loadBuffer(buf, this.decks.A.beats);
+      this.stemDecks[name] = deck;
+    }
+    this.stemsActive = true;
+    this.decks.A.output.gain.value = 0;
+    if (this.decks.A.playing) this.followStems("play");
+  }
+
+  clearStems(): void {
+    for (const d of Object.values(this.stemDecks)) d.stop();
+    this.stemDecks = {};
+    this.stemsActive = false;
+    this.decks.A.output.gain.value = 1;
+  }
+
+  setStemMute(name: string, muted: boolean): void {
+    const d = this.stemDecks[name];
+    if (d) d.output.gain.value = muted ? 0 : 1;
+  }
+
+  private followStems(kind: "play" | "pause" | "seek", time?: number): void {
+    if (!this.stemsActive) return;
+    const t = time ?? this.decks.A.position;
+    for (const d of Object.values(this.stemDecks)) {
+      d.pitch = this.decks.A.pitch;
+      d.keyLock = this.decks.A.keyLock;
+      if (kind === "pause") {
+        d.pause();
+        continue;
+      }
+      d.seek(t);
+      if (kind === "play" && !d.playing) d.play();
+    }
   }
 }
 

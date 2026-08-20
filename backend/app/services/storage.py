@@ -5,6 +5,8 @@ import uuid
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 
@@ -25,7 +27,14 @@ ALLOWED_TYPES = {
 settings = get_settings()
 
 
-def save_upload(file: UploadFile) -> tuple[str, Path, int]:
+def usage_bytes(db: Session, user_id: str) -> int:
+    from app.models import AudioFile
+
+    total = db.query(func.coalesce(func.sum(AudioFile.file_size), 0)).filter(AudioFile.user_id == user_id).scalar()
+    return int(total or 0)
+
+
+def save_upload(file: UploadFile, *, used_bytes: int = 0) -> tuple[str, Path, int]:
     suffix = Path(file.filename or "audio.wav").suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported audio format: {suffix}")
@@ -34,6 +43,10 @@ def save_upload(file: UploadFile) -> tuple[str, Path, int]:
         if file.content_type not in ("application/octet-stream", ""):
             pass
 
+    quota = settings.quota_mb * 1024 * 1024 if settings.quota_mb > 0 else 0
+    if quota and used_bytes >= quota:
+        raise HTTPException(status_code=413, detail="Storage quota exceeded")
+
     file_id = str(uuid.uuid4())
     dest_dir = settings.storage_path / file_id
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -41,6 +54,8 @@ def save_upload(file: UploadFile) -> tuple[str, Path, int]:
 
     size = 0
     max_bytes = settings.max_upload_mb * 1024 * 1024
+    if quota:
+        max_bytes = min(max_bytes, max(0, quota - used_bytes))
     with dest.open("wb") as buffer:
         while True:
             chunk = file.file.read(1024 * 1024)
@@ -50,7 +65,8 @@ def save_upload(file: UploadFile) -> tuple[str, Path, int]:
             if size > max_bytes:
                 buffer.close()
                 shutil.rmtree(dest_dir, ignore_errors=True)
-                raise HTTPException(status_code=413, detail="File exceeds upload limit")
+                detail = "Storage quota exceeded" if quota and used_bytes + size > quota else "File exceeds upload limit"
+                raise HTTPException(status_code=413, detail=detail)
             buffer.write(chunk)
 
     try:

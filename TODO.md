@@ -25,8 +25,16 @@
 - [x] Collaborative WebSocket: BPM, play, mixer, decks, drums, notes, clips, mode
 - [x] Backend tests + Playwright smoke
 - [x] Windows `bat/` and macOS `mac/` launchers
+- [x] Autoplay demo on first click, crate/queue auto-advance
+- [x] Waveform overview + zoom/pan
+- [x] Project autosave + Rec HUD (time/peak/size)
+- [x] Tighter key-lock grains (Hann, 4× overlap)
+- [x] Bounce delay/reverb, stem rack, mic into master/Rec
+- [x] Collab presence, room chat, edit locks
+- [x] Generated SECRET_KEY, 250 MB uploads, 2 GB quota
+- [x] Public share page `/share/:token`, X-Forwarded-Proto
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
-- [ ] Rubber Band / SoundTouch WASM (studio-grade timestretch) — WSOLA is the working substitute
+- [ ] Rubber Band / SoundTouch WASM (studio-grade timestretch) — denser WSOLA is the working substitute
 - [ ] GPU Demucs worker — CPU Demucs CLI or HPSS already run
 - [ ] Bit-identical plugin graph bounce (convolution FX, analog models)

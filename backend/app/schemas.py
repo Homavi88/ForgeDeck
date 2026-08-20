@@ -41,6 +41,7 @@ class ProjectOut(ORMModel):
     time_signature: str
     musical_key: str
     graph: dict[str, Any]
+    share_token: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

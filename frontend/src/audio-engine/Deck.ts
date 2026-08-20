@@ -24,6 +24,10 @@ export class Deck {
   private loopInMark: number | null = null;
   hotcues: Record<number, number> = {};
   onPosition?: (t: number) => void;
+  onEnded?: () => void;
+  onPlay?: () => void;
+  onPause?: () => void;
+  onSeek?: (t: number) => void;
   private raf = 0;
   private grainTimer: number | null = null;
   private grainPos = 0;
@@ -80,6 +84,7 @@ export class Deck {
     if (this.keyLock) this.spawnGrains(this.offset);
     else this.spawn(this.offset);
     this.watch();
+    this.onPlay?.();
   }
 
   pause(): void {
@@ -87,6 +92,7 @@ export class Deck {
     this.offset = this.position;
     this.killSource();
     this.playing = false;
+    this.onPause?.();
   }
 
   stop(): void {
@@ -106,6 +112,7 @@ export class Deck {
     this.killSource();
     this.offset = t;
     this.playing = false;
+    this.onSeek?.(t);
     if (was) this.play();
   }
 
@@ -253,6 +260,7 @@ export class Deck {
       if (this.source === src) {
         this.playing = false;
         this.offset = this.duration;
+        this.onEnded?.();
       }
     };
   }
@@ -266,16 +274,27 @@ export class Deck {
 
   private scheduleGrain = (): void => {
     if (!this.playing || !this.buffer || !this.keyLock) return;
-    const grain = 0.09;
-    const hop = 0.045;
+    if (this.grainPos >= this.duration - 0.01 && !this.loop) {
+      this.playing = false;
+      this.offset = this.duration;
+      this.killSource();
+      this.onEnded?.();
+      return;
+    }
+    // ~70 ms grains, 4× overlap, Hann window — tighter than the old 90/45 linear ramp.
+    const grain = 0.07;
+    const hop = 0.0175;
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;
     src.playbackRate.value = 1;
     const g = this.ctx.createGain();
     const t = this.ctx.currentTime;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(1, t + 0.012);
-    g.gain.linearRampToValueAtTime(0.0001, t + grain);
+    const n = 48;
+    const hann = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      hann[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (n - 1)));
+    }
+    g.gain.setValueCurveAtTime(hann, t, grain);
     src.connect(g).connect(this.output);
     let start = this.grainPos;
     if (this.loop && start >= this.loop.end) {
@@ -284,7 +303,7 @@ export class Deck {
     }
     src.start(t, Math.max(0, start), grain);
     this.grains.push(src);
-    if (this.grains.length > 8) {
+    if (this.grains.length > 16) {
       const old = this.grains.shift();
       try {
         old?.stop();

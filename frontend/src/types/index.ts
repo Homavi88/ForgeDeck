@@ -141,6 +141,7 @@ export interface ProjectDetail {
   bpm: number;
   time_signature: string;
   musical_key: string;
+  share_token?: string | null;
   graph: Record<string, unknown>;
   tracks: Array<{
     id: string;

@@ -5,6 +5,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -26,6 +27,9 @@ settings = get_settings()
 async def lifespan(_: FastAPI):
     settings.storage_path.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    from app.services.schema import ensure_schema
+
+    ensure_schema()
     db = SessionLocal()
     try:
         get_or_create_demo_user(db)
@@ -45,6 +49,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Honor X-Forwarded-Proto / X-Forwarded-For when behind nginx or a TLS proxy.
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,

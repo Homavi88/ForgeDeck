@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
+import { getEngine } from "../audio-engine/AudioEngine";
 import { TimelinePanel } from "../components/arrange/TimelinePanel";
 import { DeckPanel } from "../components/dj/DeckPanel";
 import { LibraryBrowser } from "../components/dj/LibraryBrowser";
@@ -13,13 +14,43 @@ import { SynthPanel } from "../components/synth/SynthPanel";
 import { useProjectSync } from "../store/useProjectSync";
 import { useStudio } from "../store/useStudio";
 
+let demoPlayed = false;
+
 export default function StudioPage() {
   const { id } = useParams();
-  const { loadProject, loading, error, mode, pollMeters, bootAudio, undo, redo } = useStudio();
+  const {
+    loadProject,
+    loading,
+    error,
+    mode,
+    pollMeters,
+    bootAudio,
+    undo,
+    redo,
+    project,
+    bpm,
+    mixer,
+    queue,
+    autoAdvance,
+    drumSteps,
+    notes,
+    clips,
+    synth,
+    crossfader,
+    sidechain,
+    deckFiles,
+  } = useStudio();
   useProjectSync(id);
+  const saveArmed = useRef(false);
 
   useEffect(() => {
-    if (id) void loadProject(id);
+    if (!id) return;
+    saveArmed.current = false;
+    void loadProject(id).then(() => {
+      window.setTimeout(() => {
+        saveArmed.current = true;
+      }, 900);
+    });
   }, [id, loadProject]);
 
   useEffect(() => {
@@ -28,8 +59,40 @@ export default function StudioPage() {
   }, [pollMeters]);
 
   useEffect(() => {
-    const unlock = () => {
-      void bootAudio();
+    if (!project || loading || !saveArmed.current) return;
+    const t = window.setTimeout(() => {
+      void useStudio.getState().save();
+    }, 2200);
+    return () => window.clearTimeout(t);
+  }, [
+    project,
+    loading,
+    mode,
+    bpm,
+    mixer,
+    queue,
+    autoAdvance,
+    drumSteps,
+    notes,
+    clips,
+    synth,
+    crossfader,
+    sidechain,
+    deckFiles,
+  ]);
+
+  useEffect(() => {
+    const unlock = async () => {
+      await bootAudio();
+      const s = useStudio.getState();
+      if (!demoPlayed && s.deckFiles.A) {
+        const deck = getEngine().decks.A;
+        if (deck.buffer && !deck.playing) {
+          deck.play();
+          useStudio.setState({ playing: true });
+          demoPlayed = true;
+        }
+      }
       window.removeEventListener("pointerdown", unlock);
     };
     window.addEventListener("pointerdown", unlock);

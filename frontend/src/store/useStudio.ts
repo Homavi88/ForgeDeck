@@ -57,6 +57,14 @@ interface StudioState {
   automation: AutomationLaneState[];
   sessionClips: SessionClip[];
   sampler: SamplerState;
+  queue: AudioFile[];
+  queueIndex: number;
+  autoAdvance: boolean;
+  micOn: boolean;
+  stemMute: Record<string, boolean>;
+  peers: Array<{ clientId: string; name: string; deck?: string | null }>;
+  roomChat: Array<{ clientId: string; name: string; text: string; ts?: number }>;
+  locks: Record<string, { clientId: string; name: string }>;
   compatible: Array<{ id: string; original_filename?: string; name?: string; bpm: number; key: string }>;
   conversationId?: string;
   chat: ChatMessage[];
@@ -81,6 +89,10 @@ interface StudioState {
   undo: () => void;
   redo: () => void;
   applyMixerChannel: (id: string, patch: Partial<MixerStripState>) => void;
+  addToQueue: (file: AudioFile) => void;
+  removeFromQueue: (index: number) => void;
+  playQueueItem: (index: number, side?: "A" | "B") => Promise<void>;
+  advanceQueue: (side: "A" | "B") => Promise<void>;
 }
 
 const channelState = (): MixerStripState => ({
@@ -161,6 +173,14 @@ export const useStudio = create<StudioState>((set, get) => ({
   automation: [],
   sessionClips: [],
   sampler: { audioFileId: null, start: 0, end: 1, reverse: false, loop: false, playbackRate: 1 },
+  queue: [],
+  queueIndex: 0,
+  autoAdvance: true,
+  micOn: false,
+  stemMute: { vocals: false, drums: false, bass: false, other: false },
+  peers: [],
+  roomChat: [],
+  locks: {},
   compatible: [],
   chat: [
     {
@@ -220,6 +240,12 @@ export const useStudio = create<StudioState>((set, get) => ({
       audioWired = true;
       eng.decks.A.onPosition = (t) => set({ deckPos: { ...get().deckPos, A: t } });
       eng.decks.B.onPosition = (t) => set({ deckPos: { ...get().deckPos, B: t } });
+      eng.decks.A.onEnded = () => {
+        if (get().autoAdvance) void get().advanceQueue("A");
+      };
+      eng.decks.B.onEnded = () => {
+        if (get().autoAdvance) void get().advanceQueue("B");
+      };
       eng.transport.onTick((step) => set({ currentStep: step }));
     }
     hydrateEngine(get());
@@ -278,7 +304,10 @@ export const useStudio = create<StudioState>((set, get) => ({
       const g = (project.graph || {}) as Record<string, unknown>;
       const drums = (g.drums as { steps?: DrumSteps; length?: number; swing?: number }) || {};
       const mixerIn = (g.mixer as Record<string, MixerStripState>) || {};
-      const deckIds = (g.decks as { A?: { audioFileId?: string }; B?: { audioFileId?: string } }) || {};
+      const deckIds = (g.decks as {
+        A?: { audioFileId?: string; keyLock?: boolean };
+        B?: { audioFileId?: string; keyLock?: boolean };
+      }) || {};
       const next: Partial<StudioState> = {
         project,
         library,
@@ -292,6 +321,8 @@ export const useStudio = create<StudioState>((set, get) => ({
         sampler: { ...get().sampler, ...((g.sampler as SamplerState) || {}) },
         sidechain: g.sidechain !== false,
         crossfader: typeof g.crossfader === "number" ? g.crossfader : 0.5,
+        autoAdvance: g.autoAdvance !== false,
+        mode: ((g.mode as StudioMode) || "dj") as StudioMode,
         mixer: {
           A: { ...channelState(), ...mixerIn.A },
           B: { ...channelState(), ...mixerIn.B },
@@ -307,10 +338,23 @@ export const useStudio = create<StudioState>((set, get) => ({
       const fileA = library.find((f) => f.id === deckIds.A?.audioFileId) || null;
       const fileB = library.find((f) => f.id === deckIds.B?.audioFileId) || null;
       next.deckFiles = { A: fileA, B: fileB };
+      const qids = (g.queue as string[]) || [];
+      next.queue = qids.map((qid) => library.find((f) => f.id === qid)).filter(Boolean) as AudioFile[];
+      next.queueIndex = typeof g.queueIndex === "number" ? (g.queueIndex as number) : 0;
+      next.keyLock = { A: !!deckIds.A?.keyLock, B: !!deckIds.B?.keyLock };
       set(next as StudioState);
       getEngine().transport.bpm = project.bpm;
-      if (fileA) void get().loadToDeck("A", fileA);
-      if (fileB) void get().loadToDeck("B", fileB);
+      if (fileA) {
+        void get().loadToDeck("A", fileA).then(() => {
+          if (get().keyLock.A) getEngine().decks.A.setKeyLock(true);
+        });
+      }
+      if (fileB) {
+        void get().loadToDeck("B", fileB).then(() => {
+          if (get().keyLock.B) getEngine().decks.B.setKeyLock(true);
+        });
+      }
+      if (next.mode) get().setMode(next.mode as StudioMode);
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : "Load failed" });
     }
@@ -342,6 +386,9 @@ export const useStudio = create<StudioState>((set, get) => ({
           session: s.sessionClips,
           sampler: s.sampler,
           sidechain: s.sidechain,
+          autoAdvance: s.autoAdvance,
+          queue: s.queue.map((f) => f.id),
+          queueIndex: s.queueIndex,
           decks: {
             A: { audioFileId: s.deckFiles.A?.id ?? null, keyLock: s.keyLock.A },
             B: { audioFileId: s.deckFiles.B?.id ?? null, keyLock: s.keyLock.B },
@@ -537,6 +584,36 @@ export const useStudio = create<StudioState>((set, get) => ({
   },
 
   rejectAI: () => set({ pendingActions: [] }),
+
+  addToQueue: (file) => {
+    const queue = [...get().queue, file];
+    set({ queue });
+  },
+
+  removeFromQueue: (index) => {
+    const queue = get().queue.filter((_, i) => i !== index);
+    set({ queue, queueIndex: Math.min(get().queueIndex, Math.max(0, queue.length - 1)) });
+  },
+
+  playQueueItem: async (index, side = "A") => {
+    const file = get().queue[index];
+    if (!file) return;
+    set({ queueIndex: index });
+    await get().loadToDeck(side, file);
+    getEngine().decks[side].play();
+    set({ playing: true });
+  },
+
+  advanceQueue: async (side) => {
+    const { queue, queueIndex, autoAdvance } = get();
+    if (!autoAdvance || !queue.length) return;
+    const next = queueIndex + 1;
+    if (next >= queue.length) {
+      set({ playing: getEngine().decks.A.playing || getEngine().decks.B.playing });
+      return;
+    }
+    await get().playQueueItem(next, side);
+  },
 }));
 
 function hydrateEngine(s: StudioState): void {

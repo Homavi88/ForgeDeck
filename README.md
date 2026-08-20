@@ -86,7 +86,15 @@ docker compose up --build
 
 ## Режимы UI
 
-- **DJ** — деки, vinyl platter/scratch, waveform, cue/hot cues, loop in/out, loop roll, key lock, beat jump, quantize, sync, EQ/filter/FX-пресеты, pan/mute/solo, sidechain
+- **DJ** — деки, vinyl platter/scratch, overview+zoom waveform, crate/queue, cue/hot cues, loop in/out, loop roll, key lock, beat jump, quantize, sync, EQ/filter/FX-пресеты, pan/mute/solo, sidechain, stem rack, mic/line-in
+- **Session** — clip launcher на 8 сцен
+- **Arrange** — клипы играют drums/synth/audio, automation lanes, mixer
+- **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern/kit, edit lock
+- **Synth** — OSC/ADSR/filter/LFO, piano roll, Web MIDI + learn map
+- **Sampler** — trim/reverse/loop/pitch, slice to pads, stems
+- **AI Producer** — preview → Apply/Reject; вкладка Room — presence, чат, локи
+- **Share** — публичная страница `/share/:token` после Bounce/Rec
+- **Settings** — FX presets, MIDI map (Pioneer/Akai-style CC)
 - **Session** — clip launcher на 8 сцен
 - **Arrange** — клипы играют drums/synth/audio, automation lanes, mixer
 - **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern/kit
@@ -114,10 +122,12 @@ npx playwright test
 
 ## Ограничения
 
-- Key lock — granular WSOLA, не Rubber Band WASM.
-- Stems — Demucs, если CLI установлен, иначе HPSS.
-- Bounce — деки + drums + synth + timeline + EQ/volume; delay/reverb не копируются 1:1.
+- Key lock — denser WSOLA (Hann grains), не Rubber Band WASM.
+- Stems — Demucs, если CLI установлен, иначе HPSS; после Split stems глушат оригинал Deck A и играют vocals/drums/bass/other.
+- Bounce — деки + drums + synth + timeline + EQ/volume + delay/reverb как в лайве.
+- Rec HUD — таймер, peak, оценка размера; mic идёт в master и в Rec.
 - MP3 анализируется через miniaudio (ffmpeg не нужен).
-- Auth — JWT есть; в dev `REQUIRE_AUTH=false` оставляет demo-пользователя.
+- Auth — JWT есть; в dev `REQUIRE_AUTH=false` оставляет demo-пользователя. `SECRET_KEY` пишется setup-скриптами.
+- Upload до 250 MB, квота 2 GB на пользователя. HTTPS: `X-Forwarded-Proto` через ProxyHeadersMiddleware.
 
 Подробный roadmap: [TODO.md](TODO.md).

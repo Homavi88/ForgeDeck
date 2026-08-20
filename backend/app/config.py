@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     use_celery: bool = False
 
     storage_dir: str = "../storage/audio"
-    max_upload_mb: int = 80
+    max_upload_mb: int = 250
+    quota_mb: int = 2048
     enable_librosa: bool = True
 
     ai_provider: str = "mock"

@@ -45,6 +45,7 @@ class Project(Base, TimestampMixin):
     musical_key: Mapped[str] = mapped_column(String(16), default="C minor")
     # Full frontend snapshot (decks, mixer, clips, patterns, etc.)
     graph: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    share_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
 
     user: Mapped[User] = relationship(back_populates="projects")
     tracks: Mapped[list[Track]] = relationship(back_populates="project", cascade="all, delete-orphan")

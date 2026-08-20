@@ -10,11 +10,9 @@ export class Mixer {
   xfaderA: GainNode;
   xfaderB: GainNode;
   output: AudioNode;
-  private ctx: AudioContext;
   crossfader = 0.5;
 
-  constructor(ctx: AudioContext, destination: AudioNode) {
-    this.ctx = ctx;
+  constructor(ctx: BaseAudioContext, destination: AudioNode) {
     this.channels = {
       A: new ChannelStrip(ctx),
       B: new ChannelStrip(ctx),
@@ -39,6 +37,13 @@ export class Mixer {
     this.masterAnalyser.connect(destination);
     this.output = destination;
     this.setCrossfader(0.5);
+  }
+
+  async ready(): Promise<void> {
+    await Promise.all([
+      ...Object.values(this.channels).map((ch) => ch.fx.ready()),
+      this.master.fx.ready(),
+    ]);
   }
 
   setCrossfader(x: number): void {

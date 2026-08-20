@@ -1,11 +1,14 @@
 import { useEffect, useRef } from "react";
 import { getEngine } from "../audio-engine/AudioEngine";
+import { getToken } from "../api/client";
+import { currentUser } from "./auth";
 import { useStudio } from "../store/useStudio";
 import type { MixerStripState, MidiNote, StudioMode, SynthParams, TimelineClip, DrumSteps } from "../types";
 
 const WS = import.meta.env.VITE_WS_URL || "";
 
 type CollabSnapshot = {
+  type?: string;
   clientId: string;
   bpm: number;
   playing: boolean;
@@ -24,13 +27,32 @@ type CollabSnapshot = {
   synth: SynthParams;
 };
 
-/** Broadcast mixer / decks / pattern / playhead-adjacent state to other browsers on the same project. */
+export type RoomPeer = { clientId: string; name: string; deck?: string | null };
+export type RoomLock = { clientId: string; name: string };
+export type RoomChat = { clientId: string; name: string; text: string; ts?: number };
+
+let sendRoom: ((msg: Record<string, unknown>) => void) | null = null;
+let myClientId = "";
+
+export function getCollabId(): string {
+  return myClientId;
+}
+
+export function collabName(): string {
+  return currentUser()?.name || "Producer";
+}
+
+export function sendCollab(msg: Record<string, unknown>): void {
+  sendRoom?.({ clientId: myClientId, name: collabName(), ...msg });
+}
+
 export function useProjectSync(projectId: string | undefined): void {
   const wsRef = useRef<WebSocket | null>(null);
   const applying = useRef(false);
   const clientId = useRef(
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `c-${Date.now()}`,
   );
+  myClientId = clientId.current;
 
   const bpm = useStudio((s) => s.bpm);
   const playing = useStudio((s) => s.playing);
@@ -52,12 +74,26 @@ export function useProjectSync(projectId: string | undefined): void {
   useEffect(() => {
     if (!projectId) return;
     const proto = WS || `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}`;
-    const socket = new WebSocket(`${proto}/ws/projects/${projectId}`);
+    const token = getToken();
+    const q = token ? `?token=${encodeURIComponent(token)}` : "";
+    const socket = new WebSocket(`${proto}/ws/projects/${projectId}${q}`);
     wsRef.current = socket;
+    sendRoom = (msg) => {
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg));
+    };
     socket.onopen = () => {
       const s = useStudio.getState();
       socket.send(
         JSON.stringify({
+          type: "presence",
+          clientId: clientId.current,
+          name: collabName(),
+          deck: s.deckFiles.A ? "A" : s.deckFiles.B ? "B" : null,
+        }),
+      );
+      socket.send(
+        JSON.stringify({
+          type: "state",
           clientId: clientId.current,
           bpm: s.bpm,
           playing: s.playing,
@@ -80,6 +116,23 @@ export function useProjectSync(projectId: string | undefined): void {
     socket.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
+        if (msg.type === "hello" || msg.type === "room") {
+          useStudio.setState({
+            peers: (msg.presence || []) as RoomPeer[],
+            locks: (msg.locks || {}) as Record<string, RoomLock>,
+            roomChat: msg.type === "hello" ? ((msg.chat || []) as RoomChat[]) : useStudio.getState().roomChat,
+          });
+          if (msg.type === "hello" && Array.isArray(msg.chat)) {
+            useStudio.setState({ roomChat: msg.chat as RoomChat[] });
+          }
+          return;
+        }
+        if (msg.type === "chat" && msg.payload) {
+          const line = msg.payload as RoomChat;
+          if (line.clientId === clientId.current) return;
+          useStudio.setState({ roomChat: [...useStudio.getState().roomChat, line].slice(-80) });
+          return;
+        }
         const p = (msg.payload || msg) as Partial<CollabSnapshot> & { type?: string };
         if (!p || p.clientId === clientId.current || p.type === "hello" || !p.clientId) return;
         applying.current = true;
@@ -93,6 +146,7 @@ export function useProjectSync(projectId: string | undefined): void {
     return () => {
       socket.close();
       wsRef.current = null;
+      sendRoom = null;
     };
   }, [projectId]);
 
@@ -103,6 +157,7 @@ export function useProjectSync(projectId: string | undefined): void {
     const handle = window.setTimeout(() => {
       if (applying.current || ws.readyState !== WebSocket.OPEN) return;
       const snap: CollabSnapshot = {
+        type: "state",
         clientId: clientId.current,
         bpm,
         playing,
@@ -141,11 +196,18 @@ export function useProjectSync(projectId: string | undefined): void {
     clips,
     synth,
   ]);
+
+  useEffect(() => {
+    if (applying.current) return;
+    sendCollab({ type: "presence", deck: deckA ? "A" : deckB ? "B" : null });
+  }, [deckA, deckB]);
 }
 
 async function applySnapshot(p: CollabSnapshot): Promise<void> {
   const studio = useStudio.getState();
   const eng = getEngine();
+  const locks = studio.locks;
+  const mine = getCollabId();
   if (typeof p.bpm === "number" && p.bpm !== studio.bpm) studio.setBpm(p.bpm);
   if (typeof p.crossfader === "number") {
     eng.mixer.setCrossfader(p.crossfader);
@@ -166,7 +228,8 @@ async function applySnapshot(p: CollabSnapshot): Promise<void> {
       studio.applyMixerChannel(id, patch);
     }
   }
-  if (p.drumSteps) {
+  const drumsLockedByMe = locks.drums?.clientId === mine;
+  if (p.drumSteps && !drumsLockedByMe) {
     eng.drums.steps = p.drumSteps;
     eng.drums.length = p.drumLength || eng.drums.length;
     eng.drums.swing = p.drumSwing ?? eng.drums.swing;
@@ -190,11 +253,11 @@ async function applySnapshot(p: CollabSnapshot): Promise<void> {
   }
   await studio.refreshLibrary();
   const lib = useStudio.getState().library;
-  if (p.deckA && p.deckA !== (studio.deckFiles.A?.id ?? null)) {
+  if (p.deckA && p.deckA !== (studio.deckFiles.A?.id ?? null) && locks.deckA?.clientId !== mine) {
     const file = lib.find((f) => f.id === p.deckA);
     if (file) await studio.loadToDeck("A", file);
   }
-  if (p.deckB && p.deckB !== (studio.deckFiles.B?.id ?? null)) {
+  if (p.deckB && p.deckB !== (studio.deckFiles.B?.id ?? null) && locks.deckB?.clientId !== mine) {
     const file = lib.find((f) => f.id === p.deckB);
     if (file) await studio.loadToDeck("B", file);
   }

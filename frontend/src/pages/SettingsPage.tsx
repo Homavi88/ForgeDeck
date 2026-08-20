@@ -193,8 +193,8 @@ export default function SettingsPage() {
         <ul className="text-sm text-zinc-500 list-disc pl-5 space-y-1">
           <li>Backend docs: http://localhost:8000/docs</li>
           <li>Health: http://localhost:8000/api/health</li>
-          <li>Stems use Demucs if the CLI is installed, otherwise HPSS.</li>
-          <li>Key lock is granular WSOLA (not Rubber Band WASM).</li>
+          <li>Stems: GPU Demucs (CUDA/MPS) if torch+demucs are installed, else CPU Demucs, else HPSS.</li>
+          <li>Key lock is Rubber Band WASM (CDJ master tempo). WSOLA only if WASM fails to load.</li>
         </ul>
       </div>
     </Shell>

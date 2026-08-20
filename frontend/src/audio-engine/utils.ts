@@ -7,6 +7,8 @@
  * the same AudioBuffer in memory.
  */
 
+import { getToken } from "../api/client";
+
 export function dbToGain(db: number): number {
   return Math.pow(10, db / 20);
 }
@@ -17,13 +19,17 @@ export function equalPower(x: number): { a: number; b: number } {
 }
 
 export async function decodeUrl(ctx: AudioContext, url: string): Promise<AudioBuffer> {
-  const res = await fetch(url);
+  const headers: HeadersInit = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`Audio fetch failed (${res.status})`);
   const buf = await res.arrayBuffer();
   return ctx.decodeAudioData(buf.slice(0));
 }
 
 /** Generate a short decaying impulse for convolution reverb. */
-export function impulseResponse(ctx: AudioContext, seconds = 1.8, decay = 2.2): AudioBuffer {
+export function impulseResponse(ctx: BaseAudioContext, seconds = 1.8, decay = 2.2): AudioBuffer {
   const rate = ctx.sampleRate;
   const length = Math.floor(rate * seconds);
   const ir = ctx.createBuffer(2, length, rate);

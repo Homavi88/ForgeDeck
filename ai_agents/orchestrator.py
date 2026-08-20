@@ -19,9 +19,9 @@ def get_provider():
 
         return OpenAICompatibleProvider()
     if settings.ai_provider == "anthropic" and settings.anthropic_api_key:
-        from ai_agents.providers.openai import OpenAICompatibleProvider
+        from ai_agents.providers.anthropic import AnthropicProvider
 
-        return OpenAICompatibleProvider()
+        return AnthropicProvider()
     return MockProducer()
 
 

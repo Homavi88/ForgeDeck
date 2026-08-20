@@ -10,7 +10,7 @@ export class EQ3 {
   input: BiquadFilterNode;
   output: BiquadFilterNode;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.low = ctx.createBiquadFilter();
     this.mid = ctx.createBiquadFilter();
     this.high = ctx.createBiquadFilter();

@@ -163,7 +163,10 @@ def suggest_compatible_tracks(db: Session, project_id: str, bpm: float | None = 
     project = db.get(Project, project_id)
     bpm = bpm or (project.bpm if project else 120)
     key = key or (project.musical_key if project else "C minor")
-    files = db.query(AudioFile).filter(AudioFile.analysis_status == "ready").all()
+    files = db.query(AudioFile).filter(
+        AudioFile.analysis_status == "ready",
+        AudioFile.user_id == project.user_id if project else "",
+    ).all()
     code = camelot(key)
     matches = []
     for f in files:
@@ -202,18 +205,19 @@ def create_chord_progression(db: Session, project_id: str, key: str | None = Non
 
 
 def separate_stems(db: Session, file_id: str) -> dict[str, Any]:
-    from app.services.stems import hpss_stems
+    from app.services.stems import separate_stems
 
     audio = db.get(AudioFile, file_id)
     if not audio:
         raise ToolError("Audio file not found")
-    paths = hpss_stems(audio.path)
+    paths, engine = separate_stems(audio.path)
     analysis = dict(audio.analysis or {})
     analysis["stems"] = paths
+    analysis["stems_engine"] = engine
     audio.analysis = analysis
     db.add(audio)
     db.commit()
-    return {"file_id": file_id, "stems": paths}
+    return {"file_id": file_id, "stems": paths, "engine": engine}
 
 
 TOOL_REGISTRY = {

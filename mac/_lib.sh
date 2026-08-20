@@ -25,6 +25,11 @@ pf_root() {
   if [ ! -f "${ROOT}/.env" ] && [ -f "${ROOT}/.env.example" ]; then
     cp "${ROOT}/.env.example" "${ROOT}/.env"
   fi
+  if [ -x "${PY}" ]; then
+    "${PY}" "${ROOT}/scripts/ensure_secret.py" >/dev/null 2>&1 || true
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 "${ROOT}/scripts/ensure_secret.py" >/dev/null 2>&1 || true
+  fi
 }
 
 # Open a new Terminal or iTerm window running the given script path.

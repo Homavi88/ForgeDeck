@@ -95,7 +95,7 @@ def save_midi(payload: MidiMapIn, db: Session = Depends(get_db), user: User = De
 @router.delete("/effects/{preset_id}")
 def delete_effect(preset_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     row = db.get(EffectPreset, preset_id)
-    if not row or (row.user_id and row.user_id != user.id):
+    if not row or row.user_id is None or row.user_id != user.id:
         raise HTTPException(404, "Preset not found")
     db.delete(row)
     db.commit()

@@ -6,8 +6,9 @@ export class Filter {
   node: BiquadFilterNode;
   input: BiquadFilterNode;
   output: BiquadFilterNode;
+  knob = 0;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.node = ctx.createBiquadFilter();
     this.node.type = "lowpass";
     this.node.frequency.value = 18000;
@@ -19,6 +20,7 @@ export class Filter {
   /** knob in [-1, 1] */
   setKnob(knob: number): void {
     const k = Math.max(-1, Math.min(1, knob));
+    this.knob = k;
     if (Math.abs(k) < 0.02) {
       this.node.type = "lowpass";
       this.node.frequency.value = 18000;

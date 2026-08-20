@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
 import { useStudio } from "../../store/useStudio";
 
 const QUICK = [
@@ -16,14 +17,76 @@ const QUICK = [
 ];
 
 export function AIPanel() {
-  const { chat, chatAI, aiBusy, pendingActions, applyAI, rejectAI, compatible, loadToDeck, library } = useStudio();
+  const { chat, chatAI, aiBusy, pendingActions, applyAI, rejectAI, compatible, loadToDeck, library, peers, roomChat, locks } =
+    useStudio();
   const [text, setText] = useState("");
+  const [tab, setTab] = useState<"ai" | "room">("ai");
+  const [roomText, setRoomText] = useState("");
 
   return (
     <aside className="w-[320px] border-l border-line bg-ink-900 flex flex-col min-h-0">
-      <div className="px-3 py-2 border-b border-line text-[10px] tracking-[0.25em] uppercase text-cyan">
-        AI Producer
+      <div className="px-3 py-2 border-b border-line flex gap-2 text-[10px] tracking-[0.25em] uppercase">
+        <button className={tab === "ai" ? "text-cyan" : "text-zinc-500"} onClick={() => setTab("ai")}>
+          AI Producer
+        </button>
+        <button className={tab === "room" ? "text-cyan" : "text-zinc-500"} onClick={() => setTab("room")}>
+          Room {peers.length ? `(${peers.length})` : ""}
+        </button>
       </div>
+      {tab === "room" ? (
+        <>
+          <div className="p-3 border-b border-line text-xs space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500">On decks</div>
+            {peers.length === 0 && <div className="text-zinc-600">Only you here</div>}
+            {peers.map((p) => (
+              <div key={p.clientId} className="flex justify-between text-zinc-300">
+                <span>{p.name}</span>
+                <span className="text-accent">{p.deck ? `Deck ${p.deck}` : "—"}</span>
+              </div>
+            ))}
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500 pt-2">Locks</div>
+            {Object.keys(locks).length === 0 && <div className="text-zinc-600">No exclusive edits</div>}
+            {Object.entries(locks).map(([res, owner]) => (
+              <div key={res} className="text-zinc-400">
+                {res} → {owner.name}
+              </div>
+            ))}
+          </div>
+          <div className="flex-1 overflow-auto p-3 space-y-2 text-sm">
+            {roomChat.map((m, i) => (
+              <div key={i}>
+                <div className="text-[10px] uppercase text-accent">{m.name}</div>
+                <div className="text-zinc-300">{m.text}</div>
+              </div>
+            ))}
+          </div>
+          <form
+            className="p-2 border-t border-line flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const line = roomText.trim();
+              if (!line) return;
+              sendCollab({ type: "chat", text: line, ts: Date.now() });
+              useStudio.setState({
+                roomChat: [
+                  ...useStudio.getState().roomChat,
+                  { clientId: getCollabId(), name: collabName(), text: line, ts: Date.now() },
+                ].slice(-80),
+              });
+              setRoomText("");
+            }}
+          >
+            <input
+              value={roomText}
+              onChange={(e) => setRoomText(e.target.value)}
+              placeholder="Room chat…"
+              className="flex-1 bg-ink-800 border border-line rounded px-2 py-1.5 text-sm"
+            />
+            <button className="px-3 rounded bg-accent text-black text-xs font-semibold">Send</button>
+          </form>
+        </>
+      ) : (
+        <>
       <div className="p-2 flex flex-wrap gap-1 border-b border-line">
         {QUICK.map((q) => (
           <button
@@ -98,6 +161,8 @@ export function AIPanel() {
         />
         <button className="px-3 rounded bg-accent text-black text-xs font-semibold">Send</button>
       </form>
+        </>
+      )}
     </aside>
   );
 }

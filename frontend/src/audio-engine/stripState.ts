@@ -1,0 +1,40 @@
+import type { MixerStripState } from "../types";
+import type { ChannelStrip } from "./ChannelStrip";
+
+export function snapshotStrip(ch: ChannelStrip): MixerStripState {
+  return {
+    volume: ch.volume.gain.value,
+    gain: 20 * Math.log10(Math.max(1e-6, ch.trim.gain.value)),
+    eq: [ch.eq.low.gain.value, ch.eq.mid.gain.value, ch.eq.high.gain.value],
+    filter: ch.filter.knob,
+    mute: ch.muted,
+    solo: ch.soloed,
+    pan: ch.panner.pan.value,
+    fx: {
+      delay: ch.fx.delay.wet.gain.value,
+      reverb: ch.fx.reverb.wet.gain.value,
+      flanger: ch.fx.flanger.wet.gain.value,
+      distortion: ch.fx.dist.wet.gain.value,
+      bitcrush: ch.fx.crush.wet.gain.value,
+      compressor: ch.fx.compAmount,
+    },
+  };
+}
+
+export function applyStripState(ch: ChannelStrip, state: MixerStripState | undefined): void {
+  if (!state) {
+    ch.setMute(true);
+    return;
+  }
+  ch.setVolume(state.volume ?? 0.85);
+  ch.setGainDb(state.gain ?? 0);
+  const eq = state.eq ?? [0, 0, 0];
+  ch.eq.set(eq[0], eq[1], eq[2]);
+  ch.filter.setKnob(state.filter ?? 0);
+  ch.setPan(state.pan ?? 0);
+  ch.setMute(!!state.mute);
+  ch.setSolo(!!state.solo);
+  for (const [kind, wet] of Object.entries(state.fx || {})) {
+    ch.fx.setWet(kind, wet);
+  }
+}

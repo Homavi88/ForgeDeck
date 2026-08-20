@@ -1,9 +1,9 @@
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
-from app.models import MixerChannel, Project, User
+from app.models import AudioFile, MixerChannel, Project, User
 from app.services.security import hash_password
 
 settings = get_settings()
@@ -107,14 +107,11 @@ def default_synth_params() -> dict:
     }
 
 
-def get_current_user(
-    db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
-) -> User:
+def user_from_token(db: Session, raw_token: str | None) -> User:
     from app.services.security import decode_token
 
-    if authorization and authorization.lower().startswith("bearer "):
-        data = decode_token(authorization.split(" ", 1)[1].strip())
+    if raw_token:
+        data = decode_token(raw_token)
         if data and data.get("sub"):
             user = db.get(User, data["sub"])
             if user:
@@ -124,3 +121,36 @@ def get_current_user(
     if settings.require_auth:
         raise HTTPException(401, "Not authenticated")
     return get_or_create_demo_user(db)
+
+
+def get_current_user(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+) -> User:
+    bearer = None
+    if authorization and authorization.lower().startswith("bearer "):
+        bearer = authorization.split(" ", 1)[1].strip()
+    return user_from_token(db, bearer or token)
+
+
+def require_project(
+    project_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Project:
+    project = db.get(Project, project_id)
+    if not project or project.user_id != user.id:
+        raise HTTPException(404, "Project not found")
+    return project
+
+
+def require_audio(
+    audio_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> AudioFile:
+    audio = db.get(AudioFile, audio_id)
+    if not audio or audio.user_id != user.id:
+        raise HTTPException(404, "Audio not found")
+    return audio

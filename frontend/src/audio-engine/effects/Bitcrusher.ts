@@ -1,16 +1,19 @@
 /**
- * Bitcrusher via AudioWorklet. Falls back to a simple waveshaper if the
- * worklet module fails to load (some browsers / file://).
+ * Bitcrusher via AudioWorklet. Falls back to a waveshaper if the
+ * worklet module fails to load (some browsers / OfflineAudioContext).
  */
+import { bitcrushCurve } from "../analog";
+
 export class BitcrusherFx {
   input: GainNode;
   output: GainNode;
   wet: GainNode;
   dry: GainNode;
   worklet: AudioWorkletNode | null = null;
-  private ctx: AudioContext;
+  private ctx: BaseAudioContext;
+  private readyPromise: Promise<void>;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.ctx = ctx;
     this.input = ctx.createGain();
     this.output = ctx.createGain();
@@ -19,7 +22,11 @@ export class BitcrusherFx {
     this.wet.gain.value = 0;
     this.dry.gain.value = 1;
     this.input.connect(this.dry).connect(this.output);
-    void this.attachWorklet();
+    this.readyPromise = this.attachWorklet();
+  }
+
+  ready(): Promise<void> {
+    return this.readyPromise;
   }
 
   private async attachWorklet(): Promise<void> {
@@ -29,12 +36,7 @@ export class BitcrusherFx {
       this.input.connect(this.worklet).connect(this.wet).connect(this.output);
     } catch {
       const shaper = this.ctx.createWaveShaper();
-      const curve = new Float32Array(256);
-      for (let i = 0; i < 256; i++) {
-        const x = i / 128 - 1;
-        curve[i] = Math.round(x * 8) / 8;
-      }
-      shaper.curve = curve;
+      shaper.curve = bitcrushCurve(3);
       this.input.connect(shaper).connect(this.wet).connect(this.output);
     }
   }

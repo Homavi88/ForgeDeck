@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal, get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_audio
 from app.models import AudioFile, User
 from app.schemas import AudioFileOut, CuePointCreate, CuePointOut, LoopCreate, LoopOut
 from app.services.analysis import analyze_file, persist_analysis
-from app.services.storage import save_upload
+from app.services.storage import save_upload, usage_bytes
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 settings = get_settings()
@@ -58,7 +58,7 @@ async def upload_audio(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    file_id, path, size = save_upload(file)
+    file_id, path, size = save_upload(file, used_bytes=usage_bytes(db, user.id))
     audio = AudioFile(
         id=file_id,
         user_id=user.id,
@@ -118,26 +118,19 @@ def list_audio(db: Session = Depends(get_db), user: User = Depends(get_current_u
 
 
 @router.get("/{audio_id}", response_model=AudioFileOut)
-def get_audio(audio_id: str, db: Session = Depends(get_db)):
-    audio = db.get(AudioFile, audio_id)
-    if not audio:
-        raise HTTPException(404, "Audio not found")
+def get_audio(audio: AudioFile = Depends(require_audio)):
     return audio
 
 
 @router.get("/{audio_id}/stream")
-def stream_audio(audio_id: str, db: Session = Depends(get_db)):
-    audio = db.get(AudioFile, audio_id)
-    if not audio or not Path(audio.path).exists():
+def stream_audio(audio: AudioFile = Depends(require_audio)):
+    if not Path(audio.path).exists():
         raise HTTPException(404, "Audio not found")
     return FileResponse(audio.path, media_type=audio.content_type, filename=audio.original_filename)
 
 
 @router.post("/{audio_id}/analyze", response_model=AudioFileOut)
-def analyze_audio(audio_id: str, db: Session = Depends(get_db)):
-    audio = db.get(AudioFile, audio_id)
-    if not audio:
-        raise HTTPException(404, "Audio not found")
+def analyze_audio(audio: AudioFile = Depends(require_audio), db: Session = Depends(get_db)):
     audio.analysis_status = "processing"
     db.commit()
     _enqueue_analysis(audio.id)
@@ -146,10 +139,7 @@ def analyze_audio(audio_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{audio_id}/analysis")
-def get_analysis(audio_id: str, db: Session = Depends(get_db)):
-    audio = db.get(AudioFile, audio_id)
-    if not audio:
-        raise HTTPException(404, "Audio not found")
+def get_analysis(audio: AudioFile = Depends(require_audio)):
     return {
         "id": audio.id,
         "status": audio.analysis_status,
@@ -159,13 +149,10 @@ def get_analysis(audio_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{audio_id}/cues", response_model=CuePointOut)
-def add_cue(audio_id: str, payload: CuePointCreate, db: Session = Depends(get_db)):
+def add_cue(payload: CuePointCreate, audio: AudioFile = Depends(require_audio), db: Session = Depends(get_db)):
     from app.models import CuePoint
 
-    audio = db.get(AudioFile, audio_id)
-    if not audio:
-        raise HTTPException(404, "Audio not found")
-    cue = CuePoint(audio_file_id=audio_id, **payload.model_dump())
+    cue = CuePoint(audio_file_id=audio.id, **payload.model_dump())
     db.add(cue)
     db.commit()
     db.refresh(cue)
@@ -173,23 +160,17 @@ def add_cue(audio_id: str, payload: CuePointCreate, db: Session = Depends(get_db
 
 
 @router.get("/{audio_id}/cues", response_model=list[CuePointOut])
-def list_cues(audio_id: str, db: Session = Depends(get_db)):
+def list_cues(audio: AudioFile = Depends(require_audio), db: Session = Depends(get_db)):
     from app.models import CuePoint
 
-    return db.query(CuePoint).filter(CuePoint.audio_file_id == audio_id).all()
+    return db.query(CuePoint).filter(CuePoint.audio_file_id == audio.id).all()
 
 
 @router.post("/{audio_id}/stems")
-def split_stems(audio_id: str, db: Session = Depends(get_db)):
-    from app.services.stems import hpss_stems
-    from workers.tasks.stems import _try_demucs
+def split_stems(audio: AudioFile = Depends(require_audio), db: Session = Depends(get_db)):
+    from app.services.stems import separate_stems
 
-    audio = db.get(AudioFile, audio_id)
-    if not audio:
-        raise HTTPException(404, "Audio not found")
-    demucs = _try_demucs(Path(audio.path), Path(audio.path).parent / "stems")
-    paths = demucs or hpss_stems(audio.path)
-    engine = "demucs" if demucs else "hpss"
+    paths, engine = separate_stems(audio.path)
     analysis = dict(audio.analysis or {})
     analysis["stems"] = paths
     analysis["stems_engine"] = engine
@@ -200,10 +181,7 @@ def split_stems(audio_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{audio_id}/stems/{stem}/stream")
-def stream_stem(audio_id: str, stem: str, db: Session = Depends(get_db)):
-    audio = db.get(AudioFile, audio_id)
-    if not audio:
-        raise HTTPException(404, "Audio not found")
+def stream_stem(stem: str, audio: AudioFile = Depends(require_audio)):
     stems = (audio.analysis or {}).get("stems") or {}
     path = stems.get(stem)
     if not path or not Path(path).exists():
@@ -212,13 +190,10 @@ def stream_stem(audio_id: str, stem: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{audio_id}/loops", response_model=LoopOut)
-def add_loop(audio_id: str, payload: LoopCreate, db: Session = Depends(get_db)):
+def add_loop(payload: LoopCreate, audio: AudioFile = Depends(require_audio), db: Session = Depends(get_db)):
     from app.models import LoopRegion
 
-    audio = db.get(AudioFile, audio_id)
-    if not audio:
-        raise HTTPException(404, "Audio not found")
-    loop = LoopRegion(audio_file_id=audio_id, **payload.model_dump())
+    loop = LoopRegion(audio_file_id=audio.id, **payload.model_dump())
     db.add(loop)
     db.commit()
     db.refresh(loop)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
@@ -77,50 +77,117 @@ export function TopBar() {
       >
         MIDI
       </button>
+      <MicButton />
       <div className="flex-1" />
+      <span className="text-[10px] uppercase text-zinc-600">{saving ? "Autosaving…" : "Autosave on"}</span>
       <button
         onClick={() => void save()}
         className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider hover:bg-ink-600"
       >
         {saving ? "Saving…" : "Save"}
       </button>
+      <ShareButton />
       <RecordButton />
       <ExportButton />
     </div>
   );
 }
 
+function MicButton() {
+  const micOn = useStudio((s) => s.micOn);
+  return (
+    <button
+      className={`text-[10px] uppercase ${micOn ? "text-mint" : "text-zinc-400"}`}
+      onClick={async () => {
+        await useStudio.getState().bootAudio();
+        const next = !useStudio.getState().micOn;
+        try {
+          await getEngine().setMic(next);
+          useStudio.setState({ micOn: next, error: null });
+        } catch (err) {
+          useStudio.setState({ error: err instanceof Error ? err.message : "Mic permission denied" });
+        }
+      }}
+    >
+      {micOn ? "Mic on" : "Mic"}
+    </button>
+  );
+}
+
+function ShareButton() {
+  const project = useStudio((s) => s.project);
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider hover:bg-ink-600"
+      onClick={async () => {
+        if (!project) return;
+        const res = await api.projects.share(project.id);
+        const url = `${window.location.origin}${res.path}`;
+        await navigator.clipboard.writeText(url).catch(() => undefined);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1600);
+      }}
+    >
+      {copied ? "Link copied" : "Share"}
+    </button>
+  );
+}
+
 function RecordButton() {
   const project = useStudio((s) => s.project);
   const [on, setOn] = useState(false);
+  const [hud, setHud] = useState({ elapsed: 0, peak: 0, bytes: 0 });
+
+  useEffect(() => {
+    if (!on) return;
+    const t = window.setInterval(() => {
+      setHud(getEngine().recorder.stats);
+    }, 200);
+    return () => window.clearInterval(t);
+  }, [on]);
+
+  const mm = Math.floor(hud.elapsed / 60);
+  const ss = Math.floor(hud.elapsed % 60)
+    .toString()
+    .padStart(2, "0");
+  const mb = (hud.bytes / (1024 * 1024)).toFixed(1);
+
   return (
-    <button
-      className={`px-3 py-1.5 rounded text-xs uppercase tracking-wider font-semibold ${
-        on ? "bg-danger text-white" : "bg-ink-700 hover:bg-ink-600"
-      }`}
-      onClick={async () => {
-        const eng = getEngine();
-        await useStudio.getState().bootAudio();
-        if (!on) {
-          eng.startRecording();
-          setOn(true);
-          return;
-        }
-        const buffer = eng.stopRecording();
-        setOn(false);
-        if (!buffer) return;
-        const blob = encodeWav(buffer);
-        if (project) await api.projects.uploadRender(project.id, blob).catch(() => undefined);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${project?.name || "set"}-live.wav`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }}
-    >
-      {on ? "Stop rec" : "Rec"}
-    </button>
+    <div className="flex items-center gap-2">
+      {on && (
+        <div className="font-mono text-[10px] text-danger">
+          {mm}:{ss} · peak {(hud.peak * 100).toFixed(0)}% · ~{mb} MB
+        </div>
+      )}
+      <button
+        className={`px-3 py-1.5 rounded text-xs uppercase tracking-wider font-semibold ${
+          on ? "bg-danger text-white" : "bg-ink-700 hover:bg-ink-600"
+        }`}
+        onClick={async () => {
+          const eng = getEngine();
+          await useStudio.getState().bootAudio();
+          if (!on) {
+            eng.startRecording();
+            setOn(true);
+            return;
+          }
+          const buffer = eng.stopRecording();
+          setOn(false);
+          if (!buffer) return;
+          const blob = encodeWav(buffer);
+          if (project) await api.projects.uploadRender(project.id, blob).catch(() => undefined);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${project?.name || "set"}-live.wav`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+      >
+        {on ? "Stop rec" : "Rec"}
+      </button>
+    </div>
   );
 }
 

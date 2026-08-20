@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { PAD_IDS } from "../../audio-engine/DrumMachine";
+import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
 import { useStudio } from "../../store/useStudio";
 
 export function DrumMachinePanel() {
-  const { drumSteps, drumLength, drumSwing, currentStep, bootAudio } = useStudio();
+  const { drumSteps, drumLength, drumSwing, currentStep, bootAudio, locks } = useStudio();
   const step = currentStep % drumLength;
+  const lock = locks.drums;
+  const blocked = !!lock && lock.clientId !== getCollabId();
+  const mine = lock?.clientId === getCollabId();
   const [kits, setKits] = useState<Array<{ id: string; name: string; pads: unknown[] }>>([]);
   const [kitName, setKitName] = useState("808 Core");
 
@@ -15,8 +19,14 @@ export function DrumMachinePanel() {
   }, []);
 
   return (
-    <div className="flex-1 p-4 overflow-auto flex flex-col gap-4">
+    <div className={`flex-1 p-4 overflow-auto flex flex-col gap-4 ${blocked ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-3">
+        <button
+          className={`text-xs px-2 py-1 rounded ${mine ? "bg-accent text-black" : "bg-ink-700"}`}
+          onClick={() => sendCollab({ type: mine ? "unlock" : "lock", resource: "drums", name: collabName() })}
+        >
+          {blocked ? `Locked by ${lock.name}` : mine ? "Unlock drums" : "Lock drums"}
+        </button>
         <button
           className="text-xs bg-ink-700 px-2 py-1 rounded"
           onClick={async () => {
@@ -129,6 +139,7 @@ export function DrumMachinePanel() {
                   <button
                     key={i}
                     onClick={() => {
+                      if (blocked) return;
                       const next = on ? 0 : i % 4 === 0 ? 1 : 0.75;
                       const steps = { ...drumSteps, [id]: [...(drumSteps[id] || Array(64).fill(0))] };
                       steps[id][i] = next;

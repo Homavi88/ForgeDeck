@@ -11,6 +11,7 @@ import { Sampler } from "./Sampler";
 import { Synth } from "./Synth";
 import { TimelineEngine } from "./Timeline";
 import { Transport } from "./Transport";
+import { warmupRubberBand } from "./rubberband";
 import { decodeUrl } from "./utils";
 import type { MidiNote, SessionClip, TimelineClip } from "../types";
 
@@ -31,6 +32,11 @@ export class AudioEngine {
   buffers = new Map<string, AudioBuffer>();
   midiBindings: MidiBindings = loadMidiBindings();
   recorder = new LiveRecorder();
+  micGain: GainNode | null = null;
+  private micStream: MediaStream | null = null;
+  private micSource: MediaStreamAudioSourceNode | null = null;
+  stemDecks: { A: Record<string, Deck>; B: Record<string, Deck> } = { A: {}, B: {} };
+  stemsActive: { A: boolean; B: boolean } = { A: false, B: false };
   private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
   private clipSources: AudioBufferSourceNode[] = [];
 
@@ -49,11 +55,17 @@ export class AudioEngine {
     this.automation = new AutomationEngine();
     this.piano = new PianoRoll();
     this.launcher = new ClipLauncher();
+    for (const side of ["A", "B"] as const) {
+      this.decks[side].onPlay = () => this.followStems(side, "play");
+      this.decks[side].onPause = () => this.followStems(side, "pause");
+      this.decks[side].onSeek = (t) => this.followStems(side, "seek", t);
+    }
   }
 
   async init(): Promise<void> {
     if (this.ready) return;
     await this.ctx.resume();
+    await warmupRubberBand(this.ctx);
     await this.drums.init();
     this.drums.attach(this.transport);
     this.drums.onKick = (time) => this.mixer.duckFromKick(time);
@@ -227,6 +239,80 @@ export class AudioEngine {
 
   stopRecording(): AudioBuffer | null {
     return this.recorder.stop();
+  }
+
+  async setMic(on: boolean): Promise<string> {
+    await this.init();
+    if (on) {
+      if (this.micStream) return "Mic already on";
+      this.micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      this.micSource = this.ctx.createMediaStreamSource(this.micStream);
+      this.micGain = this.ctx.createGain();
+      this.micGain.gain.value = 0.85;
+      this.micSource.connect(this.micGain).connect(this.mixer.master.input);
+      return "Mic live into master (Rec captures it)";
+    }
+    this.micStream?.getTracks().forEach((t) => t.stop());
+    try {
+      this.micSource?.disconnect();
+      this.micGain?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    this.micStream = null;
+    this.micSource = null;
+    this.micGain = null;
+    return "Mic off";
+  }
+
+  async loadStems(side: "A" | "B", audioId: string, names: string[]): Promise<void> {
+    await this.init();
+    this.clearStems(side);
+    const dest = this.mixer.channels[side].input;
+    for (const name of names) {
+      const deck = new Deck(this.ctx, dest);
+      const buf = await decodeUrl(this.ctx, api.audio.stemUrl(audioId, name));
+      await deck.loadBuffer(buf, this.decks[side].beats);
+      this.stemDecks[side][name] = deck;
+    }
+    this.stemsActive[side] = true;
+    this.decks[side].output.gain.value = 0;
+    if (this.decks[side].playing) this.followStems(side, "play");
+  }
+
+  clearStems(side?: "A" | "B"): void {
+    const sides = side ? [side] : (["A", "B"] as const);
+    for (const s of sides) {
+      for (const d of Object.values(this.stemDecks[s])) d.stop();
+      this.stemDecks[s] = {};
+      this.stemsActive[s] = false;
+      this.decks[s].output.gain.value = 1;
+    }
+  }
+
+  setStemMute(name: string, muted: boolean): void {
+    for (const side of ["A", "B"] as const) {
+      const d = this.stemDecks[side][name];
+      if (d) d.output.gain.value = muted ? 0 : 1;
+    }
+  }
+
+  private followStems(side: "A" | "B", kind: "play" | "pause" | "seek", time?: number): void {
+    if (!this.stemsActive[side]) return;
+    const master = this.decks[side];
+    const t = time ?? master.position;
+    for (const d of Object.values(this.stemDecks[side])) {
+      d.pitch = master.pitch;
+      d.keyLock = master.keyLock;
+      if (kind === "pause") {
+        d.pause();
+        continue;
+      }
+      d.seek(t);
+      if (kind === "play" && !d.playing) d.play();
+    }
   }
 }
 

@@ -14,8 +14,10 @@ export class EffectChain {
   crush: BitcrusherFx;
   dist: DistortionFx;
   comp: CompressorFx;
+  /** 0 = stock compressor settings used by the live desk. */
+  compAmount = 0;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.input = ctx.createGain();
     this.output = ctx.createGain();
     this.delay = new DelayFx(ctx);
@@ -35,11 +37,26 @@ export class EffectChain {
     this.reverb.output.connect(this.output);
   }
 
+  ready(): Promise<void> {
+    return this.crush.ready();
+  }
+
   setWet(kind: string, wet: number): void {
-    if (kind === "delay") this.delay.set(0.375, 0.35, wet);
-    if (kind === "reverb") this.reverb.setWet(wet);
-    if (kind === "flanger") this.flanger.setWet(wet);
-    if (kind === "bitcrush") this.crush.setWet(wet);
-    if (kind === "distortion") this.dist.set(0.5, wet);
+    const w = Math.max(0, Math.min(1, wet));
+    if (kind === "delay") this.delay.set(0.375, 0.35, w);
+    if (kind === "reverb") this.reverb.setWet(w);
+    if (kind === "flanger") this.flanger.setWet(w);
+    if (kind === "bitcrush") this.crush.setWet(w);
+    if (kind === "distortion") this.dist.set(0.55, w);
+    if (kind === "compressor") {
+      this.compAmount = w;
+      if (w <= 0.001) {
+        this.comp.node.threshold.value = -18;
+        this.comp.node.ratio.value = 4;
+      } else {
+        this.comp.node.threshold.value = -18 - w * 10;
+        this.comp.node.ratio.value = 4 + w * 8;
+      }
+    }
   }
 }

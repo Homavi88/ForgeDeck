@@ -82,6 +82,14 @@ export const api = {
     savePattern: (id: string, body: Record<string, unknown>) => parse(j(`/api/projects/${id}/patterns`, "POST", body)),
     saveSynth: (id: string, name: string, params: Record<string, unknown>) =>
       parse(j(`/api/projects/${id}/synth-presets`, "POST", { name, params })),
+    share: (id: string) => parse<{ token: string; path: string }>(j(`/api/projects/${id}/share`, "POST")),
+  },
+  share: {
+    get: (token: string) =>
+      parse<{ name: string; bpm: number; musical_key: string; has_mix: boolean; token: string }>(
+        fetch(`${API}/api/share/${token}`),
+      ),
+    mixUrl: (token: string) => `${API}/api/share/${token}/mix`,
   },
   audio: {
     list: () => parse<import("../types").AudioFile[]>(fetch(`${API}/api/audio`, withAuth())),

@@ -18,7 +18,7 @@ export class ChannelStrip {
   muted = false;
   soloed = false;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.input = ctx.createGain();
     this.trim = ctx.createGain();
     this.eq = new EQ3(ctx);

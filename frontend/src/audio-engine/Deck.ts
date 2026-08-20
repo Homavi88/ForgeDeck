@@ -1,10 +1,14 @@
 /**
  * DJ deck: buffer playback with pitch, cue, hotcues, looping, beat jump, slip.
  *
- * Key lock uses overlapping grains at playbackRate=1 while the read head
- * walks the buffer at `rate`. This is WSOLA-ish, not Rubber Band — pitch
- * stays close, transients smear a bit. Toggle off for classic vinyl pitch.
+ * Key lock is CDJ-style master tempo: BufferSource.playbackRate follows the
+ * pitch fader (tempo) while Rubber Band WASM pitch-shifts by 1/rate so the
+ * key stays put. WSOLA grains remain the fallback if WASM fails to load.
  */
+import { applyKeyLock, createKeyLockNode, type RubberBandWorklet } from "./rubberband";
+
+export type KeyLockEngine = "rubberband" | "wsola" | "vinyl";
+
 export class Deck {
   ctx: AudioContext;
   output: GainNode;
@@ -13,6 +17,7 @@ export class Deck {
   playing = false;
   pitch = 0;
   keyLock = false;
+  keyLockEngine: KeyLockEngine = "vinyl";
   slip = false;
   quantize = true;
   beats: number[] = [];
@@ -24,10 +29,17 @@ export class Deck {
   private loopInMark: number | null = null;
   hotcues: Record<number, number> = {};
   onPosition?: (t: number) => void;
+  onEnded?: () => void;
+  onPlay?: () => void;
+  onPause?: () => void;
+  onSeek?: (t: number) => void;
   private raf = 0;
   private grainTimer: number | null = null;
   private grainPos = 0;
   private grains: AudioBufferSourceNode[] = [];
+  private spawnId = 0;
+  private rbNode: RubberBandWorklet | null = null;
+  private rbConnected = false;
 
   constructor(ctx: AudioContext, destination: AudioNode) {
     this.ctx = ctx;
@@ -46,7 +58,7 @@ export class Deck {
 
   get position(): number {
     if (!this.playing || !this.buffer) return this.offset;
-    if (this.keyLock) {
+    if (this.keyLock && this.keyLockEngine === "wsola") {
       let pos = this.grainPos;
       if (this.loop && pos >= this.loop.end) {
         const span = Math.max(0.01, this.loop.end - this.loop.start);
@@ -77,9 +89,11 @@ export class Deck {
     if (!this.buffer || this.playing) return;
     this.playing = true;
     this.slipOrigin = this.offset;
-    if (this.keyLock) this.spawnGrains(this.offset);
+    const id = ++this.spawnId;
+    if (this.keyLock) void this.spawnKeyLock(this.offset, id);
     else this.spawn(this.offset);
     this.watch();
+    this.onPlay?.();
   }
 
   pause(): void {
@@ -87,6 +101,7 @@ export class Deck {
     this.offset = this.position;
     this.killSource();
     this.playing = false;
+    this.onPause?.();
   }
 
   stop(): void {
@@ -106,6 +121,7 @@ export class Deck {
     this.killSource();
     this.offset = t;
     this.playing = false;
+    this.onSeek?.(t);
     if (was) this.play();
   }
 
@@ -167,7 +183,7 @@ export class Deck {
 
   setPitch(percent: number): void {
     this.pitch = percent;
-    if (this.source && !this.keyLock) this.source.playbackRate.value = this.rate;
+    this.applyLiveRate(this.rate);
   }
 
   setKeyLock(on: boolean): void {
@@ -189,7 +205,7 @@ export class Deck {
 
   setLoop(start: number, end: number): void {
     this.loop = { start, end };
-    if (this.source && !this.keyLock) {
+    if (this.source && this.keyLockEngine !== "wsola") {
       this.source.loop = true;
       this.source.loopStart = start;
       this.source.loopEnd = end;
@@ -215,7 +231,17 @@ export class Deck {
   }
 
   setVinylRate(multiplier: number): void {
-    if (this.source && !this.keyLock) this.source.playbackRate.value = this.rate * multiplier;
+    this.applyLiveRate(this.rate * multiplier);
+  }
+
+  private applyLiveRate(rate: number): void {
+    if (!this.source) return;
+    if (this.keyLock && this.keyLockEngine === "rubberband" && this.rbNode) {
+      this.source.playbackRate.value = rate;
+      applyKeyLock(this.rbNode, rate);
+      return;
+    }
+    if (!this.keyLock) this.source.playbackRate.value = rate;
   }
 
   private savedLoop: { start: number; end: number } | null = null;
@@ -236,6 +262,7 @@ export class Deck {
 
   private spawn(offset: number): void {
     if (!this.buffer) return;
+    this.keyLockEngine = "vinyl";
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;
     src.playbackRate.value = this.rate;
@@ -253,6 +280,43 @@ export class Deck {
       if (this.source === src) {
         this.playing = false;
         this.offset = this.duration;
+        this.onEnded?.();
+      }
+    };
+  }
+
+  private async spawnKeyLock(offset: number, id: number): Promise<void> {
+    if (!this.rbNode) this.rbNode = await createKeyLockNode(this.ctx);
+    if (id !== this.spawnId || !this.playing || !this.buffer) return;
+    if (!this.rbNode) {
+      this.keyLockEngine = "wsola";
+      this.spawnGrains(offset);
+      return;
+    }
+    this.keyLockEngine = "rubberband";
+    applyKeyLock(this.rbNode, this.rate);
+    if (!this.rbConnected) {
+      this.rbNode.connect(this.output);
+      this.rbConnected = true;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.buffer;
+    src.playbackRate.value = this.rate;
+    if (this.loop && !this.slip) {
+      src.loop = true;
+      src.loopStart = this.loop.start;
+      src.loopEnd = this.loop.end;
+    }
+    src.connect(this.rbNode);
+    src.start(0, offset);
+    this.source = src;
+    this.startedAt = this.ctx.currentTime;
+    this.offset = offset;
+    src.onended = () => {
+      if (this.source === src) {
+        this.playing = false;
+        this.offset = this.duration;
+        this.onEnded?.();
       }
     };
   }
@@ -266,16 +330,26 @@ export class Deck {
 
   private scheduleGrain = (): void => {
     if (!this.playing || !this.buffer || !this.keyLock) return;
-    const grain = 0.09;
-    const hop = 0.045;
+    if (this.grainPos >= this.duration - 0.01 && !this.loop) {
+      this.playing = false;
+      this.offset = this.duration;
+      this.killSource();
+      this.onEnded?.();
+      return;
+    }
+    const grain = 0.07;
+    const hop = 0.0175;
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;
     src.playbackRate.value = 1;
     const g = this.ctx.createGain();
     const t = this.ctx.currentTime;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(1, t + 0.012);
-    g.gain.linearRampToValueAtTime(0.0001, t + grain);
+    const n = 48;
+    const hann = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      hann[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (n - 1)));
+    }
+    g.gain.setValueCurveAtTime(hann, t, grain);
     src.connect(g).connect(this.output);
     let start = this.grainPos;
     if (this.loop && start >= this.loop.end) {
@@ -284,7 +358,7 @@ export class Deck {
     }
     src.start(t, Math.max(0, start), grain);
     this.grains.push(src);
-    if (this.grains.length > 8) {
+    if (this.grains.length > 16) {
       const old = this.grains.shift();
       try {
         old?.stop();
@@ -297,6 +371,7 @@ export class Deck {
   };
 
   private killSource(): void {
+    this.spawnId += 1;
     if (this.raf) cancelAnimationFrame(this.raf);
     if (this.grainTimer != null) window.clearTimeout(this.grainTimer);
     this.grainTimer = null;

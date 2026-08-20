@@ -1,10 +1,11 @@
 from copy import deepcopy
+import secrets
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import default_graph, get_current_user, seed_project_studio
+from app.deps import default_graph, get_current_user, require_project, seed_project_studio
 from app.models import (
     Arrangement,
     Deck,
@@ -146,18 +147,16 @@ def list_projects(
 
 
 @router.get("/{project_id}", response_model=ProjectDetail)
-def get_project(project_id: str, db: Session = Depends(get_db)):
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
+def get_project(project: Project = Depends(require_project)):
     return _serialize_project(project)
 
 
 @router.put("/{project_id}", response_model=ProjectOut)
-def update_project(project_id: str, payload: ProjectUpdate, db: Session = Depends(get_db)):
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
+def update_project(
+    payload: ProjectUpdate,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
     data = payload.model_dump(exclude_unset=True)
     for key, value in data.items():
         setattr(project, key, value)
@@ -172,20 +171,24 @@ def update_project(project_id: str, payload: ProjectUpdate, db: Session = Depend
 
 
 @router.delete("/{project_id}")
-def delete_project(project_id: str, db: Session = Depends(get_db)):
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
+def delete_project(project: Project = Depends(require_project), db: Session = Depends(get_db)):
     db.delete(project)
     db.commit()
     return {"ok": True}
 
 
+@router.post("/{project_id}/share")
+def create_share(project: Project = Depends(require_project), db: Session = Depends(get_db)):
+    if not project.share_token:
+        project.share_token = secrets.token_urlsafe(18)
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+    return {"token": project.share_token, "path": f"/share/{project.share_token}"}
+
+
 @router.post("/{project_id}/duplicate", response_model=ProjectDetail)
-def duplicate_project(project_id: str, db: Session = Depends(get_db)):
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
+def duplicate_project(project: Project = Depends(require_project), db: Session = Depends(get_db)):
     clone = Project(
         user_id=project.user_id,
         name=f"{project.name} Copy",
@@ -206,20 +209,18 @@ def duplicate_project(project_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{project_id}/export")
-def export_project_json(project_id: str, db: Session = Depends(get_db)):
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
+def export_project_json(project: Project = Depends(require_project)):
     return _serialize_project(project)
 
 
 @router.post("/{project_id}/tracks", response_model=TrackOut)
-def add_track(project_id: str, payload: TrackCreate, db: Session = Depends(get_db)):
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
+def add_track(
+    payload: TrackCreate,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
     order = len(project.tracks)
-    track = Track(project_id=project_id, order_index=order, **payload.model_dump())
+    track = Track(project_id=project.id, order_index=order, **payload.model_dump())
     db.add(track)
     db.commit()
     db.refresh(track)
@@ -227,12 +228,17 @@ def add_track(project_id: str, payload: TrackCreate, db: Session = Depends(get_d
 
 
 @router.post("/{project_id}/mixer/{channel_id}", response_model=dict)
-def update_mixer(project_id: str, channel_id: str, payload: MixerSettings, db: Session = Depends(get_db)):
+def update_mixer(
+    channel_id: str,
+    payload: MixerSettings,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
     channel = db.get(MixerChannel, channel_id)
-    if not channel or channel.project_id != project_id:
+    if not channel or channel.project_id != project.id:
         channel = (
             db.query(MixerChannel)
-            .filter(MixerChannel.project_id == project_id, MixerChannel.name == channel_id)
+            .filter(MixerChannel.project_id == project.id, MixerChannel.name == channel_id)
             .one_or_none()
         )
     if not channel:
@@ -244,10 +250,12 @@ def update_mixer(project_id: str, channel_id: str, payload: MixerSettings, db: S
 
 
 @router.post("/{project_id}/patterns", response_model=DrumPatternOut)
-def save_pattern(project_id: str, payload: DrumPatternCreate, db: Session = Depends(get_db)):
-    if not db.get(Project, project_id):
-        raise HTTPException(404, "Project not found")
-    pattern = DrumPattern(project_id=project_id, **payload.model_dump())
+def save_pattern(
+    payload: DrumPatternCreate,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
+    pattern = DrumPattern(project_id=project.id, **payload.model_dump())
     db.add(pattern)
     db.commit()
     db.refresh(pattern)
@@ -255,10 +263,12 @@ def save_pattern(project_id: str, payload: DrumPatternCreate, db: Session = Depe
 
 
 @router.post("/{project_id}/synth-presets", response_model=SynthPresetOut)
-def save_synth(project_id: str, payload: SynthPresetCreate, db: Session = Depends(get_db)):
-    if not db.get(Project, project_id):
-        raise HTTPException(404, "Project not found")
-    preset = SynthPreset(project_id=project_id, **payload.model_dump())
+def save_synth(
+    payload: SynthPresetCreate,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
+    preset = SynthPreset(project_id=project.id, **payload.model_dump())
     db.add(preset)
     db.commit()
     db.refresh(preset)
@@ -266,10 +276,12 @@ def save_synth(project_id: str, payload: SynthPresetCreate, db: Session = Depend
 
 
 @router.post("/{project_id}/render", response_model=RenderJobOut)
-def render_project(project_id: str, payload: RenderRequest, db: Session = Depends(get_db)):
-    if not db.get(Project, project_id):
-        raise HTTPException(404, "Project not found")
-    job = RenderJob(project_id=project_id, format=payload.format, status="queued")
+def render_project(
+    payload: RenderRequest,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
+    job = RenderJob(project_id=project.id, format=payload.format, status="queued")
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -284,10 +296,8 @@ def render_project(project_id: str, payload: RenderRequest, db: Session = Depend
             job.status = "queued"
             db.commit()
     else:
-        from app.database import SessionLocal
         from workers.tasks.render import render_project_task
 
-        # Inline fallback for local dev without Redis.
         threading_job = job.id
 
         def _run():
@@ -301,17 +311,15 @@ def render_project(project_id: str, payload: RenderRequest, db: Session = Depend
 
 @router.post("/{project_id}/render/upload", response_model=RenderJobOut)
 def upload_offline_render(
-    project_id: str,
     file: UploadFile = File(...),
+    project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
     """Accept a WAV produced by the browser OfflineAudioContext mixdown."""
     from app.config import get_settings
 
-    if not db.get(Project, project_id):
-        raise HTTPException(404, "Project not found")
     settings = get_settings()
-    job = RenderJob(project_id=project_id, format="wav", status="rendering", progress=0.5)
+    job = RenderJob(project_id=project.id, format="wav", status="rendering", progress=0.5)
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -326,13 +334,13 @@ def upload_offline_render(
 
 
 @router.get("/{project_id}/render/{job_id}/file")
-def download_render(project_id: str, job_id: str, db: Session = Depends(get_db)):
+def download_render(job_id: str, project: Project = Depends(require_project), db: Session = Depends(get_db)):
     from pathlib import Path
 
     from fastapi.responses import FileResponse
 
     job = db.get(RenderJob, job_id)
-    if not job or job.project_id != project_id or not job.output_path:
+    if not job or job.project_id != project.id or not job.output_path:
         raise HTTPException(404, "Render not ready")
     path = Path(job.output_path)
     if not path.exists():
@@ -341,20 +349,21 @@ def download_render(project_id: str, job_id: str, db: Session = Depends(get_db))
 
 
 @router.get("/{project_id}/render/{job_id}", response_model=RenderJobOut)
-def get_render(project_id: str, job_id: str, db: Session = Depends(get_db)):
+def get_render(job_id: str, project: Project = Depends(require_project), db: Session = Depends(get_db)):
     job = db.get(RenderJob, job_id)
-    if not job or job.project_id != project_id:
+    if not job or job.project_id != project.id:
         raise HTTPException(404, "Render job not found")
     return job
 
 
 @router.put("/{project_id}/decks/{name}")
-def assign_deck(project_id: str, name: str, audio_file_id: str | None = None, db: Session = Depends(get_db)):
-    deck = (
-        db.query(Deck)
-        .filter(Deck.project_id == project_id, Deck.name == name.upper())
-        .one_or_none()
-    )
+def assign_deck(
+    name: str,
+    audio_file_id: str | None = None,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
+    deck = db.query(Deck).filter(Deck.project_id == project.id, Deck.name == name.upper()).one_or_none()
     if not deck:
         raise HTTPException(404, "Deck not found")
     deck.audio_file_id = audio_file_id
@@ -363,11 +372,13 @@ def assign_deck(project_id: str, name: str, audio_file_id: str | None = None, db
 
 
 @router.post("/{project_id}/arrangements")
-def save_arrangement(project_id: str, payload: dict, db: Session = Depends(get_db)):
-    if not db.get(Project, project_id):
-        raise HTTPException(404, "Project not found")
+def save_arrangement(
+    payload: dict,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
     arr = Arrangement(
-        project_id=project_id,
+        project_id=project.id,
         name=payload.get("name", "Arrangement"),
         length_bars=payload.get("length_bars", 32),
         structure=payload.get("structure", []),
@@ -376,3 +387,4 @@ def save_arrangement(project_id: str, payload: dict, db: Session = Depends(get_d
     db.commit()
     db.refresh(arr)
     return {"id": arr.id, "name": arr.name, "structure": arr.structure}
+

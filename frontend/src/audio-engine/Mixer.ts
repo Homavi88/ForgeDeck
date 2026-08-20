@@ -2,6 +2,10 @@ import { ChannelStrip } from "./ChannelStrip";
 import { LimiterFx } from "./effects/Compressor";
 import { equalPower } from "./utils";
 
+function isRealtime(ctx: BaseAudioContext): ctx is AudioContext {
+  return typeof (ctx as AudioContext).createMediaStreamDestination === "function";
+}
+
 export class Mixer {
   channels: Record<string, ChannelStrip>;
   master: ChannelStrip;
@@ -11,6 +15,16 @@ export class Mixer {
   xfaderB: GainNode;
   output: AudioNode;
   crossfader = 0.5;
+
+  cueBus: GainNode;
+  cueMix = 1;
+  splitCue = false;
+  headphoneMix: GainNode;
+  headphoneDest: MediaStreamAudioDestinationNode | null = null;
+  private masterHpGain: GainNode;
+  private cueHpGain: GainNode;
+  private stereoGate: GainNode;
+  private splitGate: GainNode;
 
   constructor(ctx: BaseAudioContext, destination: AudioNode) {
     this.channels = {
@@ -34,7 +48,41 @@ export class Mixer {
     this.channels.synth.output.connect(this.master.input);
     this.master.output.connect(this.limiter.input);
     this.limiter.output.connect(this.masterAnalyser);
-    this.masterAnalyser.connect(destination);
+
+    this.stereoGate = ctx.createGain();
+    this.splitGate = ctx.createGain();
+    this.splitGate.gain.value = 0;
+    this.masterAnalyser.connect(this.stereoGate);
+    this.stereoGate.connect(destination);
+
+    this.cueBus = ctx.createGain();
+    this.channels.A.pflOut.connect(this.cueBus);
+    this.channels.B.pflOut.connect(this.cueBus);
+
+    this.masterHpGain = ctx.createGain();
+    this.cueHpGain = ctx.createGain();
+    this.headphoneMix = ctx.createGain();
+    this.masterAnalyser.connect(this.masterHpGain);
+    this.cueBus.connect(this.cueHpGain);
+    this.masterHpGain.connect(this.headphoneMix);
+    this.cueHpGain.connect(this.headphoneMix);
+    this.setCueMix(1);
+
+    if (isRealtime(ctx)) {
+      this.headphoneDest = ctx.createMediaStreamDestination();
+      this.headphoneMix.connect(this.headphoneDest);
+    }
+
+    const masterSplit = ctx.createChannelSplitter(2);
+    const cueSplit = ctx.createChannelSplitter(2);
+    const destMerger = ctx.createChannelMerger(2);
+    this.masterAnalyser.connect(masterSplit);
+    this.cueBus.connect(cueSplit);
+    masterSplit.connect(destMerger, 0, 0);
+    cueSplit.connect(destMerger, 0, 1);
+    destMerger.connect(this.splitGate);
+    this.splitGate.connect(destination);
+
     this.output = destination;
     this.setCrossfader(0.5);
   }
@@ -51,6 +99,22 @@ export class Mixer {
     const { a, b } = equalPower(x);
     this.xfaderA.gain.value = a;
     this.xfaderB.gain.value = b;
+  }
+
+  setPfl(id: string, on: boolean): void {
+    this.channels[id]?.setPfl(on);
+  }
+
+  setCueMix(v: number): void {
+    this.cueMix = Math.max(0, Math.min(1, v));
+    this.masterHpGain.gain.value = 1 - this.cueMix;
+    this.cueHpGain.gain.value = this.cueMix;
+  }
+
+  setSplitCue(on: boolean): void {
+    this.splitCue = on;
+    this.stereoGate.gain.value = on ? 0 : 1;
+    this.splitGate.gain.value = on ? 1 : 0;
   }
 
   applySolo(): void {

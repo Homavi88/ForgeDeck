@@ -8,6 +8,8 @@
 | FX / analog IR | `effects/*`, `analog.ts`, `EffectChain.ts` |
 | Чтобы bounce звучал как live | те же классы + `offlineRender.ts` + `stripState.ts` |
 | Кнопка на деке / mixer | `components/dj/*`, стейт в `useStudio.ts` |
+| CDJ-клавиши | `frontend/src/lib/djHotkeys.ts` (только mode=dj) |
+| PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor` |
 | Сохранить новое поле проекта | graph в `useStudio.save`, типы в `types/index.ts`, при необходимости `project_graph.py` |
 | REST endpoint | `backend/app/api/*.py`, схема в `schemas.py`, owner check через `require_*` |
 | Stem split | только `app/services/stems.py` (API и Celery его зовут) |

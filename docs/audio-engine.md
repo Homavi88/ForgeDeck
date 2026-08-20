@@ -9,8 +9,11 @@ Deck A/B ─┐
 Drums ────┼─► Mixer channels ─► xfader A/B ─► master ChannelStrip ─► Limiter ─► dest
 Synth ────┘         │
                     ChannelStrip:
-                    trim → EQ3 → Filter → EffectChain → duck → mute → vol → pan → analyser
+                    trim → EQ3 → Filter → EffectChain → duck ┬→ mute → vol → pan → analyser → out
+                                                             └→ pflOut (PFL/CUE, до mute)
 ```
+
+PFL: `pflOut` каналов A/B → `cueBus`. Headphones: mix master analyser + cue bus (`cueMix` 0=master … 1=cue) → `MediaStreamAudioDestinationNode` (только realtime `AudioContext`, не Offline bounce). Split cue: L=master, R=cue на основном `destination`.
 
 `EffectChain` (порядок фиксирован):
 
@@ -57,6 +60,6 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 | `TimelineEngine` | arrange clips |
 | `AutomationEngine` | filter/EQ/volume lanes |
 | `LiveRecorder` | MediaRecorder с master |
-| `midiMap.ts` | CC learn, localStorage |
+| `midiMap.ts` | Pioneer-ish CC map по умолчанию, learn, localStorage |
 
 `ChannelStrip` / FX принимают `BaseAudioContext`, чтобы тот же код жил в OfflineAudioContext.

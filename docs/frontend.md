@@ -18,40 +18,42 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 ## Состояние студии
 
-`frontend/src/store/useStudio.ts` — единственный store сессии: project, library, decks, mixer, drums, notes, clips, AI chat, queue, collab overlays.
+`frontend/src/store/useStudio.ts` — единственный store сессии: project, library, decks, mixer, drums, notes, clips, AI chat, queue, collab overlays, toasts, PFL, layout (AI/library/fullscreen).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
-Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S.
+Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S; успешный save даёт тост «Saved».
 
 Undo/redo: снимки в `history` / `future` (не весь engine).
 
 Auth token: `localStorage` через `api/client.ts`; `decodeUrl` подставляет Bearer, иначе стемы/файлы 401.
 
+Layout AI/library: `localStorage` ключ `fd_layout`.
+
 ## Компоненты по режимам
 
 `StudioPage` переключает `mode`:
 
-- `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser`
+- `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
 - `session` — `SessionPanel` (8 сцен)
 - `arrange` — `TimelinePanel`
 - `drums` — `DrumMachinePanel`
 - `synth` — `SynthPanel` + piano roll
 - `sampler` — `SamplerPanel`
 
-Справа всегда `AIPanel`. Сверху `TopBar` (BPM, Rec, Bounce, MIDI, mic).
+`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys). `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
+
+DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Camelot-соседи: `frontend/src/lib/camelot.ts` (как `harmony.compatible_camelot`). Drag трека: `lib/trackDrag.ts`.
 
 ## Коллаб
 
 Хук `useProjectSync(projectId)` открывает WS и шлёт `state` при изменении bpm/mixer/drums/…. Входящий state не эхается (`applying` ref). Edit lock: кнопки на деке и drum grid.
 
-## Клавиатура сейчас
+## Клавиатура
 
-- Space — play/pause (не в input)
-- Ctrl/Cmd+S — save
-- Ctrl/Cmd+Z / Shift+Z — undo/redo
+См. таблицу в [studio.md](studio.md). Space / Ctrl+S / undo работают во всех режимах; CDJ-клавиши — только DJ.
 
-Остальное — мышь (см. [roadmap.md](roadmap.md)).
+MIDI по умолчанию — карта **Pioneer-ish** (`midiMap.ts` `DEFAULT_MIDI` + backend seed `Pioneer-ish`).
 
 ## Сборка
 

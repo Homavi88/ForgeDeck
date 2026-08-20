@@ -3,14 +3,18 @@ import { useParams } from "react-router-dom";
 import { getEngine } from "../audio-engine/AudioEngine";
 import { TimelinePanel } from "../components/arrange/TimelinePanel";
 import { DeckPanel } from "../components/dj/DeckPanel";
+import { HeadphonesMonitor } from "../components/dj/HeadphonesMonitor";
+import { KeymapHelp } from "../components/dj/KeymapHelp";
 import { LibraryBrowser } from "../components/dj/LibraryBrowser";
 import { MixerPanel } from "../components/dj/MixerPanel";
 import { DrumMachinePanel } from "../components/drums/DrumMachinePanel";
 import { AIPanel } from "../components/layout/AIPanel";
+import { ToastHost } from "../components/layout/ToastHost";
 import { TopBar } from "../components/layout/TopBar";
 import { SamplerPanel } from "../components/sampler/SamplerPanel";
 import { SessionPanel } from "../components/session/SessionPanel";
 import { SynthPanel } from "../components/synth/SynthPanel";
+import { handleDjHotkey } from "../lib/djHotkeys";
 import { useProjectSync } from "../store/useProjectSync";
 import { useStudio } from "../store/useStudio";
 
@@ -39,6 +43,12 @@ export default function StudioPage() {
     crossfader,
     sidechain,
     deckFiles,
+    keyLock,
+    trackView,
+    pitchRange,
+    aiPanelOpen,
+    libraryOpen,
+    decksFullscreen,
   } = useStudio();
   useProjectSync(id);
   const saveArmed = useRef(false);
@@ -79,6 +89,9 @@ export default function StudioPage() {
     crossfader,
     sidechain,
     deckFiles,
+    keyLock,
+    trackView,
+    pitchRange,
   ]);
 
   useEffect(() => {
@@ -97,15 +110,26 @@ export default function StudioPage() {
     };
     window.addEventListener("pointerdown", unlock);
     const keys = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const st = useStudio.getState();
+        if (st.keymapOpen) {
+          useStudio.setState({ keymapOpen: false });
+          return;
+        }
+        if (st.decksFullscreen) st.toggleDecksFullscreen();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
+        return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         void useStudio.getState().save();
+        return;
       }
+      if (handleDjHotkey(e)) return;
       if (e.code === "Space") {
         const tag = (e.target as HTMLElement | null)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
@@ -120,8 +144,14 @@ export default function StudioPage() {
     };
   }, [bootAudio, undo, redo]);
 
+  const showAi = aiPanelOpen && !decksFullscreen;
+  const showLib = libraryOpen && !decksFullscreen && mode === "dj";
+
   return (
     <div className="h-full flex flex-col bg-ink-950">
+      <HeadphonesMonitor />
+      <ToastHost />
+      <KeymapHelp />
       <TopBar />
       {error && <div className="bg-danger/20 text-danger text-xs px-3 py-1">{error}</div>}
       {loading && <div className="text-xs text-zinc-500 px-3 py-1">Loading project…</div>}
@@ -134,7 +164,7 @@ export default function StudioPage() {
                 <MixerPanel />
                 <DeckPanel side="B" />
               </div>
-              <LibraryBrowser />
+              {showLib && <LibraryBrowser />}
             </>
           )}
           {mode === "session" && <SessionPanel />}
@@ -143,7 +173,7 @@ export default function StudioPage() {
           {mode === "arrange" && <TimelinePanel />}
           {mode === "sampler" && <SamplerPanel />}
         </div>
-        <AIPanel />
+        {showAi && <AIPanel />}
       </div>
     </div>
   );

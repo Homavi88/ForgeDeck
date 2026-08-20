@@ -30,6 +30,27 @@ type Snapshot = {
   automation: AutomationLaneState[];
 };
 
+export type Toast = { id: string; kind: "ok" | "info" | "warn" | "err"; text: string; ttl?: number };
+export type PitchRange = 8 | 16 | 100;
+export type TrackView = { zoom?: number; keyLock?: boolean; pitchRange?: PitchRange };
+
+const LAYOUT_KEY = "fd_layout";
+
+function loadLayout(): { aiPanelOpen: boolean; libraryOpen: boolean } {
+  try {
+    const raw = localStorage.getItem(LAYOUT_KEY);
+    if (!raw) return { aiPanelOpen: true, libraryOpen: true };
+    const p = JSON.parse(raw) as { aiPanelOpen?: boolean; libraryOpen?: boolean };
+    return { aiPanelOpen: p.aiPanelOpen !== false, libraryOpen: p.libraryOpen !== false };
+  } catch {
+    return { aiPanelOpen: true, libraryOpen: true };
+  }
+}
+
+function persistLayout(aiPanelOpen: boolean, libraryOpen: boolean): void {
+  localStorage.setItem(LAYOUT_KEY, JSON.stringify({ aiPanelOpen, libraryOpen }));
+}
+
 interface StudioState {
   project: ProjectDetail | null;
   mode: StudioMode;
@@ -94,6 +115,34 @@ interface StudioState {
   removeFromQueue: (index: number) => void;
   playQueueItem: (index: number, side?: "A" | "B") => Promise<void>;
   advanceQueue: (side: "A" | "B") => Promise<void>;
+  focusDeck: "A" | "B";
+  pfl: { A: boolean; B: boolean };
+  cueMix: number;
+  splitCue: boolean;
+  headphoneDeviceId: string | null;
+  toasts: Toast[];
+  aiPanelOpen: boolean;
+  libraryOpen: boolean;
+  decksFullscreen: boolean;
+  keymapOpen: boolean;
+  trackView: Record<string, TrackView>;
+  pitchRange: { A: PitchRange; B: PitchRange };
+  deckZoom: { A: number; B: number };
+  lastSavedAt: number | null;
+  pushToast: (t: Omit<Toast, "id"> & { id?: string }) => void;
+  dismissToast: (id: string) => void;
+  setPfl: (side: "A" | "B", on: boolean) => void;
+  setCueMix: (v: number) => void;
+  setSplitCue: (on: boolean) => void;
+  setKeyLock: (side: "A" | "B", on: boolean) => void;
+  setDeckZoom: (side: "A" | "B", zoom: number) => void;
+  setPitchRange: (side: "A" | "B", range: PitchRange) => void;
+  rememberTrackView: (fileId: string, patch: TrackView) => void;
+  loadCrateToFocused: (delta: number) => Promise<void>;
+  tapTempo: () => void;
+  toggleAiPanel: () => void;
+  toggleLibrary: () => void;
+  toggleDecksFullscreen: () => void;
 }
 
 const channelState = (): MixerStripState => ({
@@ -142,6 +191,9 @@ function snapOf(s: Omit<Snapshot, never> & Partial<StudioState>): Snapshot {
 }
 
 let audioWired = false;
+let tapTimes: number[] = [];
+const toastTimers = new Map<string, number>();
+const layout0 = loadLayout();
 
 export const useStudio = create<StudioState>((set, get) => ({
   project: null,
@@ -193,6 +245,20 @@ export const useStudio = create<StudioState>((set, get) => ({
   aiBusy: false,
   history: [],
   future: [],
+  focusDeck: "A",
+  pfl: { A: false, B: false },
+  cueMix: 1,
+  splitCue: false,
+  headphoneDeviceId: null,
+  toasts: [],
+  aiPanelOpen: layout0.aiPanelOpen,
+  libraryOpen: layout0.libraryOpen,
+  decksFullscreen: false,
+  keymapOpen: false,
+  trackView: {},
+  pitchRange: { A: 8, B: 8 },
+  deckZoom: { A: 1, B: 1 },
+  lastSavedAt: null,
 
   setMode: (mode) => {
     const eng = getEngine();
@@ -343,6 +409,14 @@ export const useStudio = create<StudioState>((set, get) => ({
       next.queue = qids.map((qid) => library.find((f) => f.id === qid)).filter(Boolean) as AudioFile[];
       next.queueIndex = typeof g.queueIndex === "number" ? (g.queueIndex as number) : 0;
       next.keyLock = { A: !!deckIds.A?.keyLock, B: !!deckIds.B?.keyLock };
+      next.trackView = (g.trackView as Record<string, TrackView>) || {};
+      const pr = g.pitchRange as { A?: PitchRange; B?: PitchRange } | undefined;
+      next.pitchRange = { A: pr?.A === 16 || pr?.A === 100 ? pr.A : 8, B: pr?.B === 16 || pr?.B === 100 ? pr.B : 8 };
+      const layout = g.layout as { aiPanelOpen?: boolean; libraryOpen?: boolean } | undefined;
+      if (layout) {
+        next.aiPanelOpen = layout.aiPanelOpen !== false;
+        next.libraryOpen = layout.libraryOpen !== false;
+      }
       set(next as StudioState);
       getEngine().transport.bpm = project.bpm;
       if (fileA) {
@@ -394,6 +468,9 @@ export const useStudio = create<StudioState>((set, get) => ({
             A: { audioFileId: s.deckFiles.A?.id ?? null, keyLock: s.keyLock.A },
             B: { audioFileId: s.deckFiles.B?.id ?? null, keyLock: s.keyLock.B },
           },
+          trackView: s.trackView,
+          pitchRange: s.pitchRange,
+          layout: { aiPanelOpen: s.aiPanelOpen, libraryOpen: s.libraryOpen },
         },
       });
       if (s.project.id) {
@@ -405,31 +482,71 @@ export const useStudio = create<StudioState>((set, get) => ({
           steps: s.drumSteps,
         }).catch(() => undefined);
       }
-      set({ saving: false });
+      set({ saving: false, lastSavedAt: Date.now() });
+      get().pushToast({ id: "save", kind: "ok", text: "Saved", ttl: 1400 });
     } catch (err) {
       set({ saving: false, error: err instanceof Error ? err.message : "Save failed" });
+      get().pushToast({ id: "save", kind: "err", text: err instanceof Error ? err.message : "Save failed", ttl: 4000 });
     }
   },
 
   loadToDeck: async (side, file) => {
     await get().bootAudio();
     await getEngine().loadDeck(side, file.id, file.analysis?.beats || []);
-    set({ deckFiles: { ...get().deckFiles, [side]: file } });
+    const view = get().trackView[file.id];
+    const keyLock = view?.keyLock ?? get().keyLock[side];
+    const zoom = view?.zoom ?? 1;
+    const pitchRange = view?.pitchRange ?? get().pitchRange[side];
+    getEngine().decks[side].setKeyLock(keyLock);
+    set({
+      deckFiles: { ...get().deckFiles, [side]: file },
+      keyLock: { ...get().keyLock, [side]: keyLock },
+      deckZoom: { ...get().deckZoom, [side]: zoom },
+      pitchRange: { ...get().pitchRange, [side]: pitchRange },
+      focusDeck: side,
+    });
   },
 
   uploadFiles: async (files) => {
     set({ loading: true, error: null });
+    const n = Array.from(files).length;
+    get().pushToast({ id: "upload", kind: "info", text: `Uploading ${n} file${n === 1 ? "" : "s"}…`, ttl: 2500 });
+    const wasReady = new Set(get().library.filter((f) => f.analysis_status === "ready").map((f) => f.id));
     try {
       for (const file of Array.from(files)) await api.audio.upload(file);
       await get().refreshLibrary();
       set({ loading: false });
-      for (let i = 0; i < 8; i++) {
+      get().pushToast({ id: "upload", kind: "ok", text: "Upload complete — analyzing…", ttl: 2200 });
+      for (let i = 0; i < 12; i++) {
         await new Promise((r) => setTimeout(r, 700));
         await get().refreshLibrary();
+        for (const f of get().library) {
+          if (f.analysis_status === "ready" && !wasReady.has(f.id) && f.analysis) {
+            wasReady.add(f.id);
+            const bpm = f.analysis.bpm ? `${f.analysis.bpm.toFixed(1)} BPM` : "BPM";
+            const cam = f.analysis.camelot ? ` · ${f.analysis.camelot}` : "";
+            get().pushToast({
+              id: `an-${f.id}`,
+              kind: "ok",
+              text: `Analysis ready: ${f.original_filename} · ${bpm}${cam}`,
+              ttl: 4200,
+            });
+          }
+          if (f.analysis_status === "error" && !wasReady.has(f.id)) {
+            wasReady.add(f.id);
+            get().pushToast({
+              id: `an-${f.id}`,
+              kind: "err",
+              text: `Analysis failed: ${f.original_filename}`,
+              ttl: 5000,
+            });
+          }
+        }
         if (get().library.every((f) => f.analysis_status === "ready" || f.analysis_status === "error")) break;
       }
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : "Upload failed" });
+      get().pushToast({ id: "upload", kind: "err", text: err instanceof Error ? err.message : "Upload failed", ttl: 4000 });
     }
   },
 
@@ -608,6 +725,146 @@ export const useStudio = create<StudioState>((set, get) => ({
     }
     await get().playQueueItem(next, side);
   },
+
+  pushToast: (t) => {
+    const id = t.id || crypto.randomUUID();
+    const ttl = t.ttl ?? 2800;
+    const toast: Toast = { kind: t.kind, text: t.text, id, ttl };
+    const prev = toastTimers.get(id);
+    if (prev) window.clearTimeout(prev);
+    set({ toasts: [...get().toasts.filter((x) => x.id !== id), toast] });
+    if (ttl > 0) {
+      toastTimers.set(
+        id,
+        window.setTimeout(() => {
+          toastTimers.delete(id);
+          set({ toasts: get().toasts.filter((x) => x.id !== id) });
+        }, ttl),
+      );
+    }
+  },
+
+  dismissToast: (id) => {
+    const prev = toastTimers.get(id);
+    if (prev) window.clearTimeout(prev);
+    toastTimers.delete(id);
+    set({ toasts: get().toasts.filter((x) => x.id !== id) });
+  },
+
+  setPfl: (side, on) => {
+    getEngine().mixer.setPfl(side, on);
+    const pfl = { ...get().pfl, [side]: on };
+    set({ pfl });
+    if (on && !get().headphoneDeviceId && !get().splitCue) {
+      get().pushToast({
+        id: "pfl-hint",
+        kind: "info",
+        text: "PFL on — pick a headphone device or enable Split cue (L master / R cue)",
+        ttl: 4500,
+      });
+    }
+  },
+
+  setCueMix: (v) => {
+    getEngine().mixer.setCueMix(v);
+    set({ cueMix: v });
+  },
+
+  setSplitCue: (on) => {
+    getEngine().mixer.setSplitCue(on);
+    set({ splitCue: on });
+  },
+
+  setKeyLock: (side, on) => {
+    getEngine().decks[side].setKeyLock(on);
+    set({ keyLock: { ...get().keyLock, [side]: on } });
+    const file = get().deckFiles[side];
+    if (file) get().rememberTrackView(file.id, { keyLock: on });
+  },
+
+  setDeckZoom: (side, zoom) => {
+    set({ deckZoom: { ...get().deckZoom, [side]: zoom } });
+    const file = get().deckFiles[side];
+    if (file) get().rememberTrackView(file.id, { zoom });
+  },
+
+  setPitchRange: (side, range) => {
+    set({ pitchRange: { ...get().pitchRange, [side]: range } });
+    const file = get().deckFiles[side];
+    if (file) get().rememberTrackView(file.id, { pitchRange: range });
+    const pitch = getEngine().decks[side].pitch;
+    if (Math.abs(pitch) > range) getEngine().decks[side].setPitch(Math.max(-range, Math.min(range, pitch)));
+  },
+
+  rememberTrackView: (fileId, patch) => {
+    const cur = get().trackView[fileId] || {};
+    set({ trackView: { ...get().trackView, [fileId]: { ...cur, ...patch } } });
+  },
+
+  loadCrateToFocused: async (delta) => {
+    const s = get();
+    const side = s.focusDeck;
+    if (s.queue.length) {
+      let next = s.queueIndex + delta;
+      if (next < 0) next = s.queue.length - 1;
+      if (next >= s.queue.length) next = 0;
+      const file = s.queue[next];
+      if (!file) return;
+      set({ queueIndex: next });
+      await s.loadToDeck(side, file);
+      get().pushToast({ id: "load", kind: "info", text: `Loaded ${file.original_filename} → ${side}`, ttl: 1800 });
+      return;
+    }
+    if (!s.library.length) return;
+    const cur = s.deckFiles[side]?.id;
+    const i = s.library.findIndex((f) => f.id === cur);
+    const base = i < 0 ? (delta > 0 ? -1 : s.library.length) : i;
+    let next = base + delta;
+    if (next < 0) next = s.library.length - 1;
+    if (next >= s.library.length) next = 0;
+    const file = s.library[next];
+    await s.loadToDeck(side, file);
+    get().pushToast({ id: "load", kind: "info", text: `Loaded ${file.original_filename} → ${side}`, ttl: 1800 });
+  },
+
+  tapTempo: () => {
+    const now = performance.now();
+    tapTimes = tapTimes.filter((t) => now - t < 2200);
+    tapTimes.push(now);
+    if (tapTimes.length < 2) {
+      get().pushToast({ id: "tap", kind: "info", text: "Tap tempo…", ttl: 900 });
+      return;
+    }
+    const spans = tapTimes.slice(1).map((t, i) => t - tapTimes[i]);
+    const avg = spans.reduce((a, b) => a + b, 0) / spans.length;
+    const bpm = Math.min(240, Math.max(60, Math.round((60000 / avg) * 10) / 10));
+    get().setBpm(bpm);
+    const side = get().focusDeck;
+    const file = get().deckFiles[side];
+    if (file?.analysis?.bpm) getEngine().decks[side].syncToBpm(file.analysis.bpm, bpm);
+    get().pushToast({ id: "tap", kind: "ok", text: `Tap ${bpm.toFixed(1)} BPM`, ttl: 1600 });
+  },
+
+  toggleAiPanel: () => {
+    const aiPanelOpen = !get().aiPanelOpen;
+    set({ aiPanelOpen, decksFullscreen: false });
+    persistLayout(aiPanelOpen, get().libraryOpen);
+  },
+
+  toggleLibrary: () => {
+    const libraryOpen = !get().libraryOpen;
+    set({ libraryOpen, decksFullscreen: false });
+    persistLayout(get().aiPanelOpen, libraryOpen);
+  },
+
+  toggleDecksFullscreen: () => {
+    const on = !get().decksFullscreen;
+    if (on) set({ decksFullscreen: true, aiPanelOpen: false, libraryOpen: false });
+    else {
+      const l = loadLayout();
+      set({ decksFullscreen: false, aiPanelOpen: l.aiPanelOpen, libraryOpen: l.libraryOpen });
+    }
+  },
 }));
 
 function hydrateEngine(s: StudioState): void {
@@ -622,6 +879,10 @@ function hydrateEngine(s: StudioState): void {
   eng.timeline.clips = s.clips;
   eng.mixer.sidechain = s.sidechain;
   eng.mixer.setCrossfader(s.crossfader);
+  eng.mixer.setCueMix(s.cueMix);
+  eng.mixer.setSplitCue(s.splitCue);
+  eng.mixer.setPfl("A", s.pfl.A);
+  eng.mixer.setPfl("B", s.pfl.B);
   eng.arrangeMode = s.mode === "arrange";
   for (const lane of s.automation) eng.automation.setLane(lane.target, lane.points);
   for (const id of Object.keys(s.mixer)) {

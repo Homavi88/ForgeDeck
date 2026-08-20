@@ -68,17 +68,29 @@ export function Waveform({
   duration,
   onSeek,
   color = "#ff6a00",
+  zoom: zoomProp,
+  onZoomChange,
 }: {
   analysis: AudioAnalysis | null | undefined;
   position: number;
   duration: number;
   onSeek: (t: number) => void;
   color?: string;
+  zoom?: number;
+  onZoomChange?: (z: number) => void;
 }) {
   const overviewRef = useRef<HTMLCanvasElement>(null);
   const detailRef = useRef<HTMLCanvasElement>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoomLocal, setZoomLocal] = useState(zoomProp ?? 1);
   const [viewStart, setViewStart] = useState(0);
+  const zoom = zoomProp ?? zoomLocal;
+  const setZoom = (z: number) => {
+    setZoomLocal(z);
+    onZoomChange?.(z);
+  };
+  useEffect(() => {
+    if (zoomProp != null) setZoomLocal(zoomProp);
+  }, [zoomProp]);
   const dur = Math.max(duration, 0.001);
   const windowLen = dur / zoom;
   const start = Math.min(viewStart, Math.max(0, dur - windowLen));

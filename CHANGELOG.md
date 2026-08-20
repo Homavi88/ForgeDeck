@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- UI на русском и английском: переключатель RU/EN в шапке (Shell) и в студии (TopBar); язык в `localStorage` (`fd_locale`), иначе `navigator.language` `ru*` → ru, иначе en
 - macOS `setup.command`: ищет Node в Homebrew/nvm/fnm/volta; если нет — ставит через `brew install node` (двойной клик из Finder не видит `~/.zshrc`)
 - Внутренние docs перенесены в `.cursor/docs/` (не на GitHub-лендинге); агент читает их по `docs-sync` правилу
 - DJ: CDJ-клавиатура (focus A/B, cue, hotcue 1–4, loop, beat jump, crate load, sync, PFL, tap tempo)

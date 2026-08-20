@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { t, useI18n } from "../../i18n";
 import { compatibleCamelot } from "../../lib/camelot";
 import { setTrackDrag } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
@@ -11,6 +12,7 @@ export function LibraryBrowser() {
     useStudio();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
+  useI18n((s) => s.locale);
   const deckA = deckFiles.A?.analysis;
   const neighbors = deckA?.camelot ? compatibleCamelot(deckA.camelot) : null;
 
@@ -38,11 +40,11 @@ export function LibraryBrowser() {
       }}
     >
       <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-        <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">Library — drop files or drag a track onto a deck</div>
+        <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">{t("library.title")}</div>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name / BPM / Camelot"
+          placeholder={t("library.search")}
           className="flex-1 min-w-[12rem] max-w-xs bg-ink-800 border border-line rounded px-2 py-1 text-xs"
         />
         <select
@@ -50,10 +52,10 @@ export function LibraryBrowser() {
           onChange={(e) => setSort(e.target.value as SortKey)}
           className="bg-ink-800 border border-line rounded px-2 py-1 text-[10px] uppercase"
         >
-          <option value="recent">Recent</option>
-          <option value="name">Name</option>
-          <option value="bpm">BPM</option>
-          <option value="camelot">Camelot</option>
+          <option value="recent">{t("library.recent")}</option>
+          <option value="name">{t("library.name")}</option>
+          <option value="bpm">{t("library.bpm")}</option>
+          <option value="camelot">{t("library.camelot")}</option>
         </select>
         <label className="flex items-center gap-1 text-[10px] uppercase text-zinc-400">
           <input
@@ -61,10 +63,10 @@ export function LibraryBrowser() {
             checked={autoAdvance}
             onChange={(e) => useStudio.setState({ autoAdvance: e.target.checked })}
           />
-          Auto-advance crate
+          {t("library.autoAdvance")}
         </label>
         <label className="text-[10px] uppercase bg-ink-700 px-2 py-1 rounded cursor-pointer">
-          Upload
+          {t("library.upload")}
           <input
             type="file"
             accept="audio/*,.mp3,.wav,.aiff,.flac,.ogg"
@@ -74,10 +76,10 @@ export function LibraryBrowser() {
           />
         </label>
       </div>
-      {loading && <div className="text-xs text-zinc-500">Working…</div>}
+      {loading && <div className="text-xs text-zinc-500">{t("library.working")}</div>}
       {neighbors && (
         <div className="text-[10px] text-mint mb-1">
-          Compatible with Deck A ({deckA?.camelot}): mint border · same number ±1 / relative major-minor
+          {t("library.compatible", { camelot: deckA?.camelot ?? "" })}
         </div>
       )}
       <div className="grid grid-cols-12 gap-2">
@@ -104,7 +106,7 @@ export function LibraryBrowser() {
                     B
                   </button>
                   <button className="px-1 bg-ink-700 rounded" onClick={() => addToQueue(file)}>
-                    +crate
+                    {t("library.crateAdd")}
                   </button>
                 </div>
               </div>
@@ -112,9 +114,9 @@ export function LibraryBrowser() {
           })}
         </div>
         <div className="col-span-4 bg-ink-800 border border-line rounded p-2">
-          <div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-1">Crate / queue · drag onto a deck · N loads next</div>
+          <div className="text-[10px] tracking-[0.2em] uppercase text-zinc-500 mb-1">{t("library.crate")}</div>
           {queue.length === 0 && (
-            <div className="text-[11px] text-zinc-600">Add tracks with +crate. When a deck ends, the next song loads.</div>
+            <div className="text-[11px] text-zinc-600">{t("library.crateEmpty")}</div>
           )}
           <ol className="space-y-1">
             {queue.map((file, i) => (

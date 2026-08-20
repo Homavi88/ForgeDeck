@@ -14,6 +14,7 @@ import { TopBar } from "../components/layout/TopBar";
 import { SamplerPanel } from "../components/sampler/SamplerPanel";
 import { SessionPanel } from "../components/session/SessionPanel";
 import { SynthPanel } from "../components/synth/SynthPanel";
+import { t, useI18n } from "../i18n";
 import { handleDjHotkey } from "../lib/djHotkeys";
 import { useProjectSync } from "../store/useProjectSync";
 import { useStudio } from "../store/useStudio";
@@ -50,6 +51,7 @@ export default function StudioPage() {
     libraryOpen,
     decksFullscreen,
   } = useStudio();
+  useI18n((s) => s.locale);
   useProjectSync(id);
   const saveArmed = useRef(false);
 
@@ -154,7 +156,7 @@ export default function StudioPage() {
       <KeymapHelp />
       <TopBar />
       {error && <div className="bg-danger/20 text-danger text-xs px-3 py-1">{error}</div>}
-      {loading && <div className="text-xs text-zinc-500 px-3 py-1">Loading project…</div>}
+      {loading && <div className="text-xs text-zinc-500 px-3 py-1">{t("studio.loading")}</div>}
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-w-0">
           {mode === "dj" && (

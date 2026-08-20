@@ -8,6 +8,7 @@
 | FX / analog IR | `effects/*`, `analog.ts`, `EffectChain.ts` |
 | Чтобы bounce звучал как live | те же классы + `offlineRender.ts` + `stripState.ts` |
 | Кнопка на деке / mixer | `components/dj/*`, стейт в `useStudio.ts` |
+| Подпись в UI (EN/RU) | `frontend/src/i18n/en.ts` + `ru.ts`, в компоненте `t("…")` и `useI18n((s) => s.locale)` |
 | CDJ-клавиши | `frontend/src/lib/djHotkeys.ts` (только mode=dj) |
 | PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor` |
 | Сохранить новое поле проекта | graph в `useStudio.save`, типы в `types/index.ts`, при необходимости `project_graph.py` |

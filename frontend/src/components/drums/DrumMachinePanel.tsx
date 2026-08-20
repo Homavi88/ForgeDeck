@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { PAD_IDS } from "../../audio-engine/DrumMachine";
+import { t, useI18n } from "../../i18n";
 import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
 import { useStudio } from "../../store/useStudio";
 
@@ -13,6 +14,7 @@ export function DrumMachinePanel() {
   const mine = lock?.clientId === getCollabId();
   const [kits, setKits] = useState<Array<{ id: string; name: string; pads: unknown[] }>>([]);
   const [kitName, setKitName] = useState("808 Core");
+  useI18n((s) => s.locale);
 
   useEffect(() => {
     void api.presets.kits().then(setKits).catch(() => undefined);
@@ -25,7 +27,7 @@ export function DrumMachinePanel() {
           className={`text-xs px-2 py-1 rounded ${mine ? "bg-accent text-black" : "bg-ink-700"}`}
           onClick={() => sendCollab({ type: mine ? "unlock" : "lock", resource: "drums", name: collabName() })}
         >
-          {blocked ? `Locked by ${lock.name}` : mine ? "Unlock drums" : "Lock drums"}
+          {blocked ? t("drums.lockedBy", { name: lock.name }) : mine ? t("drums.unlock") : t("drums.lock")}
         </button>
         <button
           className="text-xs bg-ink-700 px-2 py-1 rounded"
@@ -41,7 +43,7 @@ export function DrumMachinePanel() {
             });
           }}
         >
-          Save pattern
+          {t("drums.savePattern")}
         </button>
         <input
           className="w-28 bg-ink-800 border border-line rounded px-2 py-1 text-xs"
@@ -58,7 +60,7 @@ export function DrumMachinePanel() {
             setKits(await api.presets.kits());
           }}
         >
-          Save kit
+          {t("drums.saveKit")}
         </button>
         <select
           className="bg-ink-800 border border-line rounded px-2 py-1 text-xs"
@@ -68,7 +70,7 @@ export function DrumMachinePanel() {
             if (kit) setKitName(kit.name);
           }}
         >
-          <option value="">Load kit…</option>
+          <option value="">{t("drums.loadKit")}</option>
           {kits.map((k) => (
             <option key={k.id} value={k.id}>
               {k.name}
@@ -76,7 +78,7 @@ export function DrumMachinePanel() {
           ))}
         </select>
         <label className="text-xs text-zinc-400">
-          Steps
+          {t("drums.steps")}
           <select
             className="ml-2 bg-ink-800 border border-line rounded px-2 py-1"
             value={drumLength}
@@ -92,7 +94,7 @@ export function DrumMachinePanel() {
           </select>
         </label>
         <label className="text-xs text-zinc-400 flex items-center gap-2">
-          Swing
+          {t("drums.swing")}
           <input
             type="range"
             min={0}

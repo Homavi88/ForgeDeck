@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { Shell } from "../components/layout/Shell";
+import { t, useI18n } from "../i18n";
 import { useStudio } from "../store/useStudio";
 
 export default function LibraryPage() {
   const { library, refreshLibrary, uploadFiles, loading } = useStudio();
+  useI18n((s) => s.locale);
 
   useEffect(() => {
     void refreshLibrary();
@@ -20,13 +22,13 @@ export default function LibraryPage() {
         }}
       >
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">Library</h1>
+          <h1 className="text-2xl font-semibold">{t("libraryPage.title")}</h1>
           <label className="px-3 py-2 rounded bg-accent text-black text-sm font-semibold cursor-pointer">
-            Upload
+            {t("libraryPage.upload")}
             <input type="file" hidden multiple accept="audio/*" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />
           </label>
         </div>
-        {loading && <p className="text-zinc-500 text-sm">Uploading / analyzing…</p>}
+        {loading && <p className="text-zinc-500 text-sm">{t("libraryPage.working")}</p>}
         <div className="grid grid-cols-2 gap-3">
           {library.map((f) => (
             <div key={f.id} className="border border-line rounded p-3 bg-ink-800">

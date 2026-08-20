@@ -1,20 +1,21 @@
 import { useState } from "react";
+import { t, useI18n } from "../../i18n";
 import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
 import { useStudio } from "../../store/useStudio";
 
 const QUICK = [
-  { label: "Analyze this track", msg: "Analyze this track and suggest cues" },
-  { label: "Create DJ transition", msg: "Create a DJ transition between decks" },
-  { label: "Compatible tracks", msg: "Suggest compatible tracks by BPM and Camelot" },
-  { label: "Make drum pattern", msg: "Make a house drum pattern" },
-  { label: "Bassline", msg: "Create a bassline in the project key" },
-  { label: "Melody", msg: "Create a melody in the project key" },
-  { label: "Chords", msg: "Create a chord progression" },
-  { label: "Suggest mix settings", msg: "Suggest mix settings and gain staging" },
-  { label: "Generate arrangement", msg: "Generate arrangement structure intro buildup drop" },
-  { label: "Create synth preset", msg: "Create a dark bass synth preset" },
-  { label: "Split stems", msg: "Separate stems from this track" },
-];
+  { label: "ai.qAnalyze", msg: "ai.qAnalyzeM" },
+  { label: "ai.qTrans", msg: "ai.qTransM" },
+  { label: "ai.qComp", msg: "ai.qCompM" },
+  { label: "ai.qDrum", msg: "ai.qDrumM" },
+  { label: "ai.qBass", msg: "ai.qBassM" },
+  { label: "ai.qMel", msg: "ai.qMelM" },
+  { label: "ai.qChords", msg: "ai.qChordsM" },
+  { label: "ai.qArr", msg: "ai.qArrM" },
+  { label: "ai.qMix", msg: "ai.qMixM" },
+  { label: "ai.qSynth", msg: "ai.qSynthM" },
+  { label: "ai.qStems", msg: "ai.qStemsM" },
+] as const;
 
 export function AIPanel() {
   const { chat, chatAI, aiBusy, pendingActions, applyAI, rejectAI, compatible, loadToDeck, library, peers, roomChat, locks } =
@@ -22,30 +23,31 @@ export function AIPanel() {
   const [text, setText] = useState("");
   const [tab, setTab] = useState<"ai" | "room">("ai");
   const [roomText, setRoomText] = useState("");
+  useI18n((s) => s.locale);
 
   return (
     <aside className="w-[320px] border-l border-line bg-ink-900 flex flex-col min-h-0">
       <div className="px-3 py-2 border-b border-line flex gap-2 text-[10px] tracking-[0.25em] uppercase">
         <button className={tab === "ai" ? "text-cyan" : "text-zinc-500"} onClick={() => setTab("ai")}>
-          AI Producer
+          {t("ai.producer")}
         </button>
         <button className={tab === "room" ? "text-cyan" : "text-zinc-500"} onClick={() => setTab("room")}>
-          Room {peers.length ? `(${peers.length})` : ""}
+          {t("ai.room")} {peers.length ? `(${peers.length})` : ""}
         </button>
       </div>
       {tab === "room" ? (
         <>
           <div className="p-3 border-b border-line text-xs space-y-1">
-            <div className="text-[10px] uppercase tracking-wider text-zinc-500">On decks</div>
-            {peers.length === 0 && <div className="text-zinc-600">Only you here</div>}
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500">{t("ai.onDecks")}</div>
+            {peers.length === 0 && <div className="text-zinc-600">{t("ai.onlyYou")}</div>}
             {peers.map((p) => (
               <div key={p.clientId} className="flex justify-between text-zinc-300">
                 <span>{p.name}</span>
                 <span className="text-accent">{p.deck ? `Deck ${p.deck}` : "—"}</span>
               </div>
             ))}
-            <div className="text-[10px] uppercase tracking-wider text-zinc-500 pt-2">Locks</div>
-            {Object.keys(locks).length === 0 && <div className="text-zinc-600">No exclusive edits</div>}
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500 pt-2">{t("ai.locks")}</div>
+            {Object.keys(locks).length === 0 && <div className="text-zinc-600">{t("ai.noLocks")}</div>}
             {Object.entries(locks).map(([res, owner]) => (
               <div key={res} className="text-zinc-400">
                 {res} → {owner.name}
@@ -79,10 +81,10 @@ export function AIPanel() {
             <input
               value={roomText}
               onChange={(e) => setRoomText(e.target.value)}
-              placeholder="Room chat…"
+              placeholder={t("ai.roomPh")}
               className="flex-1 bg-ink-800 border border-line rounded px-2 py-1.5 text-sm"
             />
-            <button className="px-3 rounded bg-accent text-black text-xs font-semibold">Send</button>
+            <button className="px-3 rounded bg-accent text-black text-xs font-semibold">{t("ai.send")}</button>
           </form>
         </>
       ) : (
@@ -91,36 +93,42 @@ export function AIPanel() {
         {QUICK.map((q) => (
           <button
             key={q.label}
-            onClick={() => void chatAI(q.msg)}
+            onClick={() => void chatAI(t(q.msg))}
             className="text-[10px] px-2 py-1 rounded bg-ink-700 hover:bg-ink-600 text-zinc-300"
           >
-            {q.label}
+            {t(q.label)}
           </button>
         ))}
       </div>
       <div className="flex-1 overflow-auto p-3 space-y-3 text-sm">
+        {chat.length === 0 && (
+          <div className="text-zinc-400">
+            <div className="text-[10px] uppercase tracking-wider mb-1 text-accent">{t("ai.assistant")}</div>
+            {t("ai.greeting")}
+          </div>
+        )}
         {chat.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-zinc-200" : "text-zinc-400"}>
             <div className="text-[10px] uppercase tracking-wider mb-1 text-accent">
-              {m.role === "user" ? "You" : "Producer"}
+              {m.role === "user" ? t("ai.you") : t("ai.assistant")}
             </div>
             {m.content}
           </div>
         ))}
-        {aiBusy && <div className="text-xs text-zinc-500 animate-pulse">Thinking…</div>}
+        {aiBusy && <div className="text-xs text-zinc-500 animate-pulse">{t("ai.thinking")}</div>}
         {compatible.length > 0 && (
           <div className="border border-line rounded p-2">
-            <div className="text-[10px] uppercase tracking-wider text-cyan mb-1">Compatible</div>
-            {compatible.map((t) => (
+            <div className="text-[10px] uppercase tracking-wider text-cyan mb-1">{t("ai.compatible")}</div>
+            {compatible.map((track) => (
               <button
-                key={t.id}
+                key={track.id}
                 className="block w-full text-left text-xs py-1 text-zinc-300 hover:text-white"
                 onClick={() => {
-                  const file = library.find((f) => f.id === t.id);
+                  const file = library.find((f) => f.id === track.id);
                   if (file) void loadToDeck("B", file);
                 }}
               >
-                {(t.original_filename || t.name) as string} · {t.bpm} · {t.key}
+                {(track.original_filename || track.name) as string} · {track.bpm} · {track.key}
               </button>
             ))}
           </div>
@@ -128,7 +136,7 @@ export function AIPanel() {
       </div>
       {pendingActions.length > 0 && (
         <div className="border-t border-line p-3 bg-ink-800">
-          <div className="text-[10px] uppercase tracking-wider text-warn mb-2">Preview actions</div>
+          <div className="text-[10px] uppercase tracking-wider text-warn mb-2">{t("ai.preview")}</div>
           <ul className="text-xs space-y-1 max-h-32 overflow-auto font-mono text-zinc-400">
             {pendingActions.map((a, i) => (
               <li key={i}>{a.type}</li>
@@ -136,10 +144,10 @@ export function AIPanel() {
           </ul>
           <div className="flex gap-2 mt-2">
             <button onClick={() => void applyAI()} className="flex-1 bg-mint text-black text-xs py-1.5 rounded font-semibold">
-              Apply
+              {t("ai.apply")}
             </button>
             <button onClick={rejectAI} className="flex-1 bg-ink-700 text-xs py-1.5 rounded">
-              Reject
+              {t("ai.reject")}
             </button>
           </div>
         </div>
@@ -156,10 +164,10 @@ export function AIPanel() {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Ask the producer…"
+          placeholder={t("ai.askPh")}
           className="flex-1 bg-ink-800 border border-line rounded px-2 py-1.5 text-sm"
         />
-        <button className="px-3 rounded bg-accent text-black text-xs font-semibold">Send</button>
+        <button className="px-3 rounded bg-accent text-black text-xs font-semibold">{t("ai.send")}</button>
       </form>
         </>
       )}

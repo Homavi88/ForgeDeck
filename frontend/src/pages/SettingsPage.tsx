@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { Shell } from "../components/layout/Shell";
 import { getEngine } from "../audio-engine/AudioEngine";
 import { DEFAULT_MIDI, MIDI_TARGETS, persistMidiBindings, type MidiBindings } from "../audio-engine/midiMap";
+import { t, useI18n } from "../i18n";
 import { useStudio } from "../store/useStudio";
 
 type FxPreset = { id: string; name: string; effect_type: string; params: Record<string, number> };
@@ -15,13 +16,14 @@ export default function SettingsPage() {
   const [midiMsg, setMidiMsg] = useState<string>("");
   const [learnTarget, setLearnTarget] = useState<string>("master.volume");
   const [status, setStatus] = useState<string | null>(null);
+  useI18n((s) => s.locale);
 
   const refresh = async () => {
     try {
       setFx(await api.presets.effects());
       setMaps(await api.presets.midi());
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Failed to load presets");
+      setStatus(err instanceof Error ? err.message : t("settings.loadFailed"));
     }
   };
 
@@ -38,17 +40,12 @@ export default function SettingsPage() {
     <Shell>
       <div className="max-w-3xl mx-auto p-8 space-y-8">
         <div>
-          <h1 className="text-2xl font-semibold">Settings</h1>
-          <p className="text-zinc-400 text-sm mt-2">
-            JWT login is at <code className="text-accent">/login</code>. Demo account:{" "}
-            <code className="text-accent">producer@forgedeck.local</code> / <code className="text-accent">demo</code>{" "}
-            when <code>REQUIRE_AUTH=false</code>. Realtime audio stays in the browser. Optional S3, Demucs, and OpenAI
-            keys live in <code className="text-accent">.env</code>.
-          </p>
+          <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
+          <p className="text-zinc-400 text-sm mt-2">{t("settings.intro")}</p>
         </div>
 
         <section className="space-y-3">
-          <h2 className="text-sm uppercase tracking-widest text-zinc-500">FX presets</h2>
+          <h2 className="text-sm uppercase tracking-widest text-zinc-500">{t("settings.fx")}</h2>
           <div className="flex flex-wrap gap-2">
             {fx.map((p) => (
               <button
@@ -63,7 +60,7 @@ export default function SettingsPage() {
                     const cur = useStudio.getState().mixer.A;
                     useStudio.getState().applyMixerChannel("A", { fx: { ...cur.fx, [k]: v } });
                   }
-                  setStatus(`Applied ${p.name}`);
+                  setStatus(t("settings.applied", { name: p.name }));
                 }}
               >
                 {p.name}
@@ -73,18 +70,18 @@ export default function SettingsPage() {
           <button
             className="text-[10px] uppercase tracking-wider text-zinc-500"
             onClick={async () => {
-              const name = prompt("Preset name", "My FX") || "My FX";
+              const name = prompt(t("settings.fxName"), "My FX") || "My FX";
               const fxState = useStudio.getState().mixer.A.fx;
               await api.presets.saveEffect(name, fxState);
               await refresh();
             }}
           >
-            Save current FX
+            {t("settings.saveFx")}
           </button>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm uppercase tracking-widest text-zinc-500">MIDI map (Pioneer-ish out of the box)</h2>
+          <h2 className="text-sm uppercase tracking-widest text-zinc-500">{t("settings.midi")}</h2>
           <div className="flex flex-wrap gap-2 items-center">
             <button
               className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold"
@@ -94,45 +91,45 @@ export default function SettingsPage() {
                 setMidiMsg(msg);
               }}
             >
-              Enable MIDI
+              {t("settings.enableMidi")}
             </button>
             <select
               className="bg-ink-800 border border-line rounded px-2 py-1 text-sm"
               value={learnTarget}
               onChange={(e) => setLearnTarget(e.target.value)}
             >
-              {MIDI_TARGETS.map((t) => (
-                <option key={t}>{t}</option>
+              {MIDI_TARGETS.map((target) => (
+                <option key={target}>{target}</option>
               ))}
             </select>
             <button
               className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider"
               onClick={() => {
-                setMidiMsg(`Move a knob to learn ${learnTarget}`);
+                setMidiMsg(t("settings.learnHint", { target: learnTarget }));
                 getEngine().armMidiLearn((kind, number) => {
                   const next = structuredClone(bindings);
                   if (kind === "cc") next.cc[String(number)] = learnTarget;
                   else next.notes[String(number)] = learnTarget;
                   applyBindings(next);
-                  setMidiMsg(`Learned ${kind} ${number} → ${learnTarget}`);
+                  setMidiMsg(t("settings.learned", { kind, number, target: learnTarget }));
                 });
               }}
             >
-              Learn
+              {t("settings.learn")}
             </button>
             <button
               className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider"
               onClick={() => applyBindings(structuredClone(DEFAULT_MIDI))}
             >
-              Reset map
+              {t("settings.resetMap")}
             </button>
             {midiMsg && <span className="text-xs text-mint">{midiMsg}</span>}
           </div>
           <table className="w-full text-xs">
             <thead className="text-zinc-500 uppercase tracking-wider">
               <tr>
-                <th className="text-left py-1">CC</th>
-                <th className="text-left">Target</th>
+                <th className="text-left py-1">{t("settings.cc")}</th>
+                <th className="text-left">{t("settings.target")}</th>
               </tr>
             </thead>
             <tbody>
@@ -149,8 +146,8 @@ export default function SettingsPage() {
                         applyBindings(next);
                       }}
                     >
-                      {MIDI_TARGETS.map((t) => (
-                        <option key={t}>{t}</option>
+                      {MIDI_TARGETS.map((opt) => (
+                        <option key={opt}>{opt}</option>
                       ))}
                     </select>
                   </td>
@@ -162,14 +159,14 @@ export default function SettingsPage() {
             <button
               className="text-[10px] uppercase tracking-wider text-zinc-500"
               onClick={async () => {
-                const name = prompt("Map name", "My controller") || "My controller";
+                const name = prompt(t("settings.mapName"), "My controller") || "My controller";
                 await api.presets.saveMidi(name, bindings);
                 persistMidiBindings(bindings);
                 await refresh();
-                setStatus("MIDI map saved");
+                setStatus(t("settings.midiSaved"));
               }}
             >
-              Save map
+              {t("settings.saveMap")}
             </button>
             {maps.map((m) => (
               <button
@@ -180,7 +177,7 @@ export default function SettingsPage() {
                     cc: { ...DEFAULT_MIDI.cc, ...(m.bindings?.cc || {}) },
                     notes: { ...DEFAULT_MIDI.notes, ...(m.bindings?.notes || {}) },
                   });
-                  setStatus(`Loaded ${m.name}`);
+                  setStatus(t("settings.loaded", { name: m.name }));
                 }}
               >
                 {m.name}
@@ -191,10 +188,10 @@ export default function SettingsPage() {
 
         {status && <p className="text-sm text-mint">{status}</p>}
         <ul className="text-sm text-zinc-500 list-disc pl-5 space-y-1">
-          <li>Backend docs: http://localhost:8000/docs</li>
-          <li>Health: http://localhost:8000/api/health</li>
-          <li>Stems: GPU Demucs (CUDA/MPS) if torch+demucs are installed, else CPU Demucs, else HPSS.</li>
-          <li>Key lock is Rubber Band WASM (CDJ master tempo). WSOLA only if WASM fails to load.</li>
+          <li>{t("settings.tipDocs")}</li>
+          <li>{t("settings.tipHealth")}</li>
+          <li>{t("settings.tipStems")}</li>
+          <li>{t("settings.tipKeylock")}</li>
         </ul>
       </div>
     </Shell>

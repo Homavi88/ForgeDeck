@@ -1,9 +1,11 @@
 import { useRef } from "react";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { t, useI18n } from "../../i18n";
 
 /** Vinyl platter: drag vertically to scratch, wheel to nudge. */
 export function Platter({ side }: { side: "A" | "B" }) {
   const lastY = useRef<number | null>(null);
+  useI18n((s) => s.locale);
   const deck = () => getEngine().decks[side];
 
   return (
@@ -29,7 +31,7 @@ export function Platter({ side }: { side: "A" | "B" }) {
         e.preventDefault();
         deck().scratch(e.deltaY * 0.0008);
       }}
-      title="Scratch platter"
+      title={t("wave.scratch")}
     />
   );
 }

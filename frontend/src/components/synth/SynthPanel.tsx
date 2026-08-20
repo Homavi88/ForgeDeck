@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { OSC_TYPES } from "../../audio-engine/demo";
+import { t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 import { PianoRollPanel } from "./PianoRollPanel";
 import type { OscType } from "../../types";
@@ -10,7 +11,8 @@ const START = 48;
 
 export function SynthPanel() {
   const synth = useStudio((s) => s.synth);
-  const [midiMsg, setMidiMsg] = useState("MIDI off");
+  const [midiMsg, setMidiMsg] = useState("");
+  useI18n((s) => s.locale);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -42,7 +44,7 @@ export function SynthPanel() {
   return (
     <div className="flex-1 p-4 overflow-auto flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">Subtractive Synth</div>
+        <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">{t("synth.title")}</div>
         <button
           className="text-xs bg-ink-700 px-2 py-1 rounded"
           onClick={async () => {
@@ -51,22 +53,22 @@ export function SynthPanel() {
             setMidiMsg(msg);
           }}
         >
-          Enable MIDI
+          {t("synth.enableMidi")}
         </button>
-        <span className="text-xs text-zinc-500">{midiMsg}</span>
+        <span className="text-xs text-zinc-500">{midiMsg || t("synth.midiOff")}</span>
         <label className="text-xs text-zinc-400 flex items-center gap-1">
           <input type="checkbox" checked={synth.poly} onChange={(e) => patch({ poly: e.target.checked })} />
-          Poly
+          {t("synth.poly")}
         </label>
       </div>
       <div className="flex gap-2">
-        {OSC_TYPES.map((t) => (
+        {OSC_TYPES.map((osc) => (
           <button
-            key={t}
-            onClick={() => patch({ oscType: t as OscType })}
-            className={`px-3 py-1 rounded text-xs uppercase ${synth.oscType === t ? "bg-accent text-black" : "bg-ink-700"}`}
+            key={osc}
+            onClick={() => patch({ oscType: osc as OscType })}
+            className={`px-3 py-1 rounded text-xs uppercase ${synth.oscType === osc ? "bg-accent text-black" : "bg-ink-700"}`}
           >
-            {t}
+            {osc}
           </button>
         ))}
       </div>
@@ -99,7 +101,7 @@ export function SynthPanel() {
         ))}
       </div>
       <Keyboard />
-      <p className="text-xs text-zinc-500">Keys A S D F G H J K · MIDI: notes, pads 36–51, CC7 master</p>
+      <p className="text-xs text-zinc-500">{t("synth.hint")}</p>
       <button
         className="self-start text-xs bg-ink-700 px-2 py-1 rounded"
         onClick={async () => {
@@ -109,7 +111,7 @@ export function SynthPanel() {
           await api.projects.saveSynth(p.id, "Current", synth as unknown as Record<string, unknown>);
         }}
       >
-        Save preset
+        {t("synth.save")}
       </button>
       <PianoRollPanel />
     </div>

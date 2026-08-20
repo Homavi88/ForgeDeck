@@ -16,7 +16,7 @@
 
 **Sampler** — trim/reverse/loop/pitch, slice to pads, split stems.
 
-Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек прячутся кнопками в TopBar (`Hide AI` / `Hide lib` / `Decks`).
+Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек прячутся кнопками в TopBar (`Hide AI` / `Hide lib` / `Decks`). Язык **RU/EN** переключается в TopBar (студия) и в шапке Shell (остальные страницы); выбор пишется в `fd_locale`.
 
 ## Library
 

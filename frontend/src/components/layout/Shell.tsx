@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
+import { LanguageSelect, t, useI18n } from "../../i18n";
 import { currentUser, logout, type AuthUser } from "../../store/auth";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const nav = useNavigate();
+  useI18n((s) => s.locale);
 
   useEffect(() => {
     setUser(currentUser());
@@ -18,16 +20,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </Link>
         <nav className="flex gap-4 text-sm text-zinc-400">
           <NavLink to="/projects" className={({ isActive }) => (isActive ? "text-white" : "hover:text-white")}>
-            Projects
+            {t("nav.projects")}
           </NavLink>
           <NavLink to="/library" className={({ isActive }) => (isActive ? "text-white" : "hover:text-white")}>
-            Library
+            {t("nav.library")}
           </NavLink>
           <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-white" : "hover:text-white")}>
-            Settings
+            {t("nav.settings")}
           </NavLink>
         </nav>
         <div className="flex-1" />
+        <LanguageSelect compact />
         {user ? (
           <div className="flex items-center gap-3 text-xs text-zinc-400">
             <span className="hidden sm:inline">{user.name}</span>
@@ -39,12 +42,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 nav("/login");
               }}
             >
-              Log out
+              {t("nav.logOut")}
             </button>
           </div>
         ) : (
           <Link to="/login" className="text-xs uppercase tracking-wider text-zinc-400 hover:text-white">
-            Sign in
+            {t("nav.signIn")}
           </Link>
         )}
       </header>

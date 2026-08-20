@@ -1,20 +1,22 @@
 import { MixerPanel } from "../dj/MixerPanel";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 import type { TimelineClip } from "../../types";
 
-const TRACKS = [
-  { id: "drums", name: "Drums", color: "#ff6a00" },
-  { id: "synth", name: "Synth", color: "#3dfff3" },
-  { id: "deckA", name: "Deck A", color: "#3dff7a" },
-  { id: "deckB", name: "Deck B", color: "#ffd23f" },
-];
+const TRACK_IDS = [
+  { id: "drums", nameKey: "session.drums", color: "#ff6a00" },
+  { id: "synth", nameKey: "session.synth", color: "#3dfff3" },
+  { id: "deckA", nameKey: "session.deckA", color: "#3dff7a" },
+  { id: "deckB", nameKey: "session.deckB", color: "#ffd23f" },
+] as const;
 
 const PX = 28;
 
 export function TimelinePanel() {
   const { clips, bpm, currentStep } = useStudio();
   const playhead = (currentStep / 16) * PX * 4;
+  useI18n((s) => s.locale);
 
   const move = (id: string, startBar: number) => {
     const next = clips.map((c) => (c.id === id ? { ...c, startBar: Math.max(0, startBar) } : c));
@@ -31,7 +33,7 @@ export function TimelinePanel() {
   return (
     <div className="flex-1 p-3 overflow-auto">
       <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500 mb-2">
-        Arrangement · {bpm} BPM · snap to bars
+        {t("arrange.title", { bpm })}
       </div>
       <div className="relative min-w-[1200px]">
         <div className="flex text-[9px] text-zinc-600 mb-1 ml-24">
@@ -41,9 +43,9 @@ export function TimelinePanel() {
             </div>
           ))}
         </div>
-        {TRACKS.map((tr) => (
+        {TRACK_IDS.map((tr) => (
           <div key={tr.id} className="flex h-14 border-b border-line relative">
-            <div className="w-24 shrink-0 text-xs pt-2 text-zinc-400">{tr.name}</div>
+            <div className="w-24 shrink-0 text-xs pt-2 text-zinc-400">{t(tr.nameKey)}</div>
             <div className="flex-1 relative bg-ink-900">
               {clips
                 .filter((c) => c.trackId === tr.id)
@@ -62,7 +64,7 @@ export function TimelinePanel() {
             const clip: TimelineClip = {
               id: crypto.randomUUID(),
               trackId: "synth",
-              name: "Clip",
+              name: t("arrange.clip"),
               startBar: 0,
               lengthBars: 4,
               color: "#3dfff3",
@@ -70,9 +72,9 @@ export function TimelinePanel() {
             useStudio.setState({ clips: [...clips, clip] });
           }}
         >
-          Add clip
+          {t("arrange.addClip")}
         </button>
-        <p className="text-xs text-zinc-500">Drag clips · double-click to split at playhead bar</p>
+        <p className="text-xs text-zinc-500">{t("arrange.hint")}</p>
       </div>
       <AutomationLanes />
       <div className="mt-4">
@@ -84,8 +86,9 @@ export function TimelinePanel() {
 
 function AutomationLanes() {
   const automation = useStudio((s) => s.automation);
+  useI18n((s) => s.locale);
   if (!automation.length) {
-    return <p className="text-xs text-zinc-600 mt-3">Automation lanes appear here after AI Apply (filter/EQ/volume).</p>;
+    return <p className="text-xs text-zinc-600 mt-3">{t("arrange.autoEmpty")}</p>;
   }
   return (
     <div className="mt-4 space-y-2">

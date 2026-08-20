@@ -1,4 +1,5 @@
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 
 const LOW = 36;
@@ -7,13 +8,14 @@ const COLS = 16;
 
 export function PianoRollPanel() {
   const { notes, drumLength, currentStep, pushUndo } = useStudio();
+  useI18n((s) => s.locale);
   const rows = [];
   for (let p = HIGH; p >= LOW; p--) rows.push(p);
 
   return (
     <div className="flex-1 p-3 overflow-auto">
       <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500 mb-2">
-        Piano roll · click to toggle · loop {drumLength} steps
+        {t("piano.title", { n: drumLength })}
       </div>
       <div className="inline-block border border-line">
         {rows.map((pitch) => (

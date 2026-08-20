@@ -1,23 +1,25 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 
 const FX = ["delay", "reverb", "flanger", "distortion", "bitcrush"] as const;
 
 export function MixerPanel() {
   const { mixer, levels, masterLevel, crossfader, sidechain, cueMix, splitCue } = useStudio();
+  useI18n((s) => s.locale);
 
   return (
     <section className="w-[300px] shrink-0 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-3 shadow-panel overflow-auto">
-      <div className="text-[10px] tracking-[0.3em] uppercase text-zinc-500 text-center">Mixer</div>
+      <div className="text-[10px] tracking-[0.3em] uppercase text-zinc-500 text-center">{t("mixer.title")}</div>
       <div className="flex gap-2">
         <Strip id="A" label="A" level={levels.A} />
         <Strip id="B" label="B" level={levels.B} />
       </div>
       <HeadphonesSection cueMix={cueMix} splitCue={splitCue} />
       <label className="text-[10px] uppercase tracking-wider text-zinc-500">
-        Crossfader
+        {t("mixer.crossfader")}
         <input
           type="range"
           min={0}
@@ -35,7 +37,7 @@ export function MixerPanel() {
       <div className="flex gap-3 items-end justify-center">
         <Vu level={masterLevel} />
         <label className="text-[10px] uppercase tracking-wider text-zinc-500">
-          Master
+          {t("mixer.master")}
           <input
             type="range"
             min={0}
@@ -58,13 +60,13 @@ export function MixerPanel() {
             useStudio.setState({ sidechain: e.target.checked });
           }}
         />
-        Sidechain duck
+        {t("mixer.sidechain")}
       </label>
       <button
         className="text-[10px] uppercase tracking-wider bg-ink-700 rounded py-1 hover:bg-ink-600"
         onClick={() => useStudio.getState().tapTempo()}
       >
-        Tap tempo
+        {t("mixer.tap")}
       </button>
       <FxPresetBar />
       <div className="grid grid-cols-2 gap-1">
@@ -100,6 +102,7 @@ export function MixerPanel() {
 }
 
 function FxPresetBar() {
+  useI18n((s) => s.locale);
   const [list, setList] = useState<Array<{ id: string; name: string; params: Record<string, number> }>>([]);
   useEffect(() => {
     void api.presets
@@ -110,7 +113,7 @@ function FxPresetBar() {
   if (!list.length) return null;
   return (
     <label className="text-[9px] uppercase text-zinc-500">
-      FX preset
+      {t("mixer.fxPreset")}
       <select
         className="w-full bg-ink-900 border border-line rounded px-1 py-1 mt-1 text-[10px]"
         defaultValue=""
@@ -150,6 +153,7 @@ function FxPresetBar() {
 function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: number }) {
   const ch = () => getEngine().mixer.channels[id];
   const state = useStudio((s) => s.mixer[id]);
+  useI18n((s) => s.locale);
   const patch = (partial: Partial<typeof state>) => {
     useStudio.setState({ mixer: { ...useStudio.getState().mixer, [id]: { ...state, ...partial } } });
   };
@@ -160,7 +164,7 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
       <Vu level={level} />
       {(["low", "mid", "high"] as const).map((band, i) => (
         <label key={band} className="text-[9px] uppercase text-zinc-500 w-full text-center">
-          {band}
+{t(`mixer.${band}`)}
           <input
             type="range"
             min={-12}
@@ -178,7 +182,7 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
         </label>
       ))}
       <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
-        Filter
+        {t("mixer.filter")}
         <input
           type="range"
           min={-1}
@@ -194,7 +198,7 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
         />
       </label>
       <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
-        Gain
+        {t("mixer.gain")}
         <input
           type="range"
           min={-12}
@@ -239,7 +243,7 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
         <PflButton id={id} />
       </div>
       <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
-        Pan
+        {t("mixer.pan")}
         <input
           type="range"
           min={-1}
@@ -256,13 +260,14 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
 
 function PflButton({ id }: { id: "A" | "B" }) {
   const on = useStudio((s) => s.pfl[id]);
+  useI18n((s) => s.locale);
   return (
     <button
       className={`text-[9px] px-1 rounded ${on ? "bg-mint text-black" : "bg-ink-700"}`}
-      title="Pre-fader listen"
+      title={t("mixer.pflTitle")}
       onClick={() => useStudio.getState().setPfl(id, !on)}
     >
-      CUE
+      {t("mixer.cue")}
     </button>
   );
 }
@@ -270,11 +275,12 @@ function PflButton({ id }: { id: "A" | "B" }) {
 function HeadphonesSection({ cueMix, splitCue }: { cueMix: number; splitCue: boolean }) {
   const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
   const deviceId = useStudio((s) => s.headphoneDeviceId);
+  useI18n((s) => s.locale);
   return (
     <div className="border border-line rounded p-2 space-y-2">
-      <div className="text-[9px] uppercase tracking-wider text-zinc-500">Headphones / PFL</div>
+      <div className="text-[9px] uppercase tracking-wider text-zinc-500">{t("mixer.hp")}</div>
       <label className="text-[9px] uppercase text-zinc-500 w-full">
-        Cue mix {cueMix < 0.5 ? "master" : "cue"}
+        {cueMix < 0.5 ? t("mixer.cueMixMaster") : t("mixer.cueMixCue")}
         <input
           type="range"
           min={0}
@@ -291,7 +297,7 @@ function HeadphonesSection({ cueMix, splitCue }: { cueMix: number; splitCue: boo
           checked={splitCue}
           onChange={(e) => useStudio.getState().setSplitCue(e.target.checked)}
         />
-        Split cue (L master / R cue)
+        {t("mixer.split")}
       </label>
       <button
         className="text-[9px] uppercase text-zinc-400"
@@ -300,7 +306,7 @@ function HeadphonesSection({ cueMix, splitCue }: { cueMix: number; splitCue: boo
           setOutputs(await getEngine().listAudioOutputs());
         }}
       >
-        {outputs.length ? "Refresh outputs" : "List headphone devices"}
+        {outputs.length ? t("mixer.refreshOut") : t("mixer.listOut")}
       </button>
       {outputs.length > 0 && (
         <select
@@ -315,7 +321,7 @@ function HeadphonesSection({ cueMix, splitCue }: { cueMix: number; splitCue: boo
             }
           }}
         >
-          <option value="">Default output</option>
+          <option value="">{t("mixer.defaultOut")}</option>
           {outputs.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
               {d.label || d.deviceId.slice(0, 12)}

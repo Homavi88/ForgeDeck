@@ -30,6 +30,14 @@ Auth token: `localStorage` через `api/client.ts`; `decodeUrl` подста�
 
 Layout AI/library: `localStorage` ключ `fd_layout`.
 
+## Язык (i18n)
+
+`frontend/src/i18n/` — словари `en.ts` (тип `Dict`) и `ru.ts`. Zustand `useI18n` + `t(path, vars)`. Компоненты подписываются на `useI18n((s) => s.locale)`, чтобы смена языка перерисовала UI.
+
+Переключатель `LanguageSelect`: в `Shell` (маркетинг / projects / library / settings / login) и в `TopBar` (студия без Shell). На `/share/:token` тоже. Сохранение: `localStorage` ключ `fd_locale`. Если нет сохранённого: `navigator.language` начинается с `ru` → `ru`, иначе `en`. Имя продукта **ForgeDeck** не переводится. DJ-термины (Cue, Play, PFL, BPM, Camelot) в русском словаре оставлены где привычнее.
+
+Тосты и ошибки в `useStudio` зовут `t()` в момент показа (i18n не импортирует store). Пустой AI-чат: `AIPanel` показывает `t("ai.greeting")`.
+
 ## Компоненты по режимам
 
 `StudioPage` переключает `mode`:
@@ -41,7 +49,7 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 - `synth` — `SynthPanel` + piano roll
 - `sampler` — `SamplerPanel`
 
-`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys). `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
+`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys, **язык RU/EN**). `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
 
 DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Camelot-соседи: `frontend/src/lib/camelot.ts` (как `harmony.compatible_camelot`). Drag трека: `lib/trackDrag.ts`.
 

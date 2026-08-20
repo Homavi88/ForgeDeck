@@ -168,12 +168,9 @@ def list_cues(audio: AudioFile = Depends(require_audio), db: Session = Depends(g
 
 @router.post("/{audio_id}/stems")
 def split_stems(audio: AudioFile = Depends(require_audio), db: Session = Depends(get_db)):
-    from app.services.stems import hpss_stems
-    from workers.tasks.stems import _try_demucs
+    from app.services.stems import separate_stems
 
-    demucs = _try_demucs(Path(audio.path), Path(audio.path).parent / "stems")
-    paths = demucs or hpss_stems(audio.path)
-    engine = "demucs" if demucs else "hpss"
+    paths, engine = separate_stems(audio.path)
     analysis = dict(audio.analysis or {})
     analysis["stems"] = paths
     analysis["stems_engine"] = engine

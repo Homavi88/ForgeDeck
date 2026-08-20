@@ -3,7 +3,7 @@ export class CompressorFx {
   input: DynamicsCompressorNode;
   output: DynamicsCompressorNode;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.node = ctx.createDynamicsCompressor();
     this.node.threshold.value = -18;
     this.node.knee.value = 8;
@@ -20,7 +20,7 @@ export class LimiterFx {
   input: DynamicsCompressorNode;
   output: DynamicsCompressorNode;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.node = ctx.createDynamicsCompressor();
     // Brickwall-ish master limiter.
     this.node.threshold.value = -1.0;

@@ -1,9 +1,11 @@
-/** Bounce the live engine graph (decks + drums + synth + timeline) through OfflineAudioContext. */
+/** Bounce 1:1: same ChannelStrip / analog+convolution FX / limiter graph as the live mixer. */
 import { getEngine } from "./AudioEngine";
+import { Mixer } from "./Mixer";
 import { PAD_IDS } from "./DrumMachine";
 import { midiToFreq } from "./demo";
-import { equalPower, impulseResponse } from "./utils";
-import type { MixerStripState, MidiNote, SynthParams, TimelineClip } from "../types";
+import { applyKeyLock, createKeyLockNode } from "./rubberband";
+import { applyStripState, snapshotStrip } from "./stripState";
+import type { MidiNote, SynthParams, TimelineClip } from "../types";
 import { useStudio } from "../store/useStudio";
 
 export async function renderOfflineWav(): Promise<Blob> {
@@ -16,10 +18,19 @@ export async function renderOfflineWav(): Promise<Blob> {
   const stepSec = barSec / 16;
 
   let seconds = 8;
-  const deckA = eng.decks.A.buffer;
-  const deckB = eng.decks.B.buffer;
-  if (deckA) seconds = Math.max(seconds, deckA.duration);
-  if (deckB) seconds = Math.max(seconds, deckB.duration);
+  const cover = (duration: number, rate: number) => {
+    seconds = Math.max(seconds, duration / Math.max(0.05, rate));
+  };
+  for (const side of ["A", "B"] as const) {
+    const deck = eng.decks[side];
+    if (eng.stemsActive[side]) {
+      for (const d of Object.values(eng.stemDecks[side])) {
+        if (d.buffer) cover(d.buffer.duration, d.rate);
+      }
+    } else if (deck.buffer) {
+      cover(deck.buffer.duration, deck.rate);
+    }
+  }
   for (const clip of s.clips) {
     seconds = Math.max(seconds, (clip.startBar + clip.lengthBars) * barSec);
   }
@@ -32,46 +43,16 @@ export async function renderOfflineWav(): Promise<Blob> {
 
   const length = Math.max(1, Math.floor(sr * seconds));
   const offline = new OfflineAudioContext(2, length, sr);
-  const master = offline.createGain();
-  master.gain.value = eng.mixer.master.volume.gain.value;
-  master.connect(offline.destination);
+  const mixer = new Mixer(offline, offline.destination);
+  await mixer.ready();
 
-  const xf = equalPower(s.crossfader);
-  const anySolo = Object.values(s.mixer).some((ch) => ch.solo);
-
-  const connectStrip = (state: MixerStripState | undefined, xfGain = 1): GainNode => {
-    const input = offline.createGain();
-    if (!state || state.mute || (anySolo && !state.solo)) {
-      input.gain.value = 0;
-      input.connect(master);
-      return input;
-    }
-    const vol = offline.createGain();
-    vol.gain.value = (state.volume ?? 0.85) * xfGain;
-    const pan = offline.createStereoPanner();
-    pan.pan.value = state.pan ?? 0;
-    const low = offline.createBiquadFilter();
-    low.type = "lowshelf";
-    low.frequency.value = 220;
-    low.gain.value = state.eq?.[0] ?? 0;
-    const mid = offline.createBiquadFilter();
-    mid.type = "peaking";
-    mid.frequency.value = 1000;
-    mid.Q.value = 0.9;
-    mid.gain.value = state.eq?.[1] ?? 0;
-    const high = offline.createBiquadFilter();
-    high.type = "highshelf";
-    high.frequency.value = 4200;
-    high.gain.value = state.eq?.[2] ?? 0;
-    input.connect(low).connect(mid).connect(high).connect(vol).connect(pan);
-    attachBounceFx(offline, pan, master, state);
-    return input;
-  };
-
-  const inA = connectStrip(s.mixer.A, xf.a);
-  const inB = connectStrip(s.mixer.B, xf.b);
-  const inDrums = connectStrip(s.mixer.drums);
-  const inSynth = connectStrip(s.mixer.synth);
+  for (const id of ["A", "B", "drums", "synth"] as const) {
+    applyStripState(mixer.channels[id], snapshotStrip(eng.mixer.channels[id]));
+  }
+  applyStripState(mixer.master, snapshotStrip(eng.mixer.master));
+  mixer.setCrossfader(eng.mixer.crossfader);
+  mixer.sidechain = eng.mixer.sidechain;
+  mixer.applySolo();
 
   const transplant = (buf: AudioBuffer): AudioBuffer => {
     const copy = offline.createBuffer(buf.numberOfChannels, buf.length, sr);
@@ -81,17 +62,43 @@ export async function renderOfflineWav(): Promise<Blob> {
     return copy;
   };
 
-  if (deckA) {
+  const feed = async (
+    buf: AudioBuffer | null,
+    dest: AudioNode,
+    rate: number,
+    keyLock: boolean,
+    when = 0,
+  ): Promise<void> => {
+    if (!buf) return;
     const src = offline.createBufferSource();
-    src.buffer = transplant(deckA);
-    src.connect(inA);
-    src.start(0);
-  }
-  if (deckB) {
-    const src = offline.createBufferSource();
-    src.buffer = transplant(deckB);
-    src.connect(inB);
-    src.start(0);
+    src.buffer = transplant(buf);
+    if (keyLock) {
+      const rb = await createKeyLockNode(offline);
+      if (rb) {
+        src.playbackRate.value = rate;
+        src.connect(rb);
+        rb.connect(dest);
+        applyKeyLock(rb, rate);
+        src.start(when);
+        return;
+      }
+    }
+    src.playbackRate.value = rate;
+    src.connect(dest);
+    src.start(when);
+  };
+
+  for (const side of ["A", "B"] as const) {
+    const dest = mixer.channels[side].input;
+    const master = eng.decks[side];
+    if (eng.stemsActive[side]) {
+      for (const [name, d] of Object.entries(eng.stemDecks[side])) {
+        if (s.stemMute[name]) continue;
+        await feed(d.buffer, dest, master.rate, master.keyLock);
+      }
+    } else {
+      await feed(master.buffer, dest, master.rate, master.keyLock);
+    }
   }
 
   if (hasDrums) {
@@ -116,55 +123,21 @@ export async function renderOfflineWav(): Promise<Blob> {
         src.buffer = transplant(pad);
         const g = offline.createGain();
         g.gain.value = vel;
-        src.connect(g).connect(inDrums);
+        src.connect(g).connect(mixer.channels.drums.input);
         src.start(when);
+        if (id === "kick" || id === "kick2") mixer.duckFromKick(when);
       }
     }
   }
 
-  scheduleSynth(offline, inSynth, s.notes, s.synth, s.clips, s.mode, stepSec, seconds);
-  scheduleTimelineAudio(offline, inA, inB, s.clips, barSec, (id) => {
+  scheduleSynth(offline, mixer.channels.synth.input, s.notes, s.synth, s.clips, s.mode, stepSec, seconds);
+  await scheduleTimelineAudio(offline, mixer.channels.A.input, mixer.channels.B.input, s.clips, barSec, (id) => {
     const live = eng.buffers.get(id);
     return live ? transplant(live) : null;
   });
 
   const rendered = await offline.startRendering();
   return encodeWav(rendered);
-}
-
-function attachBounceFx(
-  offline: OfflineAudioContext,
-  source: AudioNode,
-  dest: AudioNode,
-  state: MixerStripState | undefined,
-): void {
-  const delayWet = state?.fx?.delay ?? 0;
-  const reverbWet = state?.fx?.reverb ?? 0;
-  if (delayWet <= 0.001 && reverbWet <= 0.001) {
-    source.connect(dest);
-    return;
-  }
-  const dry = offline.createGain();
-  dry.gain.value = 1 - Math.max(delayWet, reverbWet) * 0.45;
-  source.connect(dry).connect(dest);
-  if (delayWet > 0.001) {
-    const delay = offline.createDelay(2);
-    delay.delayTime.value = 0.375;
-    const fb = offline.createGain();
-    fb.gain.value = 0.35;
-    const wet = offline.createGain();
-    wet.gain.value = delayWet;
-    source.connect(delay);
-    delay.connect(fb).connect(delay);
-    delay.connect(wet).connect(dest);
-  }
-  if (reverbWet > 0.001) {
-    const conv = offline.createConvolver();
-    conv.buffer = impulseResponse(offline, 1.8, 2.4);
-    const wet = offline.createGain();
-    wet.gain.value = reverbWet;
-    source.connect(conv).connect(wet).connect(dest);
-  }
 }
 
 function scheduleSynth(
@@ -216,14 +189,15 @@ function scheduleSynth(
   }
 }
 
-function scheduleTimelineAudio(
+async function scheduleTimelineAudio(
   offline: OfflineAudioContext,
   inA: AudioNode,
   inB: AudioNode,
   clips: TimelineClip[],
   barSec: number,
   getBuf: (id: string) => AudioBuffer | null,
-): void {
+): Promise<void> {
+  void offline;
   for (const clip of clips) {
     if (clip.kind !== "audio" || !clip.audioFileId) continue;
     const buf = getBuf(clip.audioFileId);

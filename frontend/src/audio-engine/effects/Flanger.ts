@@ -11,7 +11,7 @@ export class FlangerFx {
   input: GainNode;
   output: GainNode;
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.input = ctx.createGain();
     this.output = ctx.createGain();
     this.delay = ctx.createDelay(0.05);

@@ -13,7 +13,7 @@ Realtime-звук идёт **только в браузере** (Web Audio API /
 | Jobs | Redis + Celery (опционально; без Redis анализ в потоке) |
 | Audio (offline) | soundfile, numpy, scipy, ffmpeg; librosa опционально |
 | Frontend | React 18, TypeScript, Vite, Tailwind, Zustand |
-| Engine | Web Audio API, AudioWorklet bitcrusher, Web MIDI |
+| Engine | Web Audio API, Rubber Band WASM key lock, AudioWorklet bitcrusher, analog/convolution FX, Web MIDI |
 
 ## Быстрый старт на Windows
 
@@ -73,7 +73,7 @@ docker compose up --build
 /backend        FastAPI, модели, REST, WebSocket, JWT, presets
 /frontend       React UI
   /src/audio-engine   Transport, Deck, Mixer, FX, Drums, Synth, Timeline
-/workers        Celery: analyze, render, stems (Demucs or HPSS)
+/workers        Celery: analyze, render, stems (GPU Demucs → CPU Demucs → HPSS)
 /ai_agents      Orchestrator + tools + mock LLM
 /storage/audio  файлы для dev (опционально S3)
 ```
@@ -86,7 +86,7 @@ docker compose up --build
 
 ## Режимы UI
 
-- **DJ** — деки, vinyl platter/scratch, overview+zoom waveform, crate/queue, cue/hot cues, loop in/out, loop roll, key lock, beat jump, quantize, sync, EQ/filter/FX-пресеты, pan/mute/solo, sidechain, stem rack, mic/line-in
+- **DJ** — деки, vinyl platter/scratch, overview+zoom waveform, crate/queue, cue/hot cues, loop in/out, loop roll, Rubber Band key lock, beat jump, quantize, sync, EQ/filter/FX-пресеты, pan/mute/solo, sidechain, stem rack, mic/line-in
 - **Session** — clip launcher на 8 сцен
 - **Arrange** — клипы играют drums/synth/audio, automation lanes, mixer
 - **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern/kit, edit lock
@@ -122,9 +122,9 @@ npx playwright test
 
 ## Ограничения
 
-- Key lock — denser WSOLA (Hann grains), не Rubber Band WASM.
-- Stems — Demucs, если CLI установлен, иначе HPSS; после Split stems глушат оригинал Deck A и играют vocals/drums/bass/other.
-- Bounce — деки + drums + synth + timeline + EQ/volume + delay/reverb как в лайве.
+- Key lock — Rubber Band WASM (CDJ master tempo: pitch fader = tempo, key stays). WSOLA только если WASM не загрузился. rubberband-web — GPL-2.0.
+- Stems — GPU Demucs (`STEMS_DEVICE=auto` → CUDA, затем MPS), иначе CPU Demucs, иначе HPSS. GPU/CPU Demucs: `pip install -r backend/requirements-stems.txt` и сборка torch. После Split stems глушат оригинал деки и играют vocals/drums/bass/other.
+- Bounce — тот же граф, что в лайве: ChannelStrip + analog distortion/cabinet IR + plate/spring/tape convolution + flanger/delay/bitcrush/comp + sidechain + limiter. Не sample-identical с железом Pioneer.
 - Rec HUD — таймер, peak, оценка размера; mic идёт в master и в Rec.
 - MP3 анализируется через miniaudio (ffmpeg не нужен).
 - Auth — JWT есть; в dev `REQUIRE_AUTH=false` оставляет demo-пользователя. `SECRET_KEY` пишется setup-скриптами.

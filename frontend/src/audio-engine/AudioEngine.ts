@@ -11,6 +11,7 @@ import { Sampler } from "./Sampler";
 import { Synth } from "./Synth";
 import { TimelineEngine } from "./Timeline";
 import { Transport } from "./Transport";
+import { warmupRubberBand } from "./rubberband";
 import { decodeUrl } from "./utils";
 import type { MidiNote, SessionClip, TimelineClip } from "../types";
 
@@ -64,6 +65,7 @@ export class AudioEngine {
   async init(): Promise<void> {
     if (this.ready) return;
     await this.ctx.resume();
+    await warmupRubberBand(this.ctx);
     await this.drums.init();
     this.drums.attach(this.transport);
     this.drums.onKick = (time) => this.mixer.duckFromKick(time);

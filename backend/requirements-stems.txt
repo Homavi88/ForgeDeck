@@ -1,0 +1,11 @@
+# Optional GPU/CPU Demucs. Not installed by default — torch is hundreds of MB.
+#
+# CUDA 12.4:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+#   pip install -r backend/requirements-stems.txt
+# Apple MPS / CPU:
+#   pip install torch torchaudio
+#   pip install -r backend/requirements-stems.txt
+#
+# PulseForge then prefers cuda → mps → cpu. Without this extra, stems fall back to HPSS.
+demucs>=4.0.1

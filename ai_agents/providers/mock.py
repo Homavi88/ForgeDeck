@@ -42,7 +42,7 @@ class MockProducer(LLMProvider):
             }
         if any(word in text for word in ("stem", "stems", "разделить", "vocals")):
             return {
-                "message": "Разделяю на harmonic/percussive stems (HPSS). Vocals здесь — harmonic слой, не полноценный Demucs.",
+                "message": "Разделяю stems: GPU Demucs (CUDA/MPS), иначе CPU Demucs, иначе HPSS.",
                 "actions": [{"type": "separate_stems", "file_id": track_id}],
             }
         if any(word in text for word in ("bassline", "bass line", "бас-лин")):

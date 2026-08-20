@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { api } from "../api/client";
 import { getEngine } from "../audio-engine/AudioEngine";
 import { PAD_IDS } from "../audio-engine/DrumMachine";
+import { applyStripState } from "../audio-engine/stripState";
 import type {
   AIAction,
   AudioFile,
@@ -454,15 +455,8 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ mixer });
     const ch = getEngine().mixer.channels[id];
     if (!ch) return;
-    const s = mixer[id];
-    ch.setVolume(s.volume);
-    ch.setGainDb(s.gain);
-    ch.eq.set(s.eq[0], s.eq[1], s.eq[2]);
-    ch.filter.setKnob(s.filter);
-    ch.setPan(s.pan);
-    ch.setMute(s.mute);
-    getEngine().mixer.setSolo(id, s.solo);
-    for (const [fx, wet] of Object.entries(s.fx)) ch.fx.setWet(fx, wet);
+    applyStripState(ch, mixer[id]);
+    getEngine().mixer.setSolo(id, mixer[id].solo);
   },
 
   chatAI: async (message, extra = {}) => {

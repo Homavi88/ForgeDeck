@@ -115,7 +115,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
               useStudio.setState({ keyLock: { ...useStudio.getState().keyLock, [side]: e.target.checked } });
             }}
           />
-          Key lock
+          Key lock (CDJ)
         </label>
         <label className="flex items-center gap-1">
           <input

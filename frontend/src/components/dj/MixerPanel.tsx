@@ -73,8 +73,16 @@ export function MixerPanel() {
               className="w-full"
               onChange={(e) => {
                 const v = Number(e.target.value);
+                const st = useStudio.getState();
                 getEngine().mixer.channels.A.fx.setWet(fx, v);
                 getEngine().mixer.channels.B.fx.setWet(fx, v * 0.6);
+                useStudio.setState({
+                  mixer: {
+                    ...st.mixer,
+                    A: { ...st.mixer.A, fx: { ...st.mixer.A.fx, [fx]: v } },
+                    B: { ...st.mixer.B, fx: { ...st.mixer.B.fx, [fx]: v * 0.6 } },
+                  },
+                });
               }}
             />
           </label>
@@ -102,11 +110,23 @@ function FxPresetBar() {
         onChange={(e) => {
           const p = list.find((x) => x.id === e.target.value);
           if (!p) return;
+          const st = useStudio.getState();
+          const fxA = { ...st.mixer.A.fx };
+          const fxB = { ...st.mixer.B.fx };
           for (const [k, v] of Object.entries(p.params)) {
             if (typeof v !== "number") continue;
             getEngine().mixer.channels.A.fx.setWet(k, v);
             getEngine().mixer.channels.B.fx.setWet(k, v * 0.6);
+            fxA[k] = v;
+            fxB[k] = v * 0.6;
           }
+          useStudio.setState({
+            mixer: {
+              ...st.mixer,
+              A: { ...st.mixer.A, fx: fxA },
+              B: { ...st.mixer.B, fx: fxB },
+            },
+          });
         }}
       >
         <option value="">—</option>

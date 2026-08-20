@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     max_upload_mb: int = 250
     quota_mb: int = 2048
     enable_librosa: bool = True
+    stems_device: str = "auto"
 
     ai_provider: str = "mock"
     openai_api_key: str = ""

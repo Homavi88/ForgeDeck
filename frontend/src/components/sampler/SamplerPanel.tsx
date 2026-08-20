@@ -129,11 +129,11 @@ export function SamplerPanel() {
             className="bg-ink-700 px-3 py-1 rounded"
             onClick={() => void api.audio.splitStems(file.id)}
           >
-            HPSS stems
+            Split stems
           </button>
         )}
       </div>
-      <p className="text-xs text-zinc-500">Slice раскладывает трансиенты на 16 падов драм-машины. Stems — harmonic/percussive split на backend.</p>
+      <p className="text-xs text-zinc-500">Slice раскладывает трансиенты на 16 падов драм-машины. Stems — GPU Demucs, иначе CPU Demucs, иначе HPSS.</p>
     </div>
   );
 }

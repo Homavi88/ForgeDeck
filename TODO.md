@@ -51,6 +51,7 @@
 - [x] Stem ISO + drag stem onto pads / Arrange
 - [x] Mixer send/return reverb+delay
 - [x] Crate energy + mix-in/mix-out + next-track highlight
+- [x] Electronic style packs (original ForgeDeck templates: house, techno, trance, DnB, …) — not scraped commercial banks
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

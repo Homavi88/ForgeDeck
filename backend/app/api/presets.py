@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import DrumKit, EffectPreset, User
+from app.services.style_packs import EXTRA_FX, KIT_NAMES, get_style_pack, list_style_packs
 
 router = APIRouter(prefix="/presets", tags=["presets"])
 
@@ -28,11 +29,30 @@ class MidiMapIn(BaseModel):
     bindings: dict[str, Any] = Field(default_factory=dict)
 
 
+@router.get("/styles")
+def list_styles():
+    return list_style_packs()
+
+
+@router.get("/styles/{pack_id}")
+def get_style(pack_id: str):
+    pack = get_style_pack(pack_id)
+    if not pack:
+        raise HTTPException(404, "Style pack not found")
+    return pack
+
+
 @router.get("/effects")
 def list_effects(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    rows = db.query(EffectPreset).filter(or_(EffectPreset.user_id == user.id, EffectPreset.user_id.is_(None))).all()
-    if not rows:
-        rows = _seed_fx(db, user.id)
+    ensure_global_presets(db)
+    rows = (
+        db.query(EffectPreset)
+        .filter(
+            EffectPreset.effect_type != "midi_map",
+            or_(EffectPreset.user_id == user.id, EffectPreset.user_id.is_(None)),
+        )
+        .all()
+    )
     return [{"id": r.id, "name": r.name, "effect_type": r.effect_type, "params": r.params} for r in rows]
 
 
@@ -47,9 +67,8 @@ def save_effect(payload: PresetIn, db: Session = Depends(get_db), user: User = D
 
 @router.get("/kits")
 def list_kits(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    ensure_global_presets(db)
     rows = db.query(DrumKit).filter(or_(DrumKit.user_id == user.id, DrumKit.user_id.is_(None))).all()
-    if not rows:
-        rows = _seed_kits(db)
     return [{"id": r.id, "name": r.name, "pads": r.pads} for r in rows]
 
 
@@ -64,22 +83,15 @@ def save_kit(payload: KitIn, db: Session = Depends(get_db), user: User = Depends
 
 @router.get("/midi")
 def list_midi(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    ensure_global_presets(db)
     rows = (
         db.query(EffectPreset)
-        .filter(EffectPreset.effect_type == "midi_map", or_(EffectPreset.user_id == user.id, EffectPreset.user_id.is_(None)))
+        .filter(
+            EffectPreset.effect_type == "midi_map",
+            or_(EffectPreset.user_id == user.id, EffectPreset.user_id.is_(None)),
+        )
         .all()
     )
-    if not rows:
-        row = EffectPreset(
-            user_id=None,
-            name="Pioneer-ish",
-            effect_type="midi_map",
-            params=default_midi_map(),
-        )
-        db.add(row)
-        db.commit()
-        db.refresh(row)
-        rows = [row]
     return [{"id": r.id, "name": r.name, "bindings": r.params} for r in rows]
 
 
@@ -143,8 +155,8 @@ def default_midi_map() -> dict:
     }
 
 
-def _seed_kits(db: Session) -> list[DrumKit]:
-    pads = [
+def _kit_pads() -> list[dict[str, Any]]:
+    return [
         {"id": n, "gain": 1.0}
         for n in (
             "kick",
@@ -165,23 +177,51 @@ def _seed_kits(db: Session) -> list[DrumKit]:
             "vox",
         )
     ]
-    row = DrumKit(user_id=None, name="808 Core", pads=pads)
-    db.add(row)
-    db.commit()
-    return [row]
+
+
+def ensure_global_presets(db: Session) -> None:
+    """Idempotent factory seeds so existing SQLite DBs still pick up new packs."""
+    have_fx = {
+        r.name
+        for r in db.query(EffectPreset).filter(EffectPreset.user_id.is_(None), EffectPreset.effect_type != "midi_map")
+    }
+    added = False
+    for name, kind, params in EXTRA_FX:
+        if name in have_fx:
+            continue
+        db.add(EffectPreset(user_id=None, name=name, effect_type=kind, params=params))
+        added = True
+
+    midi = (
+        db.query(EffectPreset)
+        .filter(EffectPreset.user_id.is_(None), EffectPreset.effect_type == "midi_map")
+        .first()
+    )
+    if midi is None:
+        db.add(EffectPreset(user_id=None, name="Pioneer-ish", effect_type="midi_map", params=default_midi_map()))
+        added = True
+
+    have_kits = {r.name for r in db.query(DrumKit).filter(DrumKit.user_id.is_(None))}
+    pads = _kit_pads()
+    for name in KIT_NAMES:
+        if name in have_kits:
+            continue
+        db.add(DrumKit(user_id=None, name=name, pads=pads))
+        added = True
+
+    if added:
+        db.commit()
+
+
+def _seed_kits(db: Session) -> list[DrumKit]:
+    ensure_global_presets(db)
+    return db.query(DrumKit).filter(DrumKit.user_id.is_(None)).all()
 
 
 def _seed_fx(db: Session, user_id: str) -> list[EffectPreset]:
-    seeds = [
-        ("Hall", "reverb", {"reverb": 0.45, "delay": 0.1}),
-        ("Tape Echo", "delay", {"delay": 0.55, "feedback": 0.4}),
-        ("Club Crush", "bitcrush", {"bitcrush": 0.35, "distortion": 0.2}),
-        ("Wash", "fx", {"reverb": 0.3, "flanger": 0.25, "delay": 0.2}),
-    ]
-    rows = []
-    for name, kind, params in seeds:
-        row = EffectPreset(user_id=None, name=name, effect_type=kind, params=params)
-        db.add(row)
-        rows.append(row)
-    db.commit()
-    return rows
+    ensure_global_presets(db)
+    return (
+        db.query(EffectPreset)
+        .filter(EffectPreset.user_id.is_(None), EffectPreset.effect_type != "midi_map")
+        .all()
+    )

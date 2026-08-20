@@ -5,6 +5,7 @@ import { getEngine } from "../audio-engine/AudioEngine";
 import { DEFAULT_MIDI, MIDI_TARGETS, persistMidiBindings, type MidiBindings } from "../audio-engine/midiMap";
 import { t, useI18n } from "../i18n";
 import { useStudio } from "../store/useStudio";
+import type { StylePack } from "../types";
 
 type FxPreset = { id: string; name: string; effect_type: string; params: Record<string, number> };
 type MidiPreset = { id: string; name: string; bindings: MidiBindings };
@@ -12,10 +13,12 @@ type MidiPreset = { id: string; name: string; bindings: MidiBindings };
 export default function SettingsPage() {
   const [fx, setFx] = useState<FxPreset[]>([]);
   const [maps, setMaps] = useState<MidiPreset[]>([]);
+  const [styles, setStyles] = useState<StylePack[]>([]);
   const [bindings, setBindings] = useState<MidiBindings>(() => getEngine().midiBindings);
   const [midiMsg, setMidiMsg] = useState<string>("");
   const [learnTarget, setLearnTarget] = useState<string>("master.volume");
   const [status, setStatus] = useState<string | null>(null);
+  const [applying, setApplying] = useState<string | null>(null);
   useI18n((s) => s.locale);
 
   const refresh = async () => {
@@ -29,6 +32,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void refresh();
+    void api.presets
+      .styles()
+      .then(setStyles)
+      .catch(() => undefined);
   }, []);
 
   const applyBindings = (next: MidiBindings) => {
@@ -38,11 +45,48 @@ export default function SettingsPage() {
 
   return (
     <Shell>
-      <div className="max-w-3xl mx-auto p-8 space-y-8">
+      <div className="max-w-5xl mx-auto p-8 space-y-8">
         <div>
           <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
           <p className="text-zinc-400 text-sm mt-2">{t("settings.intro")}</p>
         </div>
+
+        <section className="space-y-3">
+          <h2 className="text-sm uppercase tracking-widest text-zinc-500">{t("settings.styles")}</h2>
+          <p className="text-xs text-zinc-500">{t("settings.styleHint")}</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {styles.map((pack) => (
+              <div key={pack.id} className="p-4 rounded-lg border border-line bg-ink-800 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium">{pack.name}</div>
+                    <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                      {pack.genre} · {pack.bpm} BPM · {pack.key}
+                    </div>
+                  </div>
+                  <button
+                    className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold shrink-0 disabled:opacity-50"
+                    disabled={applying === pack.id}
+                    onClick={async () => {
+                      setApplying(pack.id);
+                      try {
+                        await useStudio.getState().applyStylePack(pack);
+                        setStatus(t("settings.applied", { name: pack.name }));
+                      } catch (err) {
+                        setStatus(err instanceof Error ? err.message : t("toast.styleFailed"));
+                      } finally {
+                        setApplying(null);
+                      }
+                    }}
+                  >
+                    {t("settings.applyStyle")}
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-400">{pack.blurb}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="space-y-3">
           <h2 className="text-sm uppercase tracking-widest text-zinc-500">{t("settings.fx")}</h2>

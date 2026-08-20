@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Electronic style packs: original ForgeDeck genre templates (house, deep house, techno, trance, DnB, dubstep, UKG, synthwave, ambient, electro) — BPM/key, drums, synth, FX, piano-roll notes. Settings cards plus drums-only / synth-only dropdowns. Not licensed Serum/Vital/Ableton banks; not fetched at runtime.
 - TopBar студии в две строки: режимы не обрезаются, транспорт/Save/Rec/Bounce сверху, панели и язык снизу
 - Audio clips on Session / Arrange warp to project BPM (Rubber Band, playbackRate fallback); optional Key follow to project `musical_key`. Bounce schedules the same warp.
 - Session rec / Capture to arrange: launched scenes write drums/synth/audio clips onto the Arrange timeline, quantized to bars

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { OSC_TYPES } from "../../audio-engine/demo";
+import { StylePackSelect } from "../presets/StylePackSelect";
 import { t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 import { PianoRollPanel } from "./PianoRollPanel";
@@ -74,6 +75,7 @@ export function SynthPanel() {
         >
           {t("synth.save")}
         </button>
+        <StylePackSelect parts="synth" label={t("synth.loadStyle")} />
       </div>
       <div className="flex gap-2">
         {OSC_TYPES.map((osc) => (

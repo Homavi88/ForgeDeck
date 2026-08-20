@@ -10,9 +10,9 @@
 
 **Arrange** — клипы на таймлайне, automation lanes (filter, EQ, volume). Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key** = transpose в `musical_key`. Drop петли или стема на дорожку.
 
-**Drums** — 16 падов, 16/32/64 шага, paint по сетке (как Channel Rack), graph editor velocity, fill 1/4·1/8·all·offbeat, сдвиг << >>, humanize, swing, save pattern/kit, edit lock в коллабе. Shift-клик по имени пада — mute. Клик по паду выбирает ряд для graph editor.
+**Drums** — 16 падов, 16/32/64 шага, paint по сетке (как Channel Rack), graph editor velocity, fill 1/4·1/8·all·offbeat, сдвиг << >>, humanize, swing, save pattern/kit, **Load style drums** (оригинальный шаблон жанра, только сетка), edit lock в коллабе. Shift-клик по имени пада — mute. Клик по паду выбирает ряд для graph editor.
 
-**Synth** — OSC, ADSR, filter, LFO, **piano roll как в FL** (карандаш с длиной, select/marquee, штамп аккордов, подсветка гаммы, snap, velocity, quantize/humanize, **Arp/Strum**, банк паттернов + **ghost-ноты**), Web MIDI + learn.
+**Synth** — OSC, ADSR, filter, LFO, **piano roll как в FL** (карандаш с длиной, select/marquee, штамп аккордов, подсветка гаммы, snap, velocity, quantize/humanize, **Arp/Strum**, банк паттернов + **ghost-ноты**), Web MIDI + learn, **Load style synth** (params + ноты из шаблона).
 
 **Sampler** — trim/reverse/loop/pitch, slice to pads, split stems. Готовые стемы тащатся на пады или Arrange.
 
@@ -34,7 +34,9 @@
 - **Rec** — live с master (+ mic, если включён); HUD: время, peak, размер
 - **Share** — `POST /api/projects/{id}/share` → `/share/:token` (нужен bounce или rec)
 
-Тосты также: autosave «Saved», анализ после upload, прогресс Split stems.
+Тосты также: autosave «Saved», анализ после upload, прогресс Split stems, загрузка electronic style pack.
+
+Settings (`/settings`): карточки **Electronic styles** (имя, жанр, BPM, key, blurb, Apply) — оригинальные шаблоны ForgeDeck, не лицензированные банки. Apply грузит BPM/key/drums/synth/FX/notes в текущую сессию студии.
 
 ## Горячие клавиши (режим DJ, не в input)
 

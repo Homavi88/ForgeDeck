@@ -64,7 +64,7 @@ cd frontend && npm run build          # tsc --noEmit && vite build
 cd frontend && npx playwright test    # нужен dev/preview; см. playwright.config.ts
 ```
 
-Backend тесты: auth, projects, audio, analysis, stems (GPU путь мокается), share/quota, ownership, AI, demo loop, shutdown (мок `schedule_shutdown`).
+Backend тесты: auth, projects, audio, analysis, stems (GPU путь мокается), share/quota, ownership, AI, demo loop, shutdown (мок `schedule_shutdown`), style packs (`GET /api/presets/styles`).
 
 Vite на `buildStart` копирует `rubberband-web` worklet в `public/worklets/rubberband-processor.js` (файл в `.gitignore`).
 

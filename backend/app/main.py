@@ -33,6 +33,9 @@ async def lifespan(_: FastAPI):
     db = SessionLocal()
     try:
         get_or_create_demo_user(db)
+        from app.api.presets import ensure_global_presets
+
+        ensure_global_presets(db)
     finally:
         db.close()
     yield

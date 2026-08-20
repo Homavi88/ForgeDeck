@@ -13,6 +13,7 @@
 | Clip warp (BPM/key) | `lib/clipWarp.ts`, `audio-engine/clipPlayback.ts`, Rubber Band как на деке |
 | FX send / return | `ChannelStrip.sendRev/sendDly`, `Mixer.returnRev/returnDly` |
 | Channel Rack (drums graph/fill) | `components/drums/DrumMachinePanel.tsx` |
+| Electronic style pack | `backend/app/services/style_packs.py` + `GET /api/presets/styles`; apply в `useStudio.applyStylePack` |
 | CDJ-клавиши | `frontend/src/lib/djHotkeys.ts` (только mode=dj) |
 | DJ mix math (offset, gain match) | `frontend/src/lib/djMix.ts` |
 | PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor` |

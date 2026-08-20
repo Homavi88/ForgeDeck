@@ -84,6 +84,10 @@ export const en = {
     learnHint: "Move a knob to learn {target}",
     learned: "Learned {kind} {number} → {target}",
     loadFailed: "Failed to load presets",
+    styles: "Electronic styles",
+    applyStyle: "Apply",
+    styleHint:
+      "Original ForgeDeck templates from public genre conventions — not licensed Serum, Vital, or Ableton banks, and not fetched from the internet.",
     tipDocs: "Backend docs: http://localhost:8000/docs",
     tipHealth: "Health: http://localhost:8000/api/health",
     tipStems: "Stems: GPU Demucs (CUDA/MPS) if torch+demucs are installed, else CPU Demucs, else HPSS.",
@@ -304,6 +308,7 @@ export const en = {
     savePattern: "Save pattern",
     saveKit: "Save kit",
     loadKit: "Load kit…",
+    loadStyle: "Load style drums…",
     steps: "Steps",
     swing: "Swing",
     graph: "Graph editor · {pad}",
@@ -326,6 +331,7 @@ export const en = {
     poly: "Poly",
     hint: "Keys A S D F G H J K (no modifiers) · MIDI: notes, pads 36–51, CC7 master",
     save: "Save preset",
+    loadStyle: "Load style synth…",
   },
   sampler: {
     title: "Sampler",
@@ -432,6 +438,10 @@ export const en = {
     sessionCaptured: "Captured {n} clips onto Arrange",
     sessionEmpty: "Launch a scene clip first",
     stemPad: "{stem} → pad {pad}",
+    styleApplied: "Loaded {name} — original ForgeDeck template",
+    styleDrums: "Loaded {name} drums",
+    styleSynth: "Loaded {name} synth",
+    styleFailed: "Could not load style",
   },
 } ;
 

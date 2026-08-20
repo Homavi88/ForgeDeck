@@ -19,6 +19,7 @@ API:      http://127.0.0.1:8000/docs
   ..\storage\audio\demo-loop.wav
   → в студии Library → Upload → кнопки A / B → клик по экрану → Play
 
-Остановить: закрой окна "ForgeDeck API" и "ForgeDeck UI", либо stop.bat
+Остановить: кнопка «Выключить» в приложении, либо закрой окна
+  "ForgeDeck API" / "ForgeDeck UI" / "ForgeDeck launcher", либо stop.bat
 
 Docker (если установлен Docker Desktop): start-docker.bat

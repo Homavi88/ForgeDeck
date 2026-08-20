@@ -2,6 +2,7 @@
 cd "$(dirname "$0")" || exit 1
 # shellcheck disable=SC1091
 source "./_lib.sh"
+pf_set_window_title "ForgeDeck launcher"
 export PF_NOPAUSE=1
 cd "$ROOT" || exit 1
 
@@ -38,5 +39,5 @@ echo "API docs:   http://127.0.0.1:8000/docs"
 echo "Демо-wav:   $ROOT/storage/audio/demo-loop.wav"
 echo
 echo "Создай проект → кликни по студии (звук) → Library Upload → A / B → Play."
-echo "Остановить: закрой окна API/UI или запусти stop.command"
+echo "Остановить: кнопка «Выключить» в приложении, закрыть окна или stop.command"
 pf_wait

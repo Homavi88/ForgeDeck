@@ -1,21 +1,23 @@
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 
-const TRACKS = [
-  { id: "drums", name: "Drums" },
-  { id: "synth", name: "Synth" },
-  { id: "deckA", name: "Deck A" },
-  { id: "deckB", name: "Deck B" },
-];
 
 export function SessionPanel() {
   const { sessionClips, bootAudio } = useStudio();
   const clips = sessionClips.length ? sessionClips : getEngine().launcher.clips;
+  useI18n((s) => s.locale);
+  const TRACKS = [
+    { id: "drums", name: t("session.drums") },
+    { id: "synth", name: t("session.synth") },
+    { id: "deckA", name: t("session.deckA") },
+    { id: "deckB", name: t("session.deckB") },
+  ];
 
   return (
     <div className="flex-1 p-4 overflow-auto">
       <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500 mb-3">
-        Clip launcher · click clip · scene buttons launch the row on the next bar
+        {t("session.hint")}
       </div>
       <div className="flex gap-2 mb-3">
         {Array.from({ length: 8 }).map((_, scene) => (
@@ -29,7 +31,7 @@ export function SessionPanel() {
               });
             }}
           >
-            Scene {scene + 1}
+            {t("session.scene", { n: scene + 1 })}
           </button>
         ))}
       </div>

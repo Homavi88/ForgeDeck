@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t, useI18n } from "../../i18n";
 import type { AudioAnalysis } from "../../types";
 
 function drawWave(
@@ -84,6 +85,7 @@ export function Waveform({
   const [zoomLocal, setZoomLocal] = useState(zoomProp ?? 1);
   const [viewStart, setViewStart] = useState(0);
   const zoom = zoomProp ?? zoomLocal;
+  useI18n((s) => s.locale);
   const setZoom = (z: number) => {
     setZoomLocal(z);
     onZoomChange?.(z);
@@ -118,7 +120,7 @@ export function Waveform({
       <canvas
         ref={overviewRef}
         className="w-full h-10 rounded bg-ink-950 cursor-pointer"
-        title="Overview"
+        title={t("wave.overview")}
         onClick={(e) => {
           const t = timeAt(e.clientX, e.currentTarget.getBoundingClientRect(), 0, dur);
           setViewStart(Math.max(0, t - windowLen / 2));
@@ -128,7 +130,7 @@ export function Waveform({
       <canvas
         ref={detailRef}
         className="w-full h-24 rounded bg-ink-950 cursor-crosshair"
-        title="Scroll to zoom · drag to pan"
+        title={t("wave.panZoom")}
         onWheel={(e) => {
           e.preventDefault();
           const rect = e.currentTarget.getBoundingClientRect();
@@ -159,8 +161,8 @@ export function Waveform({
         }}
       />
       <div className="flex justify-between text-[9px] uppercase tracking-wider text-zinc-600">
-        <span>Overview</span>
-        <span>{zoom.toFixed(1)}× · wheel zoom · shift-drag pan</span>
+        <span>{t("wave.overview")}</span>
+        <span>{t("wave.zoomHint", { zoom: zoom.toFixed(1) })}</span>
       </div>
     </div>
   );

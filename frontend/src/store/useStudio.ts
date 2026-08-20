@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { getEngine } from "../audio-engine/AudioEngine";
 import { PAD_IDS } from "../audio-engine/DrumMachine";
 import { applyStripState } from "../audio-engine/stripState";
+import { t } from "../i18n";
 import type {
   AIAction,
   AudioFile,
@@ -235,12 +236,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   roomChat: [],
   locks: {},
   compatible: [],
-  chat: [
-    {
-      role: "assistant",
-      content: "AI Producer онлайн. Могу разметить cue, переход, drums, bassline/melody, stems и mix.",
-    },
-  ],
+  chat: [],
   pendingActions: [],
   aiBusy: false,
   history: [],
@@ -431,7 +427,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       }
       if (next.mode) get().setMode(next.mode as StudioMode);
     } catch (err) {
-      set({ loading: false, error: err instanceof Error ? err.message : "Load failed" });
+      set({ loading: false, error: err instanceof Error ? err.message : t("projects.loadFailed") });
     }
   },
 
@@ -483,10 +479,10 @@ export const useStudio = create<StudioState>((set, get) => ({
         }).catch(() => undefined);
       }
       set({ saving: false, lastSavedAt: Date.now() });
-      get().pushToast({ id: "save", kind: "ok", text: "Saved", ttl: 1400 });
+      get().pushToast({ id: "save", kind: "ok", text: t("toast.saved"), ttl: 1400 });
     } catch (err) {
-      set({ saving: false, error: err instanceof Error ? err.message : "Save failed" });
-      get().pushToast({ id: "save", kind: "err", text: err instanceof Error ? err.message : "Save failed", ttl: 4000 });
+      set({ saving: false, error: err instanceof Error ? err.message : t("toast.saveFailed") });
+      get().pushToast({ id: "save", kind: "err", text: err instanceof Error ? err.message : t("toast.saveFailed"), ttl: 4000 });
     }
   },
 
@@ -510,13 +506,13 @@ export const useStudio = create<StudioState>((set, get) => ({
   uploadFiles: async (files) => {
     set({ loading: true, error: null });
     const n = Array.from(files).length;
-    get().pushToast({ id: "upload", kind: "info", text: `Uploading ${n} file${n === 1 ? "" : "s"}…`, ttl: 2500 });
+    get().pushToast({ id: "upload", kind: "info", text: t("toast.uploading", { n }), ttl: 2500 });
     const wasReady = new Set(get().library.filter((f) => f.analysis_status === "ready").map((f) => f.id));
     try {
       for (const file of Array.from(files)) await api.audio.upload(file);
       await get().refreshLibrary();
       set({ loading: false });
-      get().pushToast({ id: "upload", kind: "ok", text: "Upload complete — analyzing…", ttl: 2200 });
+      get().pushToast({ id: "upload", kind: "ok", text: t("toast.uploadDone"), ttl: 2200 });
       for (let i = 0; i < 12; i++) {
         await new Promise((r) => setTimeout(r, 700));
         await get().refreshLibrary();
@@ -528,7 +524,7 @@ export const useStudio = create<StudioState>((set, get) => ({
             get().pushToast({
               id: `an-${f.id}`,
               kind: "ok",
-              text: `Analysis ready: ${f.original_filename} · ${bpm}${cam}`,
+              text: t("toast.analysisReady", { name: f.original_filename, meta: `${bpm}${cam}` }),
               ttl: 4200,
             });
           }
@@ -537,7 +533,7 @@ export const useStudio = create<StudioState>((set, get) => ({
             get().pushToast({
               id: `an-${f.id}`,
               kind: "err",
-              text: `Analysis failed: ${f.original_filename}`,
+              text: t("toast.analysisFail", { name: f.original_filename }),
               ttl: 5000,
             });
           }
@@ -545,8 +541,8 @@ export const useStudio = create<StudioState>((set, get) => ({
         if (get().library.every((f) => f.analysis_status === "ready" || f.analysis_status === "error")) break;
       }
     } catch (err) {
-      set({ loading: false, error: err instanceof Error ? err.message : "Upload failed" });
-      get().pushToast({ id: "upload", kind: "err", text: err instanceof Error ? err.message : "Upload failed", ttl: 4000 });
+      set({ loading: false, error: err instanceof Error ? err.message : t("toast.uploadFail") });
+      get().pushToast({ id: "upload", kind: "err", text: err instanceof Error ? err.message : t("toast.uploadFail"), ttl: 4000 });
     }
   },
 
@@ -601,7 +597,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     } catch (err) {
       set({
         aiBusy: false,
-        chat: [...get().chat, { role: "assistant", content: `Ошибка: ${err instanceof Error ? err.message : "AI"}` }],
+        chat: [...get().chat, { role: "assistant", content: t("ai.error", { msg: err instanceof Error ? err.message : "AI" }) }],
       });
     }
   },
@@ -759,7 +755,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       get().pushToast({
         id: "pfl-hint",
         kind: "info",
-        text: "PFL on — pick a headphone device or enable Split cue (L master / R cue)",
+        text: t("toast.pflHint"),
         ttl: 4500,
       });
     }
@@ -812,7 +808,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       if (!file) return;
       set({ queueIndex: next });
       await s.loadToDeck(side, file);
-      get().pushToast({ id: "load", kind: "info", text: `Loaded ${file.original_filename} → ${side}`, ttl: 1800 });
+      get().pushToast({ id: "load", kind: "info", text: t("toast.loaded", { name: file.original_filename, side }), ttl: 1800 });
       return;
     }
     if (!s.library.length) return;
@@ -824,7 +820,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (next >= s.library.length) next = 0;
     const file = s.library[next];
     await s.loadToDeck(side, file);
-    get().pushToast({ id: "load", kind: "info", text: `Loaded ${file.original_filename} → ${side}`, ttl: 1800 });
+    get().pushToast({ id: "load", kind: "info", text: t("toast.loaded", { name: file.original_filename, side }), ttl: 1800 });
   },
 
   tapTempo: () => {
@@ -832,7 +828,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     tapTimes = tapTimes.filter((t) => now - t < 2200);
     tapTimes.push(now);
     if (tapTimes.length < 2) {
-      get().pushToast({ id: "tap", kind: "info", text: "Tap tempo…", ttl: 900 });
+      get().pushToast({ id: "tap", kind: "info", text: t("toast.tap"), ttl: 900 });
       return;
     }
     const spans = tapTimes.slice(1).map((t, i) => t - tapTimes[i]);
@@ -842,7 +838,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const side = get().focusDeck;
     const file = get().deckFiles[side];
     if (file?.analysis?.bpm) getEngine().decks[side].syncToBpm(file.analysis.bpm, bpm);
-    get().pushToast({ id: "tap", kind: "ok", text: `Tap ${bpm.toFixed(1)} BPM`, ttl: 1600 });
+    get().pushToast({ id: "tap", kind: "ok", text: t("toast.tapBpm", { bpm: bpm.toFixed(1) }), ttl: 1600 });
   },
 
   toggleAiPanel: () => {

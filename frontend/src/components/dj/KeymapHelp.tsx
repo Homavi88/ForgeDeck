@@ -1,8 +1,10 @@
+import { t, useI18n } from "../../i18n";
 import { DJ_KEYMAP } from "../../lib/djHotkeys";
 import { useStudio } from "../../store/useStudio";
 
 export function KeymapHelp() {
   const open = useStudio((s) => s.keymapOpen);
+  useI18n((s) => s.locale);
   if (!open) return null;
   return (
     <div
@@ -14,16 +16,16 @@ export function KeymapHelp() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="text-[10px] tracking-[0.3em] uppercase text-zinc-500">CDJ keys · focused deck</div>
+          <div className="text-[10px] tracking-[0.3em] uppercase text-zinc-500">{t("keys.title")}</div>
           <button className="text-xs text-zinc-500" onClick={() => useStudio.setState({ keymapOpen: false })}>
             Esc
           </button>
         </div>
         <dl className="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-xs">
-          {DJ_KEYMAP.map(([k, d]) => (
+          {DJ_KEYMAP.map(([k, path]) => (
             <div key={k} className="contents">
               <dt className="font-mono text-accent">{k}</dt>
-              <dd className="text-zinc-300">{d}</dd>
+              <dd className="text-zinc-300">{t(path)}</dd>
             </div>
           ))}
         </dl>

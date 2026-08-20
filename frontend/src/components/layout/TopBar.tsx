@@ -3,16 +3,18 @@ import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
+import { LanguageSelect, t, useI18n, type MsgKey } from "../../i18n";
+import { PowerOffButton } from "./PowerOffButton";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
 
-const MODES: { id: StudioMode; label: string }[] = [
-  { id: "dj", label: "DJ" },
-  { id: "session", label: "Session" },
-  { id: "arrange", label: "Arrange" },
-  { id: "drums", label: "Drums" },
-  { id: "synth", label: "Synth" },
-  { id: "sampler", label: "Sampler" },
+const MODES: { id: StudioMode; key: MsgKey }[] = [
+  { id: "dj", key: "studio.modeDj" },
+  { id: "session", key: "studio.modeSession" },
+  { id: "arrange", key: "studio.modeArrange" },
+  { id: "drums", key: "studio.modeDrums" },
+  { id: "synth", key: "studio.modeSynth" },
+  { id: "sampler", key: "studio.modeSampler" },
 ];
 
 export function TopBar() {
@@ -37,13 +39,14 @@ export function TopBar() {
     toggleLibrary,
     toggleDecksFullscreen,
   } = useStudio();
+  useI18n((s) => s.locale);
 
   return (
     <div className="h-14 border-b border-line bg-ink-900 flex items-center px-3 gap-3">
       <Link to="/projects" className="text-[10px] tracking-[0.25em] uppercase text-accent font-semibold pr-2">
         ForgeDeck
       </Link>
-      <div className="text-sm font-medium truncate max-w-[160px]">{project?.name ?? "Untitled"}</div>
+      <div className="text-sm font-medium truncate max-w-[160px]">{project?.name ?? t("studio.untitled")}</div>
       <div className="flex items-center gap-1 bg-ink-800 rounded-md p-1 overflow-auto">
         {MODES.map((m) => (
           <button
@@ -51,7 +54,7 @@ export function TopBar() {
             onClick={() => setMode(m.id)}
             className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider ${mode === m.id ? "bg-accent text-black" : "text-zinc-400 hover:text-white"}`}
           >
-            {m.label}
+            {t(m.key)}
           </button>
         ))}
       </div>
@@ -79,13 +82,13 @@ export function TopBar() {
             getEngine().transport.metronome = e.target.checked;
           }}
         />
-        Click
+        {t("studio.click")}
       </label>
       <button className="text-[10px] uppercase text-zinc-400" onClick={undo}>
-        Undo
+        {t("studio.undo")}
       </button>
       <button className="text-[10px] uppercase text-zinc-400" onClick={redo}>
-        Redo
+        {t("studio.redo")}
       </button>
       <button
         className="text-[10px] uppercase text-zinc-400"
@@ -94,51 +97,54 @@ export function TopBar() {
           await getEngine().enableMidi();
         }}
       >
-        MIDI
+        {t("studio.midi")}
       </button>
       <MicButton />
       <button
         className="text-[10px] uppercase text-zinc-400"
-        title="CDJ keyboard"
+        title={t("studio.keysTitle")}
         onClick={() => useStudio.setState({ keymapOpen: true })}
       >
-        Keys
+        {t("studio.keys")}
       </button>
       <button
         className={`text-[10px] uppercase ${aiPanelOpen && !decksFullscreen ? "text-cyan" : "text-zinc-500"}`}
         onClick={toggleAiPanel}
       >
-        {aiPanelOpen && !decksFullscreen ? "Hide AI" : "AI"}
+        {aiPanelOpen && !decksFullscreen ? t("studio.hideAi") : t("studio.showAi")}
       </button>
       <button
         className={`text-[10px] uppercase ${libraryOpen && !decksFullscreen ? "text-cyan" : "text-zinc-500"}`}
         onClick={toggleLibrary}
       >
-        {libraryOpen && !decksFullscreen ? "Hide lib" : "Library"}
+        {libraryOpen && !decksFullscreen ? t("studio.hideLib") : t("studio.showLib")}
       </button>
       <button
         className={`text-[10px] uppercase ${decksFullscreen ? "text-accent" : "text-zinc-500"}`}
         onClick={toggleDecksFullscreen}
       >
-        {decksFullscreen ? "Exit decks" : "Decks"}
+        {decksFullscreen ? t("studio.exitDecks") : t("studio.decks")}
       </button>
       <div className="flex-1" />
-      <span className="text-[10px] uppercase text-zinc-600">{saving ? "Autosaving…" : "Autosave on"}</span>
+      <LanguageSelect compact />
+      <span className="text-[10px] uppercase text-zinc-600">{saving ? t("studio.autosaving") : t("studio.autosaveOn")}</span>
       <button
         onClick={() => void save()}
         className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider hover:bg-ink-600"
       >
-        {saving ? "Saving…" : "Save"}
+        {saving ? t("studio.saving") : t("studio.save")}
       </button>
       <ShareButton />
       <RecordButton />
       <ExportButton />
+      <PowerOffButton compact />
     </div>
   );
 }
 
 function MicButton() {
   const micOn = useStudio((s) => s.micOn);
+  useI18n((s) => s.locale);
   return (
     <button
       className={`text-[10px] uppercase ${micOn ? "text-mint" : "text-zinc-400"}`}
@@ -149,11 +155,11 @@ function MicButton() {
           await getEngine().setMic(next);
           useStudio.setState({ micOn: next, error: null });
         } catch (err) {
-          useStudio.setState({ error: err instanceof Error ? err.message : "Mic permission denied" });
+          useStudio.setState({ error: err instanceof Error ? err.message : t("studio.micDenied") });
         }
       }}
     >
-      {micOn ? "Mic on" : "Mic"}
+      {micOn ? t("studio.micOn") : t("studio.mic")}
     </button>
   );
 }
@@ -161,6 +167,7 @@ function MicButton() {
 function ShareButton() {
   const project = useStudio((s) => s.project);
   const [copied, setCopied] = useState(false);
+  useI18n((s) => s.locale);
   return (
     <button
       className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider hover:bg-ink-600"
@@ -173,7 +180,7 @@ function ShareButton() {
         window.setTimeout(() => setCopied(false), 1600);
       }}
     >
-      {copied ? "Link copied" : "Share"}
+      {copied ? t("studio.linkCopied") : t("studio.share")}
     </button>
   );
 }
@@ -181,14 +188,15 @@ function ShareButton() {
 function RecordButton() {
   const project = useStudio((s) => s.project);
   const [on, setOn] = useState(false);
+  useI18n((s) => s.locale);
   const [hud, setHud] = useState({ elapsed: 0, peak: 0, bytes: 0 });
 
   useEffect(() => {
     if (!on) return;
-    const t = window.setInterval(() => {
+    const timer = window.setInterval(() => {
       setHud(getEngine().recorder.stats);
     }, 200);
-    return () => window.clearInterval(t);
+    return () => window.clearInterval(timer);
   }, [on]);
 
   const mm = Math.floor(hud.elapsed / 60);
@@ -229,7 +237,7 @@ function RecordButton() {
           URL.revokeObjectURL(url);
         }}
       >
-        {on ? "Stop rec" : "Rec"}
+        {on ? t("studio.stopRec") : t("studio.rec")}
       </button>
     </div>
   );
@@ -238,13 +246,14 @@ function RecordButton() {
 function ExportButton() {
   const project = useStudio((s) => s.project);
   const [busy, setBusy] = useState(false);
+  useI18n((s) => s.locale);
   return (
     <button
       className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold"
       onClick={async () => {
         if (!project || busy) return;
         setBusy(true);
-        useStudio.getState().pushToast({ id: "bounce", kind: "info", text: "Rendering bounce…", ttl: 0 });
+        useStudio.getState().pushToast({ id: "bounce", kind: "info", text: t("toast.bounce"), ttl: 0 });
         try {
           await useStudio.getState().bootAudio();
           const blob = await renderOfflineWav();
@@ -256,10 +265,10 @@ function ExportButton() {
           a.click();
           URL.revokeObjectURL(url);
           useStudio.getState().dismissToast("bounce");
-          useStudio.getState().pushToast({ id: "bounce", kind: "ok", text: "Bounce ready — download started", ttl: 3500 });
+          useStudio.getState().pushToast({ id: "bounce", kind: "ok", text: t("toast.bounceReady"), ttl: 3500 });
         } catch (err) {
           await api.projects.render(project.id, "wav");
-          const msg = err instanceof Error ? `${err.message} — queued server render` : "Queued server render";
+          const msg = err instanceof Error ? t("toast.bounceQueuedErr", { msg: err.message }) : t("toast.bounceQueued");
           useStudio.setState({ error: msg });
           useStudio.getState().dismissToast("bounce");
           useStudio.getState().pushToast({ id: "bounce", kind: "warn", text: msg, ttl: 4500 });
@@ -268,7 +277,7 @@ function ExportButton() {
         }
       }}
     >
-      {busy ? "Bounce…" : "Bounce"}
+      {busy ? t("studio.bouncing") : t("studio.bounce")}
     </button>
   );
 }

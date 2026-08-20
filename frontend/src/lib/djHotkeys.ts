@@ -1,23 +1,24 @@
 import { getEngine } from "../audio-engine/AudioEngine";
+import type { MsgKey } from "../i18n";
 import { useStudio } from "../store/useStudio";
 
-export const DJ_KEYMAP = [
-  ["A / B", "Focus deck"],
-  ["Space", "Play / pause both"],
-  ["Shift+Space", "Play / pause focused"],
-  ["C", "Cue"],
-  ["Shift+C", "Set cue here"],
-  ["1–4", "Hotcue (set if empty)"],
-  ["Q W E R", "Loop 1 / 2 / 4 / 8 bars"],
-  ["Shift+Q", "Loop off"],
-  [", / .", "Beat jump −4 / +4"],
-  ["N / Shift+N", "Load next / prev from crate"],
-  ["Y", "Sync focused to the other deck"],
-  ["K", "Key lock"],
-  ["F", "PFL / headphones on focused"],
-  ["T", "Tap tempo"],
-  ["?", "This map"],
-] as const;
+export const DJ_KEYMAP: readonly [string, MsgKey][] = [
+  ["A / B", "keys.a"],
+  ["Space", "keys.space"],
+  ["Shift+Space", "keys.shiftSpace"],
+  ["C", "keys.c"],
+  ["Shift+C", "keys.shiftC"],
+  ["1–4", "keys.digits"],
+  ["Q W E R", "keys.loops"],
+  ["Shift+Q", "keys.shiftQ"],
+  [", / .", "keys.jump"],
+  ["N / Shift+N", "keys.n"],
+  ["Y", "keys.y"],
+  ["K", "keys.k"],
+  ["F", "keys.f"],
+  ["T", "keys.t"],
+  ["?", "keys.help"],
+];
 
 function typing(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;

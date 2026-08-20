@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { api } from "../api/client";
 import { AutomationEngine } from "./AutomationEngine";
 import { ClipLauncher } from "./ClipLauncher";
@@ -216,10 +217,10 @@ export class AudioEngine {
 
   async setHeadphonesSink(deviceId: string): Promise<string> {
     const el = this.hpEl as (HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }) | null;
-    if (!el) return "Headphone element missing";
-    if (typeof el.setSinkId !== "function") return "setSinkId not supported in this browser";
+    if (!el) return t("engine.hpMissing");
+    if (typeof el.setSinkId !== "function") return t("engine.hpNoSink");
     await el.setSinkId(deviceId);
-    return "Headphones routed";
+    return t("engine.hpRouted");
   }
 
   setPfl(id: string, on: boolean): void {
@@ -228,7 +229,7 @@ export class AudioEngine {
 
   async enableMidi(): Promise<string> {
     const nav = navigator as Navigator & { requestMIDIAccess?: () => Promise<MIDIAccess> };
-    if (!nav.requestMIDIAccess) return "Web MIDI not supported";
+    if (!nav.requestMIDIAccess) return t("engine.midiUnsupported");
     const access = await nav.requestMIDIAccess();
     access.inputs.forEach((input) => {
       input.onmidimessage = (ev: MIDIMessageEvent) => {
@@ -263,7 +264,7 @@ export class AudioEngine {
         }
       };
     });
-    return `MIDI inputs: ${[...access.inputs].length} · mapped CC/notes + keys`;
+    return t("engine.midiReady", { n: [...access.inputs].length });
   }
 
   startRecording(): void {
@@ -277,7 +278,7 @@ export class AudioEngine {
   async setMic(on: boolean): Promise<string> {
     await this.init();
     if (on) {
-      if (this.micStream) return "Mic already on";
+      if (this.micStream) return t("engine.micAlready");
       this.micStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       });
@@ -285,7 +286,7 @@ export class AudioEngine {
       this.micGain = this.ctx.createGain();
       this.micGain.gain.value = 0.85;
       this.micSource.connect(this.micGain).connect(this.mixer.master.input);
-      return "Mic live into master (Rec captures it)";
+      return t("engine.micLive");
     }
     this.micStream?.getTracks().forEach((t) => t.stop());
     try {
@@ -297,7 +298,7 @@ export class AudioEngine {
     this.micStream = null;
     this.micSource = null;
     this.micGain = null;
-    return "Mic off";
+    return t("engine.micOff");
   }
 
   async loadStems(side: "A" | "B", audioId: string, names: string[]): Promise<void> {

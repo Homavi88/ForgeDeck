@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { t, useI18n } from "../../i18n";
 import { peekTrackDrag, readTrackDragId } from "../../lib/trackDrag";
 import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
 import { useStudio, type PitchRange } from "../../store/useStudio";
@@ -10,11 +11,11 @@ import { Waveform } from "./Waveform";
 const STEMS = ["vocals", "drums", "bass", "other"] as const;
 const PITCH_CYCLE: PitchRange[] = [8, 16, 100];
 
-function fmt(t: number): string {
-  if (!Number.isFinite(t) || t < 0) t = 0;
-  const m = Math.floor(t / 60);
-  const s = Math.floor(t % 60);
-  const ms = Math.floor((t % 1) * 10);
+function fmt(time: number): string {
+  if (!Number.isFinite(time) || time < 0) time = 0;
+  const m = Math.floor(time / 60);
+  const s = Math.floor(time % 60);
+  const ms = Math.floor((time % 1) * 10);
   return `${m}:${s.toString().padStart(2, "0")}.${ms}`;
 }
 
@@ -30,6 +31,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
   const zoom = useStudio((s) => s.deckZoom[side]);
   const pitchRange = useStudio((s) => s.pitchRange[side]);
   const [over, setOver] = useState(false);
+  useI18n((s) => s.locale);
   const pitch = getEngine().decks[side].pitch;
   const analysis = file?.analysis;
   const duration = analysis?.duration ?? getEngine().decks[side].duration;
@@ -78,18 +80,18 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={`text-xs tracking-[0.3em] uppercase ${focused ? "text-accent" : "text-zinc-500"}`}>
-            Deck {side}
-            {focused ? " · focus" : ""}
+            {t("deck.deck", { side })}
+            {focused ? t("deck.focus") : ""}
           </div>
           <button
             className={`text-[9px] uppercase px-2 py-0.5 rounded ${pfl ? "bg-mint text-black" : "bg-ink-700 text-zinc-400"}`}
-            title="Pre-fader listen (headphones)"
+            title={t("deck.pflTitle")}
             onClick={(e) => {
               e.stopPropagation();
               useStudio.getState().setPfl(side, !pfl);
             }}
           >
-            PFL
+            {t("deck.pfl")}
           </button>
         </div>
         <div className="font-mono text-xs text-zinc-400">
@@ -97,12 +99,12 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         </div>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm truncate">{file?.original_filename ?? (over ? "Drop to load" : "Empty — drop a track")}</div>
+        <div className="text-sm truncate">{file?.original_filename ?? (over ? t("deck.dropLoad") : t("deck.empty"))}</div>
         <button
           className={`text-[9px] uppercase px-2 py-0.5 rounded ${mine ? "bg-accent text-black" : "bg-ink-700 text-zinc-400"}`}
           onClick={() => sendCollab({ type: mine ? "unlock" : "lock", resource: lockKey, name: collabName() })}
         >
-          {blocked ? `Locked by ${lock.name}` : mine ? "Unlock" : "Lock"}
+          {blocked ? t("deck.lockedBy", { name: lock.name }) : mine ? t("deck.unlock") : t("deck.lock")}
         </button>
       </div>
       <div className="flex gap-3 items-start">
@@ -115,7 +117,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             color={color}
             zoom={zoom}
             onZoomChange={(z) => useStudio.getState().setDeckZoom(side, z)}
-            onSeek={(t) => deck().seek(t)}
+            onSeek={(time) => deck().seek(time)}
           />
         </div>
       </div>
@@ -124,9 +126,9 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         <span className="text-zinc-500">-{fmt(remain)}</span>
       </div>
       <div className="flex flex-wrap gap-1">
-        <Btn onClick={() => deck().toggle()}>Play</Btn>
-        <Btn onClick={() => deck().cuePress()}>Cue</Btn>
-        <Btn onClick={() => deck().setCueHere()}>Set Cue</Btn>
+        <Btn onClick={() => deck().toggle()}>{t("deck.play")}</Btn>
+        <Btn onClick={() => deck().cuePress()}>{t("deck.cue")}</Btn>
+        <Btn onClick={() => deck().setCueHere()}>{t("deck.setCue")}</Btn>
         {[1, 2, 3, 4].map((n) => (
           <Btn key={n} onClick={() => deck().jumpHotcue(n)}>
             H{n}
@@ -137,9 +139,9 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             {bars}
           </Btn>
         ))}
-        <Btn onClick={() => deck().clearLoop()}>Loop off</Btn>
-        <Btn onClick={() => deck().markLoopIn()}>In</Btn>
-        <Btn onClick={() => deck().markLoopOut()}>Out</Btn>
+        <Btn onClick={() => deck().clearLoop()}>{t("deck.loopOff")}</Btn>
+        <Btn onClick={() => deck().markLoopIn()}>{t("deck.in")}</Btn>
+        <Btn onClick={() => deck().markLoopOut()}>{t("deck.out")}</Btn>
         <Btn onClick={() => deck().beatJump(-4, analysis?.bpm || bpmMaster)}>-4</Btn>
         <Btn onClick={() => deck().beatJump(4, analysis?.bpm || bpmMaster)}>+4</Btn>
         {[1, 2, 4, 8].map((beats) => (
@@ -149,7 +151,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             onMouseUp={() => deck().loopRollEnd()}
             onMouseLeave={() => deck().loopRollEnd()}
           >
-            Roll {beats}
+            {t("deck.roll", { n: beats })}
           </Btn>
         ))}
         <Btn
@@ -160,7 +162,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             if (analysis?.bpm) deck().syncToBpm(analysis.bpm, masterBpm);
           }}
         >
-          Sync
+          {t("deck.sync")}
         </Btn>
       </div>
       <div className="flex flex-wrap gap-3 text-[10px] uppercase text-zinc-500">
@@ -170,7 +172,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             checked={locked}
             onChange={(e) => useStudio.getState().setKeyLock(side, e.target.checked)}
           />
-          Key lock (CDJ)
+          {t("deck.keyLock")}
         </label>
         <label className="flex items-center gap-1">
           <input
@@ -180,7 +182,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
               deck().quantize = e.target.checked;
             }}
           />
-          Quantize
+          {t("deck.quantize")}
         </label>
         <label className="flex items-center gap-1">
           <input
@@ -189,15 +191,15 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
               deck().slip = e.target.checked;
             }}
           />
-          Slip
+          {t("deck.slip")}
         </label>
       </div>
       <label className="text-[10px] uppercase tracking-wider text-zinc-500 flex items-center gap-2">
-        Pitch {pitch.toFixed(1)}%
+        {t("deck.pitch")} {pitch.toFixed(1)}%
         <button
           type="button"
           className="px-1.5 py-0.5 rounded bg-ink-700 text-zinc-300"
-          title="Pitch range"
+          title={t("deck.pitchRange")}
           onClick={() => {
             const i = PITCH_CYCLE.indexOf(pitchRange);
             const next = PITCH_CYCLE[(i + 1) % PITCH_CYCLE.length];
@@ -236,13 +238,14 @@ function StemRack({
   stemMute: Record<string, boolean>;
 }) {
   const names = STEMS.filter((s) => stems?.[s]);
+  useI18n((s) => s.locale);
   return (
     <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase text-zinc-500">
       <button
         className="px-2 py-1 bg-ink-700 rounded text-zinc-300"
         onClick={async () => {
           const st = useStudio.getState();
-          st.pushToast({ id: `stems-${fileId}`, kind: "info", text: "Splitting stems…", ttl: 0 });
+          st.pushToast({ id: `stems-${fileId}`, kind: "info", text: t("deck.splitting"), ttl: 0 });
           try {
             await api.audio.splitStems(fileId);
             await st.refreshLibrary();
@@ -262,19 +265,19 @@ function StemRack({
               id: `stems-${fileId}`,
               kind: "ok",
               text: loaded.length
-                ? `Stems ready${engine ? ` (${engine})` : ""}`
-                : "Stem job finished — no stem files yet",
+                ? t("deck.stemsReady", { engine: engine ? ` (${engine})` : "" })
+                : t("deck.stemsNone"),
               ttl: 4000,
             });
           } catch (err) {
             st.dismissToast(`stems-${fileId}`);
-            const msg = err instanceof Error ? err.message : "Stem split failed";
+            const msg = err instanceof Error ? err.message : t("toast.stemFail");
             useStudio.setState({ error: msg });
             st.pushToast({ id: `stems-${fileId}`, kind: "err", text: msg, ttl: 5000 });
           }
         }}
       >
-        {names.length ? "Reload stems" : "Split stems"}
+        {names.length ? t("deck.reloadStems") : t("deck.splitStems")}
       </button>
       {names.map((name) => (
         <label key={name} className="flex items-center gap-1">

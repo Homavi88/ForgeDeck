@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title PulseForge API
+title ForgeDeck API
 call "%~dp0_env.bat"
 
 if not exist "%PY%" (
@@ -11,7 +11,7 @@ if not exist "%PY%" (
 )
 if not exist "%ROOT%\.env" copy /Y "%ROOT%\.env.example" "%ROOT%\.env" >nul
 
-echo PulseForge API  http://127.0.0.1:8000/docs
+echo ForgeDeck API  http://127.0.0.1:8000/docs
 echo Не закрывай это окно, пока работает студия.
 echo.
 cd /d "%ROOT%\backend"

@@ -6,7 +6,7 @@ export default function HomePage() {
     <Shell>
       <div className="max-w-5xl mx-auto px-6 py-16">
         <p className="text-[10px] tracking-[0.4em] uppercase text-accent mb-4">Web DJ / DAW / Synth</p>
-        <h1 className="text-5xl font-semibold tracking-tight mb-4">PulseForge</h1>
+        <h1 className="text-5xl font-semibold tracking-tight mb-4">ForgeDeck</h1>
         <p className="text-zinc-400 max-w-2xl mb-10">
           Two DJ decks, a mixer, drum machine, subtractive synth and arrangement timeline in the browser.
           Python handles projects, analysis and AI. Web Audio handles the sound.

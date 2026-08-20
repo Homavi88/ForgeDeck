@@ -15,7 +15,7 @@ if [ ! -d "$ROOT/frontend/node_modules" ]; then
   (cd "$ROOT/frontend" && npm install) || { pf_wait; exit 1; }
 fi
 
-echo "PulseForge UI  http://127.0.0.1:5173"
+echo "ForgeDeck UI  http://127.0.0.1:5173"
 echo "Не закрывай это окно, пока работает студия."
 echo
 cd "$ROOT/frontend" || exit 1

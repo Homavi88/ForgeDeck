@@ -22,7 +22,7 @@ export function TopBar() {
   return (
     <div className="h-14 border-b border-line bg-ink-900 flex items-center px-3 gap-3">
       <Link to="/projects" className="text-[10px] tracking-[0.25em] uppercase text-accent font-semibold pr-2">
-        PulseForge
+        ForgeDeck
       </Link>
       <div className="text-sm font-medium truncate max-w-[160px]">{project?.name ?? "Untitled"}</div>
       <div className="flex items-center gap-1 bg-ink-800 rounded-md p-1 overflow-auto">

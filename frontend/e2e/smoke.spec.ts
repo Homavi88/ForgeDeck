@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("home page renders studio entry", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "PulseForge" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ForgeDeck" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open studio" })).toBeVisible();
 });
 

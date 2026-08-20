@@ -7,5 +7,5 @@
 #   pip install torch torchaudio
 #   pip install -r backend/requirements-stems.txt
 #
-# PulseForge then prefers cuda → mps → cpu. Without this extra, stems fall back to HPSS.
+# ForgeDeck then prefers cuda → mps → cpu. Without this extra, stems fall back to HPSS.
 demucs>=4.0.1

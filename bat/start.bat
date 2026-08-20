@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title PulseForge launcher
+title ForgeDeck launcher
 call "%~dp0_env.bat"
 set "PF_NOPAUSE=1"
 
-echo === PulseForge: запуск ===
+echo === ForgeDeck: запуск ===
 echo.
 
 if not exist "%PY%" (
@@ -26,9 +26,9 @@ if not exist "%ROOT%\storage\audio\demo-loop.wav" (
 )
 
 echo Открываю API и UI в отдельных окнах...
-start "PulseForge API" cmd /k "%~dp0start-backend.bat"
+start "ForgeDeck API" cmd /k "%~dp0start-backend.bat"
 timeout /t 2 /nobreak >nul
-start "PulseForge UI" cmd /k "%~dp0start-frontend.bat"
+start "ForgeDeck UI" cmd /k "%~dp0start-frontend.bat"
 timeout /t 5 /nobreak >nul
 start "" http://127.0.0.1:5173
 

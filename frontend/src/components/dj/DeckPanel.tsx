@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { peekTrackDrag, readTrackDragId } from "../../lib/trackDrag";
 import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
-import { useStudio } from "../../store/useStudio";
+import { useStudio, type PitchRange } from "../../store/useStudio";
 import { Platter } from "./Platter";
 import { Waveform } from "./Waveform";
 
 const STEMS = ["vocals", "drums", "bass", "other"] as const;
+const PITCH_CYCLE: PitchRange[] = [8, 16, 100];
 
 function fmt(t: number): string {
   if (!Number.isFinite(t) || t < 0) t = 0;
@@ -22,6 +25,12 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
   const locked = useStudio((s) => s.keyLock[side]);
   const locks = useStudio((s) => s.locks);
   const stemMute = useStudio((s) => s.stemMute);
+  const focused = useStudio((s) => s.focusDeck === side);
+  const pfl = useStudio((s) => s.pfl[side]);
+  const zoom = useStudio((s) => s.deckZoom[side]);
+  const pitchRange = useStudio((s) => s.pitchRange[side]);
+  const [over, setOver] = useState(false);
+  const pitch = getEngine().decks[side].pitch;
   const analysis = file?.analysis;
   const duration = analysis?.duration ?? getEngine().decks[side].duration;
   const remain = Math.max(0, duration - pos);
@@ -32,16 +41,63 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
   const blocked = !!lock && lock.clientId !== getCollabId();
   const mine = lock?.clientId === getCollabId();
 
+  const dropTrack = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOver(false);
+    const id = readTrackDragId(e.dataTransfer);
+    if (id) {
+      const track = useStudio.getState().library.find((f) => f.id === id) || useStudio.getState().queue.find((f) => f.id === id);
+      if (track) await useStudio.getState().loadToDeck(side, track);
+      return;
+    }
+    if (e.dataTransfer.files.length) {
+      await useStudio.getState().uploadFiles(e.dataTransfer.files);
+      const name = e.dataTransfer.files[0]?.name;
+      const fresh = useStudio.getState().library.find((f) => f.original_filename === name) || useStudio.getState().library[0];
+      if (fresh) await useStudio.getState().loadToDeck(side, fresh);
+    }
+  };
+
   return (
-    <section className={`flex-1 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-2 shadow-panel min-w-0 ${blocked ? "opacity-60" : ""}`}>
+    <section
+      className={`flex-1 bg-ink-800 rounded-lg border p-3 flex flex-col gap-2 shadow-panel min-w-0 ${
+        blocked ? "opacity-60" : ""
+      } ${focused ? "border-accent ring-1 ring-accent/40" : "border-line"} ${over ? "bg-ink-700" : ""}`}
+      onClick={() => useStudio.setState({ focusDeck: side })}
+      onDragOver={(e) => {
+        if (peekTrackDrag(e.dataTransfer) || e.dataTransfer.files.length) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          setOver(true);
+        }
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => void dropTrack(e)}
+    >
       <div className="flex items-center justify-between">
-        <div className="text-xs tracking-[0.3em] uppercase text-zinc-500">Deck {side}</div>
+        <div className="flex items-center gap-2">
+          <div className={`text-xs tracking-[0.3em] uppercase ${focused ? "text-accent" : "text-zinc-500"}`}>
+            Deck {side}
+            {focused ? " · focus" : ""}
+          </div>
+          <button
+            className={`text-[9px] uppercase px-2 py-0.5 rounded ${pfl ? "bg-mint text-black" : "bg-ink-700 text-zinc-400"}`}
+            title="Pre-fader listen (headphones)"
+            onClick={(e) => {
+              e.stopPropagation();
+              useStudio.getState().setPfl(side, !pfl);
+            }}
+          >
+            PFL
+          </button>
+        </div>
         <div className="font-mono text-xs text-zinc-400">
           {analysis?.bpm?.toFixed(1) ?? "—"} BPM · {analysis?.key ?? "—"} {analysis?.camelot ? `· ${analysis.camelot}` : ""}
         </div>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm truncate">{file?.original_filename ?? "Empty — drop a track"}</div>
+        <div className="text-sm truncate">{file?.original_filename ?? (over ? "Drop to load" : "Empty — drop a track")}</div>
         <button
           className={`text-[9px] uppercase px-2 py-0.5 rounded ${mine ? "bg-accent text-black" : "bg-ink-700 text-zinc-400"}`}
           onClick={() => sendCollab({ type: mine ? "unlock" : "lock", resource: lockKey, name: collabName() })}
@@ -57,6 +113,8 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             position={pos}
             duration={duration || 1}
             color={color}
+            zoom={zoom}
+            onZoomChange={(z) => useStudio.getState().setDeckZoom(side, z)}
             onSeek={(t) => deck().seek(t)}
           />
         </div>
@@ -110,10 +168,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
           <input
             type="checkbox"
             checked={locked}
-            onChange={(e) => {
-              deck().setKeyLock(e.target.checked);
-              useStudio.setState({ keyLock: { ...useStudio.getState().keyLock, [side]: e.target.checked } });
-            }}
+            onChange={(e) => useStudio.getState().setKeyLock(side, e.target.checked)}
           />
           Key lock (CDJ)
         </label>
@@ -138,14 +193,26 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         </label>
       </div>
       <label className="text-[10px] uppercase tracking-wider text-zinc-500 flex items-center gap-2">
-        Pitch {deck().pitch.toFixed(1)}%
+        Pitch {pitch.toFixed(1)}%
+        <button
+          type="button"
+          className="px-1.5 py-0.5 rounded bg-ink-700 text-zinc-300"
+          title="Pitch range"
+          onClick={() => {
+            const i = PITCH_CYCLE.indexOf(pitchRange);
+            const next = PITCH_CYCLE[(i + 1) % PITCH_CYCLE.length];
+            useStudio.getState().setPitchRange(side, next);
+          }}
+        >
+          ±{pitchRange}
+        </button>
         <input
           type="range"
-          min={-8}
-          max={8}
-          step={0.1}
+          min={-pitchRange}
+          max={pitchRange}
+          step={pitchRange === 100 ? 0.5 : 0.1}
           className="flex-1"
-          defaultValue={0}
+          value={Math.max(-pitchRange, Math.min(pitchRange, pitch))}
           disabled={blocked}
           onChange={(e) => {
             deck().setPitch(Number(e.target.value));
@@ -174,21 +241,36 @@ function StemRack({
       <button
         className="px-2 py-1 bg-ink-700 rounded text-zinc-300"
         onClick={async () => {
+          const st = useStudio.getState();
+          st.pushToast({ id: `stems-${fileId}`, kind: "info", text: "Splitting stems…", ttl: 0 });
           try {
             await api.audio.splitStems(fileId);
-            await useStudio.getState().refreshLibrary();
+            await st.refreshLibrary();
             const fresh = useStudio.getState().library.find((f) => f.id === fileId);
             if (fresh) {
               const decks = useStudio.getState().deckFiles;
-              const side = decks.A?.id === fileId ? "A" : decks.B?.id === fileId ? "B" : "A";
-              useStudio.setState({ deckFiles: { ...decks, [side]: fresh } });
+              const loadedSide = decks.A?.id === fileId ? "A" : decks.B?.id === fileId ? "B" : side;
+              useStudio.setState({ deckFiles: { ...decks, [loadedSide]: fresh } });
             }
             const map = fresh?.analysis?.stems || {};
             const loaded = STEMS.filter((s) => map[s]);
             if (loaded.length) await getEngine().loadStems(side, fileId, [...loaded]);
             useStudio.setState({ error: null });
+            st.dismissToast(`stems-${fileId}`);
+            const engine = (fresh?.analysis as { engine?: string } | undefined)?.engine;
+            st.pushToast({
+              id: `stems-${fileId}`,
+              kind: "ok",
+              text: loaded.length
+                ? `Stems ready${engine ? ` (${engine})` : ""}`
+                : "Stem job finished — no stem files yet",
+              ttl: 4000,
+            });
           } catch (err) {
-            useStudio.setState({ error: err instanceof Error ? err.message : "Stem split failed" });
+            st.dismissToast(`stems-${fileId}`);
+            const msg = err instanceof Error ? err.message : "Stem split failed";
+            useStudio.setState({ error: msg });
+            st.pushToast({ id: `stems-${fileId}`, kind: "err", text: msg, ttl: 5000 });
           }
         }}
       >

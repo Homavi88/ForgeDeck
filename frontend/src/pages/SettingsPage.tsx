@@ -84,7 +84,7 @@ export default function SettingsPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm uppercase tracking-widest text-zinc-500">MIDI map (Pioneer / Akai-style)</h2>
+          <h2 className="text-sm uppercase tracking-widest text-zinc-500">MIDI map (Pioneer-ish out of the box)</h2>
           <div className="flex flex-wrap gap-2 items-center">
             <button
               className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold"

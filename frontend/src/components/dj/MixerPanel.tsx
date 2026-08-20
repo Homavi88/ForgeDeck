@@ -6,15 +6,16 @@ import { useStudio } from "../../store/useStudio";
 const FX = ["delay", "reverb", "flanger", "distortion", "bitcrush"] as const;
 
 export function MixerPanel() {
-  const { mixer, levels, masterLevel, crossfader, sidechain } = useStudio();
+  const { mixer, levels, masterLevel, crossfader, sidechain, cueMix, splitCue } = useStudio();
 
   return (
-    <section className="w-[280px] shrink-0 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-3 shadow-panel">
+    <section className="w-[300px] shrink-0 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-3 shadow-panel overflow-auto">
       <div className="text-[10px] tracking-[0.3em] uppercase text-zinc-500 text-center">Mixer</div>
       <div className="flex gap-2">
         <Strip id="A" label="A" level={levels.A} />
         <Strip id="B" label="B" level={levels.B} />
       </div>
+      <HeadphonesSection cueMix={cueMix} splitCue={splitCue} />
       <label className="text-[10px] uppercase tracking-wider text-zinc-500">
         Crossfader
         <input
@@ -59,6 +60,12 @@ export function MixerPanel() {
         />
         Sidechain duck
       </label>
+      <button
+        className="text-[10px] uppercase tracking-wider bg-ink-700 rounded py-1 hover:bg-ink-600"
+        onClick={() => useStudio.getState().tapTempo()}
+      >
+        Tap tempo
+      </button>
       <FxPresetBar />
       <div className="grid grid-cols-2 gap-1">
         {FX.map((fx) => (
@@ -229,6 +236,7 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
         >
           S
         </button>
+        <PflButton id={id} />
       </div>
       <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
         Pan
@@ -242,6 +250,79 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
           onChange={(e) => useStudio.getState().applyMixerChannel(id, { pan: Number(e.target.value) })}
         />
       </label>
+    </div>
+  );
+}
+
+function PflButton({ id }: { id: "A" | "B" }) {
+  const on = useStudio((s) => s.pfl[id]);
+  return (
+    <button
+      className={`text-[9px] px-1 rounded ${on ? "bg-mint text-black" : "bg-ink-700"}`}
+      title="Pre-fader listen"
+      onClick={() => useStudio.getState().setPfl(id, !on)}
+    >
+      CUE
+    </button>
+  );
+}
+
+function HeadphonesSection({ cueMix, splitCue }: { cueMix: number; splitCue: boolean }) {
+  const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
+  const deviceId = useStudio((s) => s.headphoneDeviceId);
+  return (
+    <div className="border border-line rounded p-2 space-y-2">
+      <div className="text-[9px] uppercase tracking-wider text-zinc-500">Headphones / PFL</div>
+      <label className="text-[9px] uppercase text-zinc-500 w-full">
+        Cue mix {cueMix < 0.5 ? "master" : "cue"}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={cueMix}
+          className="w-full"
+          onChange={(e) => useStudio.getState().setCueMix(Number(e.target.value))}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-[9px] uppercase text-zinc-500">
+        <input
+          type="checkbox"
+          checked={splitCue}
+          onChange={(e) => useStudio.getState().setSplitCue(e.target.checked)}
+        />
+        Split cue (L master / R cue)
+      </label>
+      <button
+        className="text-[9px] uppercase text-zinc-400"
+        onClick={async () => {
+          await useStudio.getState().bootAudio();
+          setOutputs(await getEngine().listAudioOutputs());
+        }}
+      >
+        {outputs.length ? "Refresh outputs" : "List headphone devices"}
+      </button>
+      {outputs.length > 0 && (
+        <select
+          className="w-full bg-ink-900 border border-line rounded px-1 py-1 text-[10px]"
+          value={deviceId || ""}
+          onChange={async (e) => {
+            const id = e.target.value;
+            useStudio.setState({ headphoneDeviceId: id || null });
+            if (id) {
+              const msg = await getEngine().setHeadphonesSink(id);
+              useStudio.getState().pushToast({ id: "hp", kind: "ok", text: msg, ttl: 1800 });
+            }
+          }}
+        >
+          <option value="">Default output</option>
+          {outputs.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label || d.deviceId.slice(0, 12)}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

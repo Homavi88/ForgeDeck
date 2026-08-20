@@ -36,6 +36,13 @@
 - [x] Generated SECRET_KEY, 250 MB uploads, 2 GB quota
 - [x] Public share page `/share/:token`, X-Forwarded-Proto
 - [x] Project/audio/WS owner checks, Anthropic provider, global FX delete guard
+- [x] CDJ keyboard on focused deck (cue, hotcue, loop, beat jump, crate load, sync)
+- [x] Library search/sort + Camelot highlight vs Deck A + drag-and-drop onto decks
+- [x] PFL / headphones (cue mix, split cue, optional setSinkId)
+- [x] Status toasts (save, analysis, stems, bounce)
+- [x] Hide AI / library / fullscreen decks
+- [x] Tap tempo, pitch range ±8/±16/±100, per-track zoom/key lock, recent projects on home
+- [x] Pioneer-ish MIDI map as the default CC layout
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

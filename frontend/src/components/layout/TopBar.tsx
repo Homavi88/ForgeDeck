@@ -16,8 +16,27 @@ const MODES: { id: StudioMode; label: string }[] = [
 ];
 
 export function TopBar() {
-  const { project, bpm, setBpm, togglePlay, playing, metronome, save, saving, setMode, mode, undo, redo, bootAudio } =
-    useStudio();
+  const {
+    project,
+    bpm,
+    setBpm,
+    togglePlay,
+    playing,
+    metronome,
+    save,
+    saving,
+    setMode,
+    mode,
+    undo,
+    redo,
+    bootAudio,
+    aiPanelOpen,
+    libraryOpen,
+    decksFullscreen,
+    toggleAiPanel,
+    toggleLibrary,
+    toggleDecksFullscreen,
+  } = useStudio();
 
   return (
     <div className="h-14 border-b border-line bg-ink-900 flex items-center px-3 gap-3">
@@ -78,6 +97,31 @@ export function TopBar() {
         MIDI
       </button>
       <MicButton />
+      <button
+        className="text-[10px] uppercase text-zinc-400"
+        title="CDJ keyboard"
+        onClick={() => useStudio.setState({ keymapOpen: true })}
+      >
+        Keys
+      </button>
+      <button
+        className={`text-[10px] uppercase ${aiPanelOpen && !decksFullscreen ? "text-cyan" : "text-zinc-500"}`}
+        onClick={toggleAiPanel}
+      >
+        {aiPanelOpen && !decksFullscreen ? "Hide AI" : "AI"}
+      </button>
+      <button
+        className={`text-[10px] uppercase ${libraryOpen && !decksFullscreen ? "text-cyan" : "text-zinc-500"}`}
+        onClick={toggleLibrary}
+      >
+        {libraryOpen && !decksFullscreen ? "Hide lib" : "Library"}
+      </button>
+      <button
+        className={`text-[10px] uppercase ${decksFullscreen ? "text-accent" : "text-zinc-500"}`}
+        onClick={toggleDecksFullscreen}
+      >
+        {decksFullscreen ? "Exit decks" : "Decks"}
+      </button>
       <div className="flex-1" />
       <span className="text-[10px] uppercase text-zinc-600">{saving ? "Autosaving…" : "Autosave on"}</span>
       <button
@@ -200,6 +244,7 @@ function ExportButton() {
       onClick={async () => {
         if (!project || busy) return;
         setBusy(true);
+        useStudio.getState().pushToast({ id: "bounce", kind: "info", text: "Rendering bounce…", ttl: 0 });
         try {
           await useStudio.getState().bootAudio();
           const blob = await renderOfflineWav();
@@ -210,11 +255,14 @@ function ExportButton() {
           a.download = `${project.name || "mix"}-bounce.wav`;
           a.click();
           URL.revokeObjectURL(url);
+          useStudio.getState().dismissToast("bounce");
+          useStudio.getState().pushToast({ id: "bounce", kind: "ok", text: "Bounce ready — download started", ttl: 3500 });
         } catch (err) {
           await api.projects.render(project.id, "wav");
-          useStudio.setState({
-            error: err instanceof Error ? `${err.message} — queued server render` : "Queued server render",
-          });
+          const msg = err instanceof Error ? `${err.message} — queued server render` : "Queued server render";
+          useStudio.setState({ error: msg });
+          useStudio.getState().dismissToast("bounce");
+          useStudio.getState().pushToast({ id: "bounce", kind: "warn", text: msg, ttl: 4500 });
         } finally {
           setBusy(false);
         }

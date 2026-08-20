@@ -15,6 +15,8 @@ export class ChannelStrip {
   panner: StereoPannerNode;
   analyser: AnalyserNode;
   duck: GainNode;
+  /** Pre-fader listen tap (after FX/duck, before mute/volume). */
+  pflOut: GainNode;
   muted = false;
   soloed = false;
 
@@ -25,6 +27,8 @@ export class ChannelStrip {
     this.filter = new Filter(ctx);
     this.fx = new EffectChain(ctx);
     this.duck = ctx.createGain();
+    this.pflOut = ctx.createGain();
+    this.pflOut.gain.value = 0;
     this.mute = ctx.createGain();
     this.volume = ctx.createGain();
     this.panner = ctx.createStereoPanner();
@@ -38,13 +42,18 @@ export class ChannelStrip {
       .connect(this.eq.input);
     this.eq.output.connect(this.filter.input);
     this.filter.output.connect(this.fx.input);
-    this.fx.output
-      .connect(this.duck)
-      .connect(this.mute)
+    this.fx.output.connect(this.duck);
+    this.duck.connect(this.mute);
+    this.duck.connect(this.pflOut);
+    this.mute
       .connect(this.volume)
       .connect(this.panner)
       .connect(this.analyser)
       .connect(this.output);
+  }
+
+  setPfl(on: boolean): void {
+    this.pflOut.gain.value = on ? 1 : 0;
   }
 
   setGainDb(db: number): void {

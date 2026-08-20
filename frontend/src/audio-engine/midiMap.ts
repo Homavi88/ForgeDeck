@@ -21,15 +21,20 @@ export const MIDI_TARGETS = [
   ...PAD_IDS.map((id) => `pad:${id}`),
 ] as const;
 
+/** Pioneer-ish DDJ/CDJ-style CC map used when no custom bindings are stored. */
 export const DEFAULT_MIDI: MidiBindings = {
   cc: {
     "7": "master.volume",
+    "8": "crossfader",
     "10": "A.pan",
+    "11": "B.pan",
     "13": "crossfader",
     "16": "A.volume",
     "17": "B.volume",
+    "19": "A.eq.low",
     "20": "A.filter",
     "21": "B.filter",
+    "23": "B.eq.low",
   },
   notes: Object.fromEntries(PAD_IDS.map((id, i) => [String(36 + i), `pad:${id}`])),
 };

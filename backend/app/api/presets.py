@@ -106,12 +106,16 @@ def default_midi_map() -> dict:
     return {
         "cc": {
             "7": "master.volume",
+            "8": "crossfader",
             "10": "A.pan",
+            "11": "B.pan",
             "13": "crossfader",
             "16": "A.volume",
             "17": "B.volume",
+            "19": "A.eq.low",
             "20": "A.filter",
             "21": "B.filter",
+            "23": "B.eq.low",
         },
         "notes": {
             str(36 + i): f"pad:{name}"

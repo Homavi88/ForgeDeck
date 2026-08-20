@@ -39,6 +39,7 @@ export class AudioEngine {
   stemsActive: { A: boolean; B: boolean } = { A: false, B: false };
   private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
   private clipSources: AudioBufferSourceNode[] = [];
+  private hpEl: HTMLAudioElement | null = null;
 
   constructor() {
     this.ctx = new AudioContext();
@@ -191,6 +192,38 @@ export class AudioEngine {
 
   armMidiLearn(cb: (kind: "cc" | "note", number: number) => void): void {
     this.midiLearn = cb;
+  }
+
+  attachHeadphonesEl(el: HTMLAudioElement): void {
+    this.hpEl = el;
+    const dest = this.mixer.headphoneDest;
+    if (dest) {
+      el.srcObject = dest.stream;
+      void el.play().catch(() => undefined);
+    }
+  }
+
+  async listAudioOutputs(): Promise<MediaDeviceInfo[]> {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      /* labels may be empty without permission */
+    }
+    const all = await navigator.mediaDevices.enumerateDevices();
+    return all.filter((d) => d.kind === "audiooutput");
+  }
+
+  async setHeadphonesSink(deviceId: string): Promise<string> {
+    const el = this.hpEl as (HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }) | null;
+    if (!el) return "Headphone element missing";
+    if (typeof el.setSinkId !== "function") return "setSinkId not supported in this browser";
+    await el.setSinkId(deviceId);
+    return "Headphones routed";
+  }
+
+  setPfl(id: string, on: boolean): void {
+    this.mixer.setPfl(id, on);
   }
 
   async enableMidi(): Promise<string> {

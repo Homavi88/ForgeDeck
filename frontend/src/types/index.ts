@@ -32,6 +32,7 @@ export interface AudioFile {
   analysis_status: "pending" | "processing" | "ready" | "error" | string;
   analysis: AudioAnalysis | null;
   error_message: string | null;
+  created_at?: string | null;
 }
 
 export interface MixerChannel {

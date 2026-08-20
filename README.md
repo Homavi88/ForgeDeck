@@ -95,13 +95,6 @@ docker compose up --build
 - **AI Producer** — preview → Apply/Reject; вкладка Room — presence, чат, локи
 - **Share** — публичная страница `/share/:token` после Bounce/Rec
 - **Settings** — FX presets, MIDI map (Pioneer/Akai-style CC)
-- **Session** — clip launcher на 8 сцен
-- **Arrange** — клипы играют drums/synth/audio, automation lanes, mixer
-- **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern/kit
-- **Synth** — OSC/ADSR/filter/LFO, piano roll, Web MIDI + learn map
-- **Sampler** — trim/reverse/loop/pitch, slice to pads, stems
-- **AI Producer** — preview → Apply/Reject
-- **Settings** — FX presets, MIDI map (Pioneer/Akai-style CC)
 
 ## AI tools
 

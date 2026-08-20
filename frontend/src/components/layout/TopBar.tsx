@@ -3,12 +3,11 @@ import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
-import { LanguageSelect, t, useI18n, type MsgKey } from "../../i18n";
-import { PowerOffButton } from "./PowerOffButton";
+import { LanguageSelect, t, useI18n } from "../../i18n";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
 
-const MODES: { id: StudioMode; key: MsgKey }[] = [
+const MODES: { id: StudioMode; key: string }[] = [
   { id: "dj", key: "studio.modeDj" },
   { id: "session", key: "studio.modeSession" },
   { id: "arrange", key: "studio.modeArrange" },
@@ -137,7 +136,6 @@ export function TopBar() {
       <ShareButton />
       <RecordButton />
       <ExportButton />
-      <PowerOffButton compact />
     </div>
   );
 }

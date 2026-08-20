@@ -1,7 +1,7 @@
 export type Locale = "en" | "ru";
 
 export const en = {
-  lang: { en: "English", ru: "Русский", label: "Language" },
+  lang: { en: "English", ru: "Русский", label: "Language", enShort: "EN", ruShort: "RU" },
   nav: {
     projects: "Projects",
     library: "Library",

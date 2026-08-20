@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
@@ -17,6 +17,41 @@ const MODES: { id: StudioMode; key: MsgKey }[] = [
   { id: "synth", key: "studio.modeSynth" },
   { id: "sampler", key: "studio.modeSampler" },
 ];
+
+function Chip({
+  active,
+  onClick,
+  title,
+  children,
+  danger,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  title?: string;
+  children: ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`h-7 px-2.5 rounded-md text-[11px] font-medium whitespace-nowrap ${
+        danger && active
+          ? "bg-danger text-white"
+          : active
+            ? "bg-ink-600 text-cyan"
+            : "text-zinc-400 hover:text-white hover:bg-ink-700"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Divider() {
+  return <span className="w-px h-5 bg-line shrink-0" aria-hidden />;
+}
 
 export function TopBar() {
   const {
@@ -45,127 +80,136 @@ export function TopBar() {
     toggleSessionRec,
   } = useStudio();
   useI18n((s) => s.locale);
+  const name = project?.name ?? t("studio.untitled");
+  const aiOn = aiPanelOpen && !decksFullscreen;
+  const libOn = libraryOpen && !decksFullscreen;
 
   return (
-    <div className="h-14 border-b border-line bg-ink-900 flex items-center px-3 gap-3">
-      <Link to="/projects" className="text-[10px] tracking-[0.25em] uppercase text-accent font-semibold pr-2">
-        ForgeDeck
-      </Link>
-      <div className="text-sm font-medium truncate max-w-[160px]">{project?.name ?? t("studio.untitled")}</div>
-      <div className="flex items-center gap-1 bg-ink-800 rounded-md p-1 overflow-auto">
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setMode(m.id)}
-            className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider ${mode === m.id ? "bg-accent text-black" : "text-zinc-400 hover:text-white"}`}
-          >
-            {t(m.key)}
-          </button>
-        ))}
-      </div>
-      <button
-        onClick={() => void togglePlay()}
-        className={`w-10 h-10 rounded-full ${playing ? "bg-mint text-black" : "bg-ink-700 text-white"} font-mono text-sm`}
-      >
-        {playing ? "■" : "▶"}
-      </button>
-      <label className="flex items-center gap-2 text-xs text-zinc-400">
-        BPM
-        <input
-          type="number"
-          className="w-16 bg-ink-800 border border-line rounded px-2 py-1 font-mono text-white"
-          value={bpm}
-          onChange={(e) => setBpm(Number(e.target.value) || 120)}
-        />
-      </label>
-      <label className="flex items-center gap-1 text-xs text-zinc-400">
-        {t("studio.key")}
-        <select
-          className="bg-ink-800 border border-line rounded px-1.5 py-1 text-zinc-200 max-w-[7.5rem]"
-          value={musicalKey}
-          onChange={(e) => setMusicalKey(e.target.value)}
+    <header className="border-b border-line bg-ink-900 shrink-0">
+      <div className="h-12 flex items-center gap-3 px-3">
+        <Link
+          to="/projects"
+          className="text-[10px] tracking-[0.28em] uppercase text-accent font-semibold shrink-0"
         >
-          {!KEY_OPTIONS.includes(musicalKey) && <option value={musicalKey}>{musicalKey}</option>}
-          {KEY_OPTIONS.map((k) => (
-            <option key={k} value={k}>
-              {k}
-            </option>
+          ForgeDeck
+        </Link>
+        <div className="text-sm font-medium truncate min-w-[7rem] max-w-[14rem]" title={name}>
+          {name}
+        </div>
+
+        <nav className="flex-1 min-w-0 flex items-center gap-0.5 bg-ink-800 rounded-lg p-0.5 overflow-x-auto">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setMode(m.id)}
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium ${
+                mode === m.id ? "bg-accent text-black" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              {t(m.key)}
+            </button>
           ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-1 text-xs text-zinc-400">
-        <input
-          type="checkbox"
-          checked={metronome}
-          onChange={(e) => {
-            useStudio.setState({ metronome: e.target.checked });
-            getEngine().transport.metronome = e.target.checked;
+        </nav>
+
+        <button
+          type="button"
+          onClick={() => void togglePlay()}
+          className={`w-9 h-9 shrink-0 rounded-full ${playing ? "bg-mint text-black" : "bg-ink-700 text-white"} font-mono text-sm`}
+          title={playing ? "Stop" : "Play"}
+        >
+          {playing ? "■" : "▶"}
+        </button>
+        <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 shrink-0">
+          BPM
+          <input
+            type="number"
+            step="0.1"
+            className="w-[4.25rem] h-8 bg-ink-800 border border-line rounded-md px-2 font-mono text-sm text-white"
+            value={bpm}
+            onChange={(e) => setBpm(Number(e.target.value) || 120)}
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 shrink-0">
+          {t("studio.key")}
+          <select
+            className="h-8 bg-ink-800 border border-line rounded-md px-2 text-sm text-zinc-200 max-w-[8.5rem]"
+            value={musicalKey}
+            onChange={(e) => setMusicalKey(e.target.value)}
+          >
+            {!KEY_OPTIONS.includes(musicalKey) && <option value={musicalKey}>{musicalKey}</option>}
+            {KEY_OPTIONS.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5 text-[11px] text-zinc-400 shrink-0">
+          <input
+            type="checkbox"
+            checked={metronome}
+            onChange={(e) => {
+              useStudio.setState({ metronome: e.target.checked });
+              getEngine().transport.metronome = e.target.checked;
+            }}
+          />
+          {t("studio.click")}
+        </label>
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <button
+            type="button"
+            onClick={() => void save()}
+            className="h-8 px-3 rounded-md bg-ink-700 text-xs font-medium hover:bg-ink-600"
+          >
+            {saving ? t("studio.saving") : t("studio.save")}
+          </button>
+          <RecordButton />
+          <ExportButton />
+        </div>
+      </div>
+
+      <div className="h-10 flex items-center gap-1.5 px-3 border-t border-line bg-ink-950">
+        <Chip active={sessionRec} danger title={t("session.recTitle")} onClick={() => void toggleSessionRec()}>
+          {sessionRec ? t("session.recOn") : t("session.rec")}
+        </Chip>
+        <Chip onClick={undo}>{t("studio.undo")}</Chip>
+        <Chip onClick={redo}>{t("studio.redo")}</Chip>
+        <Divider />
+        <Chip
+          onClick={() => {
+            void (async () => {
+              await bootAudio();
+              await getEngine().enableMidi();
+            })();
           }}
-        />
-        {t("studio.click")}
-      </label>
-      <button
-        className={`text-[10px] uppercase px-2 py-1 rounded ${sessionRec ? "bg-danger text-white" : "text-zinc-400"}`}
-        title={t("session.recTitle")}
-        onClick={() => void toggleSessionRec()}
-      >
-        {sessionRec ? t("session.recOn") : t("session.rec")}
-      </button>
-      <button className="text-[10px] uppercase text-zinc-400" onClick={undo}>
-        {t("studio.undo")}
-      </button>
-      <button className="text-[10px] uppercase text-zinc-400" onClick={redo}>
-        {t("studio.redo")}
-      </button>
-      <button
-        className="text-[10px] uppercase text-zinc-400"
-        onClick={async () => {
-          await bootAudio();
-          await getEngine().enableMidi();
-        }}
-      >
-        {t("studio.midi")}
-      </button>
-      <MicButton />
-      <button
-        className="text-[10px] uppercase text-zinc-400"
-        title={t("studio.keysTitle")}
-        onClick={() => useStudio.setState({ keymapOpen: true })}
-      >
-        {t("studio.keys")}
-      </button>
-      <button
-        className={`text-[10px] uppercase ${aiPanelOpen && !decksFullscreen ? "text-cyan" : "text-zinc-500"}`}
-        onClick={toggleAiPanel}
-      >
-        {aiPanelOpen && !decksFullscreen ? t("studio.hideAi") : t("studio.showAi")}
-      </button>
-      <button
-        className={`text-[10px] uppercase ${libraryOpen && !decksFullscreen ? "text-cyan" : "text-zinc-500"}`}
-        onClick={toggleLibrary}
-      >
-        {libraryOpen && !decksFullscreen ? t("studio.hideLib") : t("studio.showLib")}
-      </button>
-      <button
-        className={`text-[10px] uppercase ${decksFullscreen ? "text-accent" : "text-zinc-500"}`}
-        onClick={toggleDecksFullscreen}
-      >
-        {decksFullscreen ? t("studio.exitDecks") : t("studio.decks")}
-      </button>
-      <div className="flex-1" />
-      <LanguageSelect compact />
-      <span className="text-[10px] uppercase text-zinc-600">{saving ? t("studio.autosaving") : t("studio.autosaveOn")}</span>
-      <button
-        onClick={() => void save()}
-        className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider hover:bg-ink-600"
-      >
-        {saving ? t("studio.saving") : t("studio.save")}
-      </button>
-      <ShareButton />
-      <RecordButton />
-      <ExportButton />
-      <PowerOffButton compact />
-    </div>
+        >
+          {t("studio.midi")}
+        </Chip>
+        <MicButton />
+        <Chip title={t("studio.keysTitle")} onClick={() => useStudio.setState({ keymapOpen: true })}>
+          {t("studio.keys")}
+        </Chip>
+        <Divider />
+        <Chip active={aiOn} onClick={toggleAiPanel}>
+          {t("studio.showAi")}
+        </Chip>
+        <Chip active={libOn} onClick={toggleLibrary}>
+          {t("studio.showLib")}
+        </Chip>
+        <Chip active={decksFullscreen} onClick={toggleDecksFullscreen}>
+          {t("studio.decks")}
+        </Chip>
+        <div className="flex-1 min-w-2" />
+        <span className="text-[10px] uppercase tracking-wider text-zinc-600 hidden lg:inline">
+          {saving ? t("studio.autosaving") : t("studio.autosaveOn")}
+        </span>
+        <LanguageSelect segmented />
+        <ShareButton />
+        <PowerOffButton compact />
+      </div>
+    </header>
   );
 }
 
@@ -173,21 +217,23 @@ function MicButton() {
   const micOn = useStudio((s) => s.micOn);
   useI18n((s) => s.locale);
   return (
-    <button
-      className={`text-[10px] uppercase ${micOn ? "text-mint" : "text-zinc-400"}`}
-      onClick={async () => {
-        await useStudio.getState().bootAudio();
-        const next = !useStudio.getState().micOn;
-        try {
-          await getEngine().setMic(next);
-          useStudio.setState({ micOn: next, error: null });
-        } catch (err) {
-          useStudio.setState({ error: err instanceof Error ? err.message : t("studio.micDenied") });
-        }
+    <Chip
+      active={micOn}
+      onClick={() => {
+        void (async () => {
+          await useStudio.getState().bootAudio();
+          const next = !useStudio.getState().micOn;
+          try {
+            await getEngine().setMic(next);
+            useStudio.setState({ micOn: next, error: null });
+          } catch (err) {
+            useStudio.setState({ error: err instanceof Error ? err.message : t("studio.micDenied") });
+          }
+        })();
       }}
     >
       {micOn ? t("studio.micOn") : t("studio.mic")}
-    </button>
+    </Chip>
   );
 }
 
@@ -196,19 +242,21 @@ function ShareButton() {
   const [copied, setCopied] = useState(false);
   useI18n((s) => s.locale);
   return (
-    <button
-      className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider hover:bg-ink-600"
-      onClick={async () => {
-        if (!project) return;
-        const res = await api.projects.share(project.id);
-        const url = `${window.location.origin}${res.path}`;
-        await navigator.clipboard.writeText(url).catch(() => undefined);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1600);
+    <Chip
+      active={copied}
+      onClick={() => {
+        void (async () => {
+          if (!project) return;
+          const res = await api.projects.share(project.id);
+          const url = `${window.location.origin}${res.path}`;
+          await navigator.clipboard.writeText(url).catch(() => undefined);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1600);
+        })();
       }}
     >
       {copied ? t("studio.linkCopied") : t("studio.share")}
-    </button>
+    </Chip>
   );
 }
 
@@ -235,12 +283,13 @@ function RecordButton() {
   return (
     <div className="flex items-center gap-2">
       {on && (
-        <div className="font-mono text-[10px] text-danger">
-          {mm}:{ss} · peak {(hud.peak * 100).toFixed(0)}% · ~{mb} MB
+        <div className="font-mono text-[10px] text-danger hidden xl:block">
+          {mm}:{ss} · {(hud.peak * 100).toFixed(0)}% · {mb} MB
         </div>
       )}
       <button
-        className={`px-3 py-1.5 rounded text-xs uppercase tracking-wider font-semibold ${
+        type="button"
+        className={`h-8 px-3 rounded-md text-xs font-semibold ${
           on ? "bg-danger text-white" : "bg-ink-700 hover:bg-ink-600"
         }`}
         onClick={async () => {
@@ -276,7 +325,8 @@ function ExportButton() {
   useI18n((s) => s.locale);
   return (
     <button
-      className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold"
+      type="button"
+      className="h-8 px-3 rounded-md bg-accent text-black text-xs font-semibold"
       onClick={async () => {
         if (!project || busy) return;
         setBusy(true);

@@ -18,7 +18,7 @@
 
 В TopBar рядом с BPM — **тональность** проекта (`musical_key`). Она кормит подсветку гаммы на piano roll, AI bass/melody/chords и clip **Key follow**. **Session rec** пишет clip launcher на Arrange.
 
-Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек прячутся кнопками в TopBar (`Hide AI` / `Hide lib` / `Decks`). Язык **RU/EN** переключается в TopBar (студия) и в шапке Shell (остальные страницы); выбор пишется в `fd_locale`. **Выключить** (TopBar и шапка Shell) спрашивает подтверждение, закрывает терминалы лаунчера и гасит API+UI.
+Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек — тогглы во **второй** строке TopBar (`AI` / `Library` / `Decks`, активные подсвечены). Первая строка: режимы (не обрезаются), Play, BPM, тональность, Save / Rec / Bounce. Язык **EN/RU** там же; выбор в `fd_locale`. **Выключить** спрашивает подтверждение, закрывает терминалы лаунчера и гасит API+UI.
 
 ## Library
 

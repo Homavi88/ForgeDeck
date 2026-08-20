@@ -49,10 +49,30 @@ export class Mixer {
   }
 
   applySolo(): void {
-    const anySolo = Object.values(this.channels).some((ch) => (ch as unknown as { soloed?: boolean }).soloed);
-    // Simple mute-others: if any channel mute is used, user still has mute buttons.
-    void anySolo;
-    void this.ctx;
+    const anySolo = Object.values(this.channels).some((ch) => ch.soloed);
+    for (const ch of Object.values(this.channels)) {
+      if (ch.muted) {
+        ch.mute.gain.value = 0;
+      } else if (anySolo) {
+        ch.mute.gain.value = ch.soloed ? 1 : 0;
+      } else {
+        ch.mute.gain.value = 1;
+      }
+    }
+  }
+
+  setSolo(id: string, on: boolean): void {
+    this.channels[id]?.setSolo(on);
+    this.applySolo();
+  }
+
+  sidechain = true;
+
+  duckFromKick(time: number): void {
+    if (!this.sidechain) return;
+    this.channels.synth.duckKick(time, 0.55, 0.18);
+    this.channels.A.duckKick(time, 0.25, 0.14);
+    this.channels.B.duckKick(time, 0.25, 0.14);
   }
 
   get masterLevel(): number {

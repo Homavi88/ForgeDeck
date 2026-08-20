@@ -1,52 +1,28 @@
 # PulseForge TODO / roadmap
 
-## Done in MVP
-- [x] Monorepo: backend, frontend, workers, ai_agents, storage
-- [x] Docker Compose (Postgres, Redis, API, worker, frontend)
-- [x] FastAPI + SQLAlchemy models + Alembic initial migration
-- [x] Upload + waveform/BPM/key/loudness analysis
-- [x] 2 DJ decks + mixer + crossfader + EQ3 + filter + FX
-- [x] Waveform + beatgrid canvas
-- [x] Project CRUD / duplicate / JSON export / render job
-- [x] Mock AI Producer with tool-calling JSON + preview/apply
-- [x] Drum machine 16 pads + step sequencer
-- [x] Browser synth + keyboard + Web MIDI hook
-- [x] Arrangement timeline (drag / trim / split)
-- [x] Backend tests + OpenAPI
+## Done
+- [x] Monorepo, Docker Compose, FastAPI, Alembic, OpenAPI
+- [x] Upload + BPM/key/Camelot/waveform/beatgrid analysis
+- [x] 2 DJ decks + mixer + crossfader + EQ3 + filter + FX + VU
+- [x] Key lock (granular), loop in/out, beat jump, quantize, slip flag
+- [x] Mixer pan / mute / solo / sidechain ducking from kick
+- [x] Drum machine + save pattern, sampler slice-to-pads
+- [x] Synth + piano roll + Web MIDI (keys, pads 36–51, CC7)
+- [x] Session clip launcher (8 scenes)
+- [x] Arrangement timeline plays drums/synth/audio clips + automation lanes
+- [x] Project graph hydrate on save (patterns, mixer, synth)
+- [x] AI Producer: cues, transition automation, drums, synth, arrangement, bassline/melody/chords, compatible tracks, HPSS stems
+- [x] OpenAI-compatible provider (falls back to mock)
+- [x] Undo/redo, Ctrl+S save
+- [x] HPSS stem split (Demucs-quality still optional)
+- [x] Backend tests
 
-## Audio engine
-- [ ] Independent time-stretch / key lock (Rubber Band or SoundTouch WASM)
-- [ ] Scratch / platter vinyl mode
-- [ ] Quantized hot-cues to beatgrid
-- [ ] Slip mode, beat jump, loop roll
-- [ ] True AudioWorklet mixer (move EQ/filter off main thread)
-- [ ] Sidechain ducking from kick envelope to bass/synth
-- [ ] Clip launcher (Ableton session view)
-- [ ] Piano roll editor (not just keyboard)
-- [ ] Sample slicing UI using `analysis.onsets`
-- [ ] Recording / resample from master
-
-## Analysis & backend
-- [ ] Optional librosa in default image
-- [ ] Demucs/Spleeter stem worker (GPU image)
-- [ ] Essentia MIR (danceability, energy, Camelot)
-- [ ] Accurate loudness (ITU-R BS.1770 / pyloudnorm)
-- [ ] Beatgrid tap + manual nudge
-- [ ] Real mixdown of the Web Audio graph (offline render from project graph)
-- [ ] Auth (JWT / OAuth) instead of demo user
-- [ ] Object storage (S3) for audio
-- [ ] WebSocket presence + collaborative transport
-
-## AI
-- [ ] OpenAI / Anthropic / Gemini provider adapters
-- [ ] Tool-calling with schema validation (jsonschema)
-- [ ] Compatible-track suggestions from library (BPM/key distance)
-- [ ] Transition plans that write real automation into the engine
-- [ ] Genre-conditioned melody / bassline MIDI generation
-
-## Product
-- [ ] Mapping for MIDI controllers (Pioneer, Akai, generic)
-- [ ] Mobile layout
-- [ ] Preset / kit browser
-- [ ] Undo/redo
-- [ ] Automated E2E (Playwright) for studio smoke
+## Still later / heavier
+- [ ] Rubber Band / SoundTouch WASM (studio-grade timestretch)
+- [ ] Demucs GPU worker (replace HPSS vocals)
+- [ ] Scratch platter, loop roll, full vinyl
+- [ ] Offline render of the exact Web Audio graph
+- [ ] JWT auth, S3 storage
+- [ ] Collaborative WebSocket transport
+- [ ] MIDI mapping UI for Pioneer/Akai
+- [ ] Playwright E2E

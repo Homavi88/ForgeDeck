@@ -15,8 +15,8 @@ export class ChannelStrip {
   panner: StereoPannerNode;
   analyser: AnalyserNode;
   duck: GainNode;
-  private muted = false;
-  private soloed = false;
+  muted = false;
+  soloed = false;
 
   constructor(ctx: AudioContext) {
     this.input = ctx.createGain();
@@ -66,6 +66,13 @@ export class ChannelStrip {
 
   setSolo(_on: boolean): void {
     this.soloed = _on;
+  }
+
+  duckKick(time: number, amount = 0.45, recovery = 0.16): void {
+    const g = this.duck.gain;
+    g.cancelScheduledValues(time);
+    g.setValueAtTime(Math.max(0.05, 1 - amount), time);
+    g.exponentialRampToValueAtTime(1, time + recovery);
   }
 
   get level(): number {

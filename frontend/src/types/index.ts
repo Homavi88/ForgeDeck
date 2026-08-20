@@ -1,4 +1,4 @@
-export type StudioMode = "dj" | "arrange" | "drums" | "synth";
+export type StudioMode = "dj" | "session" | "arrange" | "drums" | "synth" | "sampler";
 
 export type OscType = "sine" | "square" | "sawtooth" | "triangle";
 
@@ -10,11 +10,13 @@ export interface AudioAnalysis {
   bpm: number;
   beats: number[];
   key: string;
+  camelot?: string;
   loudness_rms: number;
   peak: number;
   loudness_db: number;
   onsets: number[];
   engine: string;
+  stems?: Record<string, string>;
 }
 
 export interface AudioFile {
@@ -67,7 +69,7 @@ export interface TimelineClip {
 }
 
 export interface DrumSteps {
-  [padId: string]: number[]; // 0..1 velocity per step
+  [padId: string]: number[];
 }
 
 export interface SynthParams {
@@ -86,13 +88,49 @@ export interface SynthParams {
   unison?: number;
 }
 
-export interface DeckState {
-  audioFileId: string | null;
+export interface MidiNote {
+  id: string;
   pitch: number;
+  startStep: number;
+  length: number;
+  velocity: number;
+}
+
+export interface SessionClip {
+  id: string;
+  trackId: string;
+  scene: number;
+  name: string;
+  kind: "drums" | "midi" | "audio";
+  lengthBars: number;
+  color: string;
+  empty: boolean;
+  audioFileId?: string | null;
+}
+
+export interface AutomationLaneState {
+  target: string;
+  points: Array<{ time: number; value: number }>;
+}
+
+export interface MixerStripState {
   volume: number;
-  cue: number;
-  loop: { start: number; end: number } | null;
-  hotcues: Record<number, number>;
+  gain: number;
+  eq: [number, number, number];
+  filter: number;
+  mute: boolean;
+  solo: boolean;
+  pan: number;
+  fx: Record<string, number>;
+}
+
+export interface SamplerState {
+  audioFileId: string | null;
+  start: number;
+  end: number;
+  reverse: boolean;
+  loop: boolean;
+  playbackRate: number;
 }
 
 export interface ProjectDetail {

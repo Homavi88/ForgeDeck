@@ -1,9 +1,9 @@
 /**
- * DJ deck: buffer playback with pitch, cue, hotcues, and looping.
+ * DJ deck: buffer playback with pitch, cue, hotcues, looping, beat jump, slip.
  *
- * Independent time-stretch (key lock) is NOT implemented in MVP — changing
- * pitch also changes duration via playbackRate. Rubber Band / SoundTouch
- * WASM is the planned path (see TODO.md).
+ * Key lock uses overlapping grains at playbackRate=1 while the read head
+ * walks the buffer at `rate`. This is WSOLA-ish, not Rubber Band — pitch
+ * stays close, transients smear a bit. Toggle off for classic vinyl pitch.
  */
 export class Deck {
   ctx: AudioContext;
@@ -11,14 +11,23 @@ export class Deck {
   buffer: AudioBuffer | null = null;
   source: AudioBufferSourceNode | null = null;
   playing = false;
-  pitch = 0; // percent, ±8 typical
+  pitch = 0;
+  keyLock = false;
+  slip = false;
+  quantize = true;
+  beats: number[] = [];
   private startedAt = 0;
   private offset = 0;
+  private slipOrigin = 0;
   cuePoint = 0;
   loop: { start: number; end: number } | null = null;
+  private loopInMark: number | null = null;
   hotcues: Record<number, number> = {};
   onPosition?: (t: number) => void;
   private raf = 0;
+  private grainTimer: number | null = null;
+  private grainPos = 0;
+  private grains: AudioBufferSourceNode[] = [];
 
   constructor(ctx: AudioContext, destination: AudioNode) {
     this.ctx = ctx;
@@ -37,19 +46,28 @@ export class Deck {
 
   get position(): number {
     if (!this.playing || !this.buffer) return this.offset;
+    if (this.keyLock) {
+      let pos = this.grainPos;
+      if (this.loop && pos >= this.loop.end) {
+        const span = Math.max(0.01, this.loop.end - this.loop.start);
+        pos = this.loop.start + ((pos - this.loop.start) % span);
+      }
+      return Math.min(pos, this.duration);
+    }
     const elapsed = (this.ctx.currentTime - this.startedAt) * this.rate;
     let pos = this.offset + elapsed;
-    if (this.loop && pos >= this.loop.end) {
+    if (this.loop && !this.slip && pos >= this.loop.end) {
       const span = this.loop.end - this.loop.start;
       pos = this.loop.start + ((pos - this.loop.start) % span);
     }
     return Math.min(pos, this.duration);
   }
 
-  async loadBuffer(buffer: AudioBuffer): Promise<void> {
+  async loadBuffer(buffer: AudioBuffer, beats: number[] = []): Promise<void> {
     const was = this.playing;
     this.stop();
     this.buffer = buffer;
+    this.beats = beats;
     this.offset = 0;
     this.cuePoint = 0;
     if (was) this.play();
@@ -57,8 +75,10 @@ export class Deck {
 
   play(): void {
     if (!this.buffer || this.playing) return;
-    this.spawn(this.offset);
     this.playing = true;
+    this.slipOrigin = this.offset;
+    if (this.keyLock) this.spawnGrains(this.offset);
+    else this.spawn(this.offset);
     this.watch();
   }
 
@@ -81,12 +101,26 @@ export class Deck {
   }
 
   seek(time: number): void {
-    const t = Math.max(0, Math.min(time, this.duration));
+    const t = Math.max(0, Math.min(this.snap(time), this.duration));
     const was = this.playing;
     this.killSource();
     this.offset = t;
     this.playing = false;
     if (was) this.play();
+  }
+
+  snap(time: number): number {
+    if (!this.quantize || this.beats.length < 2) return time;
+    let best = this.beats[0];
+    let dist = Math.abs(time - best);
+    for (const b of this.beats) {
+      const d = Math.abs(time - b);
+      if (d < dist) {
+        dist = d;
+        best = b;
+      }
+    }
+    return dist < 0.12 ? best : time;
   }
 
   cuePress(): void {
@@ -100,11 +134,11 @@ export class Deck {
   }
 
   setCueHere(): void {
-    this.cuePoint = this.position;
+    this.cuePoint = this.snap(this.position);
   }
 
   setHotcue(index: number): void {
-    this.hotcues[index] = this.position;
+    this.hotcues[index] = this.snap(this.position);
   }
 
   jumpHotcue(index: number): void {
@@ -116,20 +150,46 @@ export class Deck {
     if (!this.playing) this.play();
   }
 
+  beatJump(beats: number, bpm: number): void {
+    const dt = (60 / Math.max(bpm, 1)) * beats;
+    this.seek(this.position + dt);
+  }
+
+  markLoopIn(): void {
+    this.loopInMark = this.position;
+  }
+
+  markLoopOut(): void {
+    const start = this.loopInMark ?? this.cuePoint;
+    const end = Math.max(start + 0.05, this.position);
+    this.setLoop(start, end);
+  }
+
   setPitch(percent: number): void {
     this.pitch = percent;
-    if (this.source) this.source.playbackRate.value = this.rate;
+    if (this.source && !this.keyLock) this.source.playbackRate.value = this.rate;
+  }
+
+  setKeyLock(on: boolean): void {
+    const was = this.playing;
+    const pos = this.position;
+    this.keyLock = on;
+    if (was) {
+      this.killSource();
+      this.playing = false;
+      this.offset = pos;
+      this.play();
+    }
   }
 
   syncToBpm(trackBpm: number, masterBpm: number): void {
     if (!trackBpm) return;
-    const percent = (masterBpm / trackBpm - 1) * 100;
-    this.setPitch(percent);
+    this.setPitch((masterBpm / trackBpm - 1) * 100);
   }
 
   setLoop(start: number, end: number): void {
     this.loop = { start, end };
-    if (this.source) {
+    if (this.source && !this.keyLock) {
       this.source.loop = true;
       this.source.loopStart = start;
       this.source.loopEnd = end;
@@ -138,12 +198,13 @@ export class Deck {
 
   loopBars(bars: number, bpm: number): void {
     const barLen = (60 / bpm) * 4;
-    const start = this.position;
+    const start = this.snap(this.position);
     this.setLoop(start, start + barLen * bars);
   }
 
   clearLoop(): void {
     this.loop = null;
+    this.loopInMark = null;
     if (this.source) this.source.loop = false;
   }
 
@@ -152,7 +213,7 @@ export class Deck {
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;
     src.playbackRate.value = this.rate;
-    if (this.loop) {
+    if (this.loop && !this.slip) {
       src.loop = true;
       src.loopStart = this.loop.start;
       src.loopEnd = this.loop.end;
@@ -170,8 +231,57 @@ export class Deck {
     };
   }
 
+  private spawnGrains(offset: number): void {
+    this.grainPos = offset;
+    this.offset = offset;
+    this.startedAt = this.ctx.currentTime;
+    this.scheduleGrain();
+  }
+
+  private scheduleGrain = (): void => {
+    if (!this.playing || !this.buffer || !this.keyLock) return;
+    const grain = 0.09;
+    const hop = 0.045;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.buffer;
+    src.playbackRate.value = 1;
+    const g = this.ctx.createGain();
+    const t = this.ctx.currentTime;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(1, t + 0.012);
+    g.gain.linearRampToValueAtTime(0.0001, t + grain);
+    src.connect(g).connect(this.output);
+    let start = this.grainPos;
+    if (this.loop && start >= this.loop.end) {
+      start = this.loop.start + ((start - this.loop.start) % Math.max(0.01, this.loop.end - this.loop.start));
+      this.grainPos = start;
+    }
+    src.start(t, Math.max(0, start), grain);
+    this.grains.push(src);
+    if (this.grains.length > 8) {
+      const old = this.grains.shift();
+      try {
+        old?.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.grainPos += hop * this.rate;
+    this.grainTimer = window.setTimeout(this.scheduleGrain, hop * 1000);
+  };
+
   private killSource(): void {
     if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.grainTimer != null) window.clearTimeout(this.grainTimer);
+    this.grainTimer = null;
+    for (const g of this.grains) {
+      try {
+        g.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.grains = [];
     try {
       this.source?.stop();
     } catch {

@@ -4,7 +4,7 @@ import { useStudio } from "../../store/useStudio";
 const FX = ["delay", "reverb", "flanger", "distortion", "bitcrush"] as const;
 
 export function MixerPanel() {
-  const { mixer, levels, masterLevel, crossfader } = useStudio();
+  const { mixer, levels, masterLevel, crossfader, sidechain } = useStudio();
 
   return (
     <section className="w-[280px] shrink-0 bg-ink-800 rounded-lg border border-line p-3 flex flex-col gap-3 shadow-panel">
@@ -46,6 +46,17 @@ export function MixerPanel() {
           />
         </label>
       </div>
+      <label className="flex items-center gap-2 text-[10px] uppercase text-zinc-500">
+        <input
+          type="checkbox"
+          checked={sidechain}
+          onChange={(e) => {
+            getEngine().mixer.sidechain = e.target.checked;
+            useStudio.setState({ sidechain: e.target.checked });
+          }}
+        />
+        Sidechain duck
+      </label>
       <div className="grid grid-cols-2 gap-1">
         {FX.map((fx) => (
           <label key={fx} className="text-[9px] uppercase text-zinc-500">
@@ -144,15 +155,34 @@ function Strip({ id, label, level }: { id: "A" | "B"; label: string; level: numb
       />
       <div className="flex gap-1">
         <button
-          className="text-[9px] px-1 bg-ink-700 rounded"
+          className={`text-[9px] px-1 rounded ${state.mute ? "bg-danger text-white" : "bg-ink-700"}`}
           onClick={() => {
-            ch().setMute(!state.mute);
-            patch({ mute: !state.mute });
+            useStudio.getState().applyMixerChannel(id, { mute: !state.mute });
           }}
         >
           M
         </button>
+        <button
+          className={`text-[9px] px-1 rounded ${state.solo ? "bg-warn text-black" : "bg-ink-700"}`}
+          onClick={() => {
+            useStudio.getState().applyMixerChannel(id, { solo: !state.solo });
+          }}
+        >
+          S
+        </button>
       </div>
+      <label className="text-[9px] uppercase text-zinc-500 w-full text-center">
+        Pan
+        <input
+          type="range"
+          min={-1}
+          max={1}
+          step={0.01}
+          defaultValue={0}
+          className="w-full"
+          onChange={(e) => useStudio.getState().applyMixerChannel(id, { pan: Number(e.target.value) })}
+        />
+      </label>
     </div>
   );
 }

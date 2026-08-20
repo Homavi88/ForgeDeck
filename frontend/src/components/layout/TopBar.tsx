@@ -5,26 +5,28 @@ import type { StudioMode } from "../../types";
 
 const MODES: { id: StudioMode; label: string }[] = [
   { id: "dj", label: "DJ" },
+  { id: "session", label: "Session" },
   { id: "arrange", label: "Arrange" },
   { id: "drums", label: "Drums" },
   { id: "synth", label: "Synth" },
+  { id: "sampler", label: "Sampler" },
 ];
 
 export function TopBar() {
-  const { project, bpm, setBpm, togglePlay, playing, metronome, save, saving, setMode, mode } = useStudio();
+  const { project, bpm, setBpm, togglePlay, playing, metronome, save, saving, setMode, mode, undo, redo } = useStudio();
 
   return (
     <div className="h-14 border-b border-line bg-ink-900 flex items-center px-3 gap-3">
       <Link to="/projects" className="text-[10px] tracking-[0.25em] uppercase text-accent font-semibold pr-2">
         PulseForge
       </Link>
-      <div className="text-sm font-medium truncate max-w-[180px]">{project?.name ?? "Untitled"}</div>
-      <div className="flex items-center gap-1 bg-ink-800 rounded-md p-1">
+      <div className="text-sm font-medium truncate max-w-[160px]">{project?.name ?? "Untitled"}</div>
+      <div className="flex items-center gap-1 bg-ink-800 rounded-md p-1 overflow-auto">
         {MODES.map((m) => (
           <button
             key={m.id}
             onClick={() => setMode(m.id)}
-            className={`px-3 py-1 rounded text-xs uppercase tracking-wider ${mode === m.id ? "bg-accent text-black" : "text-zinc-400 hover:text-white"}`}
+            className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider ${mode === m.id ? "bg-accent text-black" : "text-zinc-400 hover:text-white"}`}
           >
             {m.label}
           </button>
@@ -56,6 +58,12 @@ export function TopBar() {
         />
         Click
       </label>
+      <button className="text-[10px] uppercase text-zinc-400" onClick={undo}>
+        Undo
+      </button>
+      <button className="text-[10px] uppercase text-zinc-400" onClick={redo}>
+        Redo
+      </button>
       <div className="flex-1" />
       <button
         onClick={() => void save()}
@@ -77,7 +85,7 @@ function ExportButton() {
         if (!project) return;
         const { api } = await import("../../api/client");
         await api.projects.render(project.id, "wav");
-        alert("Render job queued. Check backend storage/renders when complete.");
+        alert("Render job queued. WAV появится в storage/audio/renders.");
       }}
     >
       Export

@@ -7,12 +7,14 @@ import { MixerPanel } from "../components/dj/MixerPanel";
 import { DrumMachinePanel } from "../components/drums/DrumMachinePanel";
 import { AIPanel } from "../components/layout/AIPanel";
 import { TopBar } from "../components/layout/TopBar";
+import { SamplerPanel } from "../components/sampler/SamplerPanel";
+import { SessionPanel } from "../components/session/SessionPanel";
 import { SynthPanel } from "../components/synth/SynthPanel";
 import { useStudio } from "../store/useStudio";
 
 export default function StudioPage() {
   const { id } = useParams();
-  const { loadProject, loading, error, mode, pollMeters, bootAudio } = useStudio();
+  const { loadProject, loading, error, mode, pollMeters, bootAudio, undo, redo } = useStudio();
 
   useEffect(() => {
     if (id) void loadProject(id);
@@ -29,8 +31,23 @@ export default function StudioPage() {
       window.removeEventListener("pointerdown", unlock);
     };
     window.addEventListener("pointerdown", unlock);
-    return () => window.removeEventListener("pointerdown", unlock);
-  }, [bootAudio]);
+    const keys = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void useStudio.getState().save();
+      }
+    };
+    window.addEventListener("keydown", keys);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", keys);
+    };
+  }, [bootAudio, undo, redo]);
 
   return (
     <div className="h-full flex flex-col bg-ink-950">
@@ -49,9 +66,11 @@ export default function StudioPage() {
               <LibraryBrowser />
             </>
           )}
+          {mode === "session" && <SessionPanel />}
           {mode === "drums" && <DrumMachinePanel />}
           {mode === "synth" && <SynthPanel />}
           {mode === "arrange" && <TimelinePanel />}
+          {mode === "sampler" && <SamplerPanel />}
         </div>
         <AIPanel />
       </div>

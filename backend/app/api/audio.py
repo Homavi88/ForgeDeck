@@ -76,6 +76,37 @@ async def upload_audio(
     return audio
 
 
+@router.get("/compatible")
+def compatible_tracks(
+    bpm: float | None = None,
+    key: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.services.harmony import bpm_compatible, camelot, compatible_camelot
+
+    files = db.query(AudioFile).filter(AudioFile.user_id == user.id, AudioFile.analysis_status == "ready").all()
+    target_code = camelot(key) if key else None
+    out = []
+    for f in files:
+        analysis = f.analysis or {}
+        fbpm = analysis.get("bpm")
+        fkey = analysis.get("key")
+        ok_bpm = bpm is None or (fbpm and bpm_compatible(float(bpm), float(fbpm)))
+        ok_key = target_code is None or (fkey and camelot(str(fkey)) in compatible_camelot(target_code))
+        if ok_bpm and ok_key:
+            out.append(
+                {
+                    "id": f.id,
+                    "original_filename": f.original_filename,
+                    "bpm": fbpm,
+                    "key": fkey,
+                    "camelot": analysis.get("camelot") or (camelot(str(fkey)) if fkey else None),
+                }
+            )
+    return out
+
+
 @router.get("", response_model=list[AudioFileOut])
 def list_audio(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return (
@@ -146,6 +177,35 @@ def list_cues(audio_id: str, db: Session = Depends(get_db)):
     from app.models import CuePoint
 
     return db.query(CuePoint).filter(CuePoint.audio_file_id == audio_id).all()
+
+
+@router.post("/{audio_id}/stems")
+def split_stems(audio_id: str, db: Session = Depends(get_db)):
+    from app.services.stems import hpss_stems
+
+    audio = db.get(AudioFile, audio_id)
+    if not audio:
+        raise HTTPException(404, "Audio not found")
+    paths = hpss_stems(audio.path)
+    analysis = dict(audio.analysis or {})
+    analysis["stems"] = paths
+    analysis["stems_engine"] = "hpss"
+    audio.analysis = analysis
+    db.add(audio)
+    db.commit()
+    return {"id": audio.id, "stems": paths, "engine": "hpss"}
+
+
+@router.get("/{audio_id}/stems/{stem}/stream")
+def stream_stem(audio_id: str, stem: str, db: Session = Depends(get_db)):
+    audio = db.get(AudioFile, audio_id)
+    if not audio:
+        raise HTTPException(404, "Audio not found")
+    stems = (audio.analysis or {}).get("stems") or {}
+    path = stems.get(stem)
+    if not path or not Path(path).exists():
+        raise HTTPException(404, "Stem not found — run POST /stems first")
+    return FileResponse(path, media_type="audio/wav", filename=f"{stem}.wav")
 
 
 @router.post("/{audio_id}/loops", response_model=LoopOut)

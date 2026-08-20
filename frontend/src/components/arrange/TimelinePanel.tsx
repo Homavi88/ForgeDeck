@@ -1,3 +1,5 @@
+import { MixerPanel } from "../dj/MixerPanel";
+import { getEngine } from "../../audio-engine/AudioEngine";
 import { useStudio } from "../../store/useStudio";
 import type { TimelineClip } from "../../types";
 
@@ -15,9 +17,9 @@ export function TimelinePanel() {
   const playhead = (currentStep / 16) * PX * 4;
 
   const move = (id: string, startBar: number) => {
-    useStudio.setState({
-      clips: clips.map((c) => (c.id === id ? { ...c, startBar: Math.max(0, startBar) } : c)),
-    });
+    const next = clips.map((c) => (c.id === id ? { ...c, startBar: Math.max(0, startBar) } : c));
+    useStudio.setState({ clips: next });
+    getEngine().timeline.clips = next;
   };
 
   const trim = (id: string, lengthBars: number) => {
@@ -72,6 +74,26 @@ export function TimelinePanel() {
         </button>
         <p className="text-xs text-zinc-500">Drag clips · double-click to split at playhead bar</p>
       </div>
+      <AutomationLanes />
+      <div className="mt-4">
+        <MixerPanel />
+      </div>
+    </div>
+  );
+}
+
+function AutomationLanes() {
+  const automation = useStudio((s) => s.automation);
+  if (!automation.length) {
+    return <p className="text-xs text-zinc-600 mt-3">Automation lanes appear here after AI Apply (filter/EQ/volume).</p>;
+  }
+  return (
+    <div className="mt-4 space-y-2">
+      {automation.map((lane) => (
+        <div key={lane.target} className="text-xs font-mono text-zinc-400">
+          {lane.target}: {lane.points.map((p) => `${p.time.toFixed(1)}s→${p.value}`).join("  ")}
+        </div>
+      ))}
     </div>
   );
 }

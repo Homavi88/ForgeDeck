@@ -160,6 +160,10 @@ def update_project(project_id: str, payload: ProjectUpdate, db: Session = Depend
         setattr(project, key, value)
     db.add(project)
     db.commit()
+    if payload.graph is not None:
+        from app.services.project_graph import persist_graph
+
+        persist_graph(db, project, payload.graph)
     db.refresh(project)
     return project
 

@@ -4,14 +4,19 @@ import { useStudio } from "../../store/useStudio";
 const QUICK = [
   { label: "Analyze this track", msg: "Analyze this track and suggest cues" },
   { label: "Create DJ transition", msg: "Create a DJ transition between decks" },
+  { label: "Compatible tracks", msg: "Suggest compatible tracks by BPM and Camelot" },
   { label: "Make drum pattern", msg: "Make a house drum pattern" },
+  { label: "Bassline", msg: "Create a bassline in the project key" },
+  { label: "Melody", msg: "Create a melody in the project key" },
+  { label: "Chords", msg: "Create a chord progression" },
   { label: "Suggest mix settings", msg: "Suggest mix settings and gain staging" },
   { label: "Generate arrangement", msg: "Generate arrangement structure intro buildup drop" },
   { label: "Create synth preset", msg: "Create a dark bass synth preset" },
+  { label: "Split stems", msg: "Separate stems from this track" },
 ];
 
 export function AIPanel() {
-  const { chat, chatAI, aiBusy, pendingActions, applyAI, rejectAI } = useStudio();
+  const { chat, chatAI, aiBusy, pendingActions, applyAI, rejectAI, compatible, loadToDeck, library } = useStudio();
   const [text, setText] = useState("");
 
   return (
@@ -40,6 +45,23 @@ export function AIPanel() {
           </div>
         ))}
         {aiBusy && <div className="text-xs text-zinc-500 animate-pulse">Thinking…</div>}
+        {compatible.length > 0 && (
+          <div className="border border-line rounded p-2">
+            <div className="text-[10px] uppercase tracking-wider text-cyan mb-1">Compatible</div>
+            {compatible.map((t) => (
+              <button
+                key={t.id}
+                className="block w-full text-left text-xs py-1 text-zinc-300 hover:text-white"
+                onClick={() => {
+                  const file = library.find((f) => f.id === t.id);
+                  if (file) void loadToDeck("B", file);
+                }}
+              >
+                {(t.original_filename || t.name) as string} · {t.bpm} · {t.key}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {pendingActions.length > 0 && (
         <div className="border-t border-line p-3 bg-ink-800">

@@ -1,3 +1,4 @@
+import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { PAD_IDS } from "../../audio-engine/DrumMachine";
 import { useStudio } from "../../store/useStudio";
@@ -9,7 +10,22 @@ export function DrumMachinePanel() {
   return (
     <div className="flex-1 p-4 overflow-auto flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">Drum Machine</div>
+        <button
+          className="text-xs bg-ink-700 px-2 py-1 rounded"
+          onClick={async () => {
+            const p = useStudio.getState().project;
+            if (!p) return;
+            await api.projects.savePattern(p.id, {
+              name: "Main",
+              length: drumLength,
+              swing: drumSwing,
+              bpm: useStudio.getState().bpm,
+              steps: drumSteps,
+            });
+          }}
+        >
+          Save pattern
+        </button>
         <label className="text-xs text-zinc-400">
           Steps
           <select

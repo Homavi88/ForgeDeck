@@ -155,6 +155,8 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
         key = estimate_key_numpy(audio, sr)
         onset_times = beats[::2]
 
+    from app.services.harmony import camelot
+
     return {
         "duration": round(duration, 4),
         "sample_rate": int(info.samplerate),
@@ -163,6 +165,7 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
         "bpm": round(float(bpm), 2),
         "beats": beats[:800],
         "key": key,
+        "camelot": camelot(key),
         "loudness_rms": round(rms, 5),
         "peak": round(peak, 5),
         "loudness_db": round(lufs_approx, 2),

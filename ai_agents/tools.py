@@ -157,6 +157,65 @@ def export_mix(db: Session, project_id: str, fmt: str = "wav") -> dict[str, Any]
     return {"job_id": job.id, "status": job.status, "format": fmt}
 
 
+def suggest_compatible_tracks(db: Session, project_id: str, bpm: float | None = None, key: str | None = None) -> dict[str, Any]:
+    from app.services.harmony import bpm_compatible, camelot, compatible_camelot
+
+    project = db.get(Project, project_id)
+    bpm = bpm or (project.bpm if project else 120)
+    key = key or (project.musical_key if project else "C minor")
+    files = db.query(AudioFile).filter(AudioFile.analysis_status == "ready").all()
+    code = camelot(key)
+    matches = []
+    for f in files:
+        a = f.analysis or {}
+        fbpm, fkey = a.get("bpm"), a.get("key")
+        if fbpm and bpm_compatible(float(bpm), float(fbpm)) and fkey and camelot(str(fkey)) in compatible_camelot(code):
+            matches.append({"id": f.id, "name": f.original_filename, "bpm": fbpm, "key": fkey, "camelot": camelot(str(fkey))})
+    return {"bpm": bpm, "key": key, "camelot": code, "tracks": matches[:12]}
+
+
+def create_bassline(db: Session, project_id: str, genre: str = "house", key: str | None = None) -> dict[str, Any]:
+    from app.services.harmony import make_bassline
+
+    project = db.get(Project, project_id)
+    key = key or (project.musical_key if project else "C minor")
+    notes = make_bassline(key, genre)
+    return {"project_id": project_id, "kind": "bassline", "genre": genre, "key": key, "notes": notes}
+
+
+def create_melody(db: Session, project_id: str, genre: str = "house", key: str | None = None) -> dict[str, Any]:
+    from app.services.harmony import make_melody
+
+    project = db.get(Project, project_id)
+    key = key or (project.musical_key if project else "C minor")
+    notes = make_melody(key, genre)
+    return {"project_id": project_id, "kind": "melody", "genre": genre, "key": key, "notes": notes}
+
+
+def create_chord_progression(db: Session, project_id: str, key: str | None = None) -> dict[str, Any]:
+    from app.services.harmony import make_chords
+
+    project = db.get(Project, project_id)
+    key = key or (project.musical_key if project else "C minor")
+    notes = make_chords(key)
+    return {"project_id": project_id, "kind": "chords", "key": key, "notes": notes}
+
+
+def separate_stems(db: Session, file_id: str) -> dict[str, Any]:
+    from app.services.stems import hpss_stems
+
+    audio = db.get(AudioFile, file_id)
+    if not audio:
+        raise ToolError("Audio file not found")
+    paths = hpss_stems(audio.path)
+    analysis = dict(audio.analysis or {})
+    analysis["stems"] = paths
+    audio.analysis = analysis
+    db.add(audio)
+    db.commit()
+    return {"file_id": file_id, "stems": paths}
+
+
 TOOL_REGISTRY = {
     "analyze_audio": analyze_audio,
     "create_cue_point": create_cue_point,
@@ -168,4 +227,9 @@ TOOL_REGISTRY = {
     "create_arrangement": create_arrangement,
     "apply_automation": apply_automation,
     "export_mix": export_mix,
+    "suggest_compatible_tracks": suggest_compatible_tracks,
+    "create_bassline": create_bassline,
+    "create_melody": create_melody,
+    "create_chord_progression": create_chord_progression,
+    "separate_stems": separate_stems,
 }

@@ -13,12 +13,15 @@ settings = get_settings()
 
 
 def get_provider():
-    # Real providers can be added here without changing the chat API.
-    if settings.ai_provider == "openai" and settings.openai_api_key:
-        # TODO: OpenAI tool-calling adapter
-        return MockProducer()
+    settings = get_settings()
+    if settings.ai_provider in {"openai", "openai-compatible"} and settings.openai_api_key:
+        from ai_agents.providers.openai import OpenAICompatibleProvider
+
+        return OpenAICompatibleProvider()
     if settings.ai_provider == "anthropic" and settings.anthropic_api_key:
-        return MockProducer()
+        from ai_agents.providers.openai import OpenAICompatibleProvider
+
+        return OpenAICompatibleProvider()
     return MockProducer()
 
 
@@ -69,8 +72,20 @@ class AgentOrchestrator:
             params = {k: v for k, v in action.items() if k != "type"}
             if "project_id" not in params:
                 params["project_id"] = project_id
-            if action_type in {"create_drum_pattern", "create_synth_preset", "create_arrangement", "apply_mixer_settings", "export_mix"}:
+            if action_type in {
+                "create_drum_pattern",
+                "create_synth_preset",
+                "create_arrangement",
+                "apply_mixer_settings",
+                "export_mix",
+                "suggest_compatible_tracks",
+                "create_bassline",
+                "create_melody",
+                "create_chord_progression",
+            }:
                 params["project_id"] = project_id
+            if action_type == "separate_stems" and "file_id" not in params:
+                params["file_id"] = params.get("track_id") or params.get("audio_file_id")
             if action_type == "export_mix" and "fmt" not in params:
                 params["fmt"] = params.pop("format", "wav")
             try:

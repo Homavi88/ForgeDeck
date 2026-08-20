@@ -31,7 +31,7 @@ export function LibraryBrowser() {
           <div key={file.id} className="bg-ink-800 border border-line rounded p-2 text-xs">
             <div className="truncate">{file.original_filename}</div>
             <div className="text-zinc-500 font-mono">
-              {file.analysis?.bpm?.toFixed(1) ?? file.analysis_status} · {file.analysis?.key ?? ""}
+              {file.analysis?.bpm?.toFixed(1) ?? file.analysis_status} · {file.analysis?.key ?? ""} {file.analysis?.camelot ?? ""}
             </div>
             <div className="flex gap-1 mt-1">
               <button className="px-1 bg-ink-700 rounded" onClick={() => void loadToDeck("A", file)}>

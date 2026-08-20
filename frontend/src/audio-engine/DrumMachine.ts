@@ -29,6 +29,8 @@ export class DrumMachine {
   length = 16;
   swing = 0.08;
   muted: Record<string, boolean> = {};
+  enabled = true;
+  onKick?: (time: number) => void;
   private unsubscribe?: () => void;
 
   constructor(ctx: AudioContext, destination: AudioNode) {
@@ -49,6 +51,7 @@ export class DrumMachine {
   attach(transport: Transport): void {
     this.unsubscribe?.();
     this.unsubscribe = transport.onTick((step, time) => {
+      if (!this.enabled) return;
       const idx = step % this.length;
       const swingDelay = idx % 2 === 1 ? this.swing * transport.secondsPerStep : 0;
       for (const id of PAD_IDS) {
@@ -68,6 +71,7 @@ export class DrumMachine {
     g.gain.value = velocity;
     src.connect(g).connect(this.output);
     src.start(time);
+    if (id === "kick" || id === "kick2") this.onKick?.(time);
   }
 
   setStep(id: string, index: number, velocity: number): void {

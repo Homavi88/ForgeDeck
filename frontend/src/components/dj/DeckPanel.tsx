@@ -14,6 +14,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
   const file = useStudio((s) => s.deckFiles[side]);
   const pos = useStudio((s) => s.deckPos[side]);
   const bpmMaster = useStudio((s) => s.bpm);
+  const locked = useStudio((s) => s.keyLock[side]);
   const analysis = file?.analysis;
   const duration = analysis?.duration ?? getEngine().decks[side].duration;
   const remain = Math.max(0, duration - pos);
@@ -25,7 +26,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
       <div className="flex items-center justify-between">
         <div className="text-xs tracking-[0.3em] uppercase text-zinc-500">Deck {side}</div>
         <div className="font-mono text-xs text-zinc-400">
-          {analysis?.bpm?.toFixed(1) ?? "—"} BPM · {analysis?.key ?? "—"}
+          {analysis?.bpm?.toFixed(1) ?? "—"} BPM · {analysis?.key ?? "—"} {analysis?.camelot ? `· ${analysis.camelot}` : ""}
         </div>
       </div>
       <div className="text-sm truncate">{file?.original_filename ?? "Empty — drop a track"}</div>
@@ -55,6 +56,10 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
           </Btn>
         ))}
         <Btn onClick={() => deck().clearLoop()}>Loop off</Btn>
+        <Btn onClick={() => deck().markLoopIn()}>In</Btn>
+        <Btn onClick={() => deck().markLoopOut()}>Out</Btn>
+        <Btn onClick={() => deck().beatJump(-4, analysis?.bpm || bpmMaster)}>-4</Btn>
+        <Btn onClick={() => deck().beatJump(4, analysis?.bpm || bpmMaster)}>+4</Btn>
         <Btn
           onClick={() => {
             const other = side === "A" ? "B" : "A";
@@ -65,6 +70,38 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         >
           Sync
         </Btn>
+      </div>
+      <div className="flex flex-wrap gap-3 text-[10px] uppercase text-zinc-500">
+        <label className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            checked={locked}
+            onChange={(e) => {
+              deck().setKeyLock(e.target.checked);
+              useStudio.setState({ keyLock: { ...useStudio.getState().keyLock, [side]: e.target.checked } });
+            }}
+          />
+          Key lock
+        </label>
+        <label className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            defaultChecked
+            onChange={(e) => {
+              deck().quantize = e.target.checked;
+            }}
+          />
+          Quantize
+        </label>
+        <label className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            onChange={(e) => {
+              deck().slip = e.target.checked;
+            }}
+          />
+          Slip
+        </label>
       </div>
       <label className="text-[10px] uppercase tracking-wider text-zinc-500 flex items-center gap-2">
         Pitch {deck().pitch.toFixed(1)}%

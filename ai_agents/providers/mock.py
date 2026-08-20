@@ -35,6 +35,31 @@ class MockProducer(LLMProvider):
 
         if any(word in text for word in ("transition", "переход", "mix into", "blend")):
             return self._transition(deck_a, deck_b, bpm)
+        if any(word in text for word in ("compatible", "camelot", "подбор", "similar track")):
+            return {
+                "message": f"Ищу треки рядом по Camelot и BPM {bpm:.0f} / {key}.",
+                "actions": [{"type": "suggest_compatible_tracks", "project_id": project_id, "bpm": bpm, "key": key}],
+            }
+        if any(word in text for word in ("stem", "stems", "разделить", "vocals")):
+            return {
+                "message": "Разделяю на harmonic/percussive stems (HPSS). Vocals здесь — harmonic слой, не полноценный Demucs.",
+                "actions": [{"type": "separate_stems", "file_id": track_id}],
+            }
+        if any(word in text for word in ("bassline", "bass line", "бас-лин")):
+            return {
+                "message": f"Бас-линия в {key}, жанровый groove на piano roll.",
+                "actions": [{"type": "create_bassline", "project_id": project_id, "genre": "house", "key": key}],
+            }
+        if any(word in text for word in ("melody", "мелодия", "lead line")):
+            return {
+                "message": f"Мелодия по гамме {key} — 8 нот на 16 шагов.",
+                "actions": [{"type": "create_melody", "project_id": project_id, "genre": "house", "key": key}],
+            }
+        if any(word in text for word in ("chord", "аккорд", "progression", "гармон")):
+            return {
+                "message": f"Прогрессия аккордов в {key} (4 такта).",
+                "actions": [{"type": "create_chord_progression", "project_id": project_id, "key": key}],
+            }
         if any(word in text for word in ("drum", "бит", "pattern", "groove")):
             genre = next((g for g in CAMELTONIC if g in text), "house")
             return self._drums(project_id, genre, bpm)

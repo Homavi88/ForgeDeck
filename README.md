@@ -63,17 +63,19 @@ docker compose up --build
 
 ## Режимы UI
 
-- **DJ** — Deck A / Mixer / Deck B, waveform, cue, hot cues, loop 1–16 bars, pitch, sync, crossfader, 3-band EQ, filter, FX, VU
-- **Drums** — 16 падов, step sequencer 16/32/64, swing, velocity
-- **Synth** — OSC, ADSR, filter, LFO, клавиатура, Web MIDI
-- **Arrange** — клипы на таймлайне, drag / trim / split
-- **AI Producer** — чат + preview actions → Apply / Reject
+- **DJ** — деки, waveform, cue/hot cues, loop in/out, key lock, beat jump, quantize, sync, EQ/filter/FX, pan/mute/solo, sidechain
+- **Session** — clip launcher на 8 сцен
+- **Arrange** — клипы играют drums/synth/audio, automation lanes, mixer
+- **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern
+- **Synth** — OSC/ADSR/filter/LFO, piano roll, Web MIDI (клавиши + пады 36–51)
+- **Sampler** — trim/reverse/loop/pitch, slice to pads, HPSS stems
+- **AI Producer** — preview → Apply/Reject
 
 ## AI tools
 
-`analyze_audio`, `create_cue_point`, `create_loop`, `create_drum_pattern`, `create_synth_preset`, `suggest_transition`, `apply_mixer_settings`, `create_arrangement`, `export_mix`
+`analyze_audio`, `create_cue_point`, `create_loop`, `create_drum_pattern`, `create_synth_preset`, `suggest_transition`, `apply_mixer_settings`, `create_arrangement`, `apply_automation`, `export_mix`, `suggest_compatible_tracks`, `create_bassline`, `create_melody`, `create_chord_progression`, `separate_stems`
 
-Провайдер по умолчанию — **mock** (детерминированный продюсер). Подключение OpenAI/Claude/Gemini — см. `.env.example` (`AI_PROVIDER`).
+Провайдер по умолчанию — **mock**. При `AI_PROVIDER=openai` и `OPENAI_API_KEY` используется OpenAI JSON tool-calling, иначе mock.
 
 ## Тесты
 

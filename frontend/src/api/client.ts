@@ -51,12 +51,32 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, kind }),
       })),
+    savePattern: (id: string, body: Record<string, unknown>) =>
+      parse(fetch(`${API}/api/projects/${id}/patterns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })),
+    saveSynth: (id: string, name: string, params: Record<string, unknown>) =>
+      parse(fetch(`${API}/api/projects/${id}/synth-presets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, params }),
+      })),
   },
   audio: {
     list: () => parse<import("../types").AudioFile[]>(fetch(`${API}/api/audio`)),
     get: (id: string) => parse<import("../types").AudioFile>(fetch(`${API}/api/audio/${id}`)),
     analysis: (id: string) => parse<{ id: string; status: string; analysis: import("../types").AudioAnalysis | null }>(fetch(`${API}/api/audio/${id}/analysis`)),
     streamUrl: (id: string) => `${API}/api/audio/${id}/stream`,
+    stemUrl: (id: string, stem: string) => `${API}/api/audio/${id}/stems/${stem}/stream`,
+    splitStems: (id: string) => parse(fetch(`${API}/api/audio/${id}/stems`, { method: "POST" })),
+    compatible: (bpm?: number, key?: string) => {
+      const q = new URLSearchParams();
+      if (bpm) q.set("bpm", String(bpm));
+      if (key) q.set("key", key);
+      return parse(fetch(`${API}/api/audio/compatible?${q}`));
+    },
     upload: async (file: File) => {
       const body = new FormData();
       body.append("file", file);

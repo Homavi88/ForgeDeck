@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { OSC_TYPES } from "../../audio-engine/demo";
 import { useStudio } from "../../store/useStudio";
+import { PianoRollPanel } from "./PianoRollPanel";
 import type { OscType } from "../../types";
 
 const WHITE = [0, 2, 4, 5, 7, 9, 11];
@@ -46,10 +47,7 @@ export function SynthPanel() {
           className="text-xs bg-ink-700 px-2 py-1 rounded"
           onClick={async () => {
             await useStudio.getState().bootAudio();
-            const msg = await getEngine().enableMidi((midi, vel, on) => {
-              if (on) getEngine().synth.noteOn(midi, vel);
-              else getEngine().synth.noteOff(midi);
-            });
+            const msg = await getEngine().enableMidi();
             setMidiMsg(msg);
           }}
         >
@@ -101,7 +99,19 @@ export function SynthPanel() {
         ))}
       </div>
       <Keyboard />
-      <p className="text-xs text-zinc-500">Keys A S D F G H J K · MIDI controllers via Web MIDI API</p>
+      <p className="text-xs text-zinc-500">Keys A S D F G H J K · MIDI: notes, pads 36–51, CC7 master</p>
+      <button
+        className="self-start text-xs bg-ink-700 px-2 py-1 rounded"
+        onClick={async () => {
+          const p = useStudio.getState().project;
+          if (!p) return;
+          const { api } = await import("../../api/client");
+          await api.projects.saveSynth(p.id, "Current", synth as unknown as Record<string, unknown>);
+        }}
+      >
+        Save preset
+      </button>
+      <PianoRollPanel />
     </div>
   );
 }

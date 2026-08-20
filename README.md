@@ -40,7 +40,7 @@ Realtime-звук только в браузере (Web Audio). Python хран�
 2. **`mac/start.command`** — API + UI в двух окнах и браузер на http://127.0.0.1:5173
 3. Остановка: закрыть окна или **`mac/stop.command`**
 
-Нужны `python3` и Node.js (с python.org / nodejs.org или `brew install python node`). Если Gatekeeper ругается — правый клик → Открыть. Docker — `mac/start-docker.command`.
+Нужны `python3` и Node.js (с python.org / nodejs.org или `brew install python node`). Если `setup.command` пишет «Не найден Node.js» — это окно Finder без `~/.zshrc`: поставь LTS с nodejs.org или Homebrew; скрипт сам попробует `brew install node`. Gatekeeper: правый клик → Открыть. Docker — `mac/start-docker.command`.
 
 ## Быстрый старт (local, SQLite)
 

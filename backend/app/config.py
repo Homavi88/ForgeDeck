@@ -30,6 +30,15 @@ class Settings(BaseSettings):
 
     demo_user_email: str = "producer@pulseforge.local"
     demo_user_name: str = "Demo Producer"
+    demo_user_password: str = "demo"
+    require_auth: bool = False
+    jwt_expire_hours: int = 168
+
+    aws_s3_bucket: str = ""
+    aws_s3_region: str = "us-east-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    s3_prefix: str = "pulseforge"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -208,6 +208,32 @@ export class Deck {
     if (this.source) this.source.loop = false;
   }
 
+  /** Vinyl scratch: jog the playhead by seconds (from platter drag). */
+  scratch(deltaSeconds: number): void {
+    this.seek(this.position + deltaSeconds);
+    if (!this.playing && this.buffer) this.play();
+  }
+
+  setVinylRate(multiplier: number): void {
+    if (this.source && !this.keyLock) this.source.playbackRate.value = this.rate * multiplier;
+  }
+
+  private savedLoop: { start: number; end: number } | null = null;
+
+  loopRollStart(beats: number, bpm: number): void {
+    this.savedLoop = this.loop;
+    const len = (60 / Math.max(bpm, 1)) * beats;
+    const start = this.position;
+    this.setLoop(start, start + Math.max(0.05, len));
+    if (!this.playing) this.play();
+  }
+
+  loopRollEnd(): void {
+    if (this.savedLoop) this.setLoop(this.savedLoop.start, this.savedLoop.end);
+    else this.clearLoop();
+    this.savedLoop = null;
+  }
+
   private spawn(offset: number): void {
     if (!this.buffer) return;
     const src = this.ctx.createBufferSource();

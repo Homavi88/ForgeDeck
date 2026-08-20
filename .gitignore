@@ -15,6 +15,9 @@ htmlcov/
 node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/
 *.log
 npm-debug.log*
 

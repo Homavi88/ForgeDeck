@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { renderOfflineWav } from "../../audio-engine/offlineRender";
+import { api } from "../../api/client";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
 
@@ -13,7 +15,8 @@ const MODES: { id: StudioMode; label: string }[] = [
 ];
 
 export function TopBar() {
-  const { project, bpm, setBpm, togglePlay, playing, metronome, save, saving, setMode, mode, undo, redo } = useStudio();
+  const { project, bpm, setBpm, togglePlay, playing, metronome, save, saving, setMode, mode, undo, redo, bootAudio } =
+    useStudio();
 
   return (
     <div className="h-14 border-b border-line bg-ink-900 flex items-center px-3 gap-3">
@@ -64,6 +67,15 @@ export function TopBar() {
       <button className="text-[10px] uppercase text-zinc-400" onClick={redo}>
         Redo
       </button>
+      <button
+        className="text-[10px] uppercase text-zinc-400"
+        onClick={async () => {
+          await bootAudio();
+          await getEngine().enableMidi();
+        }}
+      >
+        MIDI
+      </button>
       <div className="flex-1" />
       <button
         onClick={() => void save()}
@@ -83,9 +95,21 @@ function ExportButton() {
       className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold"
       onClick={async () => {
         if (!project) return;
-        const { api } = await import("../../api/client");
-        await api.projects.render(project.id, "wav");
-        alert("Render job queued. WAV появится в storage/audio/renders.");
+        try {
+          const blob = await renderOfflineWav();
+          await api.projects.uploadRender(project.id, blob);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${project.name || "mix"}.wav`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          await api.projects.render(project.id, "wav");
+          useStudio.setState({
+            error: err instanceof Error ? `${err.message} — queued server render` : "Queued server render",
+          });
+        }
       }}
     >
       Export

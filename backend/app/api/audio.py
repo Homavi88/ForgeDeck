@@ -182,18 +182,21 @@ def list_cues(audio_id: str, db: Session = Depends(get_db)):
 @router.post("/{audio_id}/stems")
 def split_stems(audio_id: str, db: Session = Depends(get_db)):
     from app.services.stems import hpss_stems
+    from workers.tasks.stems import _try_demucs
 
     audio = db.get(AudioFile, audio_id)
     if not audio:
         raise HTTPException(404, "Audio not found")
-    paths = hpss_stems(audio.path)
+    demucs = _try_demucs(Path(audio.path), Path(audio.path).parent / "stems")
+    paths = demucs or hpss_stems(audio.path)
+    engine = "demucs" if demucs else "hpss"
     analysis = dict(audio.analysis or {})
     analysis["stems"] = paths
-    analysis["stems_engine"] = "hpss"
+    analysis["stems_engine"] = engine
     audio.analysis = analysis
     db.add(audio)
     db.commit()
-    return {"id": audio.id, "stems": paths, "engine": "hpss"}
+    return {"id": audio.id, "stems": paths, "engine": engine}
 
 
 @router.get("/{audio_id}/stems/{stem}/stream")

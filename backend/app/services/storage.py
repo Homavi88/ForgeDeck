@@ -53,6 +53,13 @@ def save_upload(file: UploadFile) -> tuple[str, Path, int]:
                 raise HTTPException(status_code=413, detail="File exceeds upload limit")
             buffer.write(chunk)
 
+    try:
+        from app.services.object_store import upload_file
+
+        upload_file(dest, f"{file_id}/{dest.name}")
+    except Exception:
+        pass
+
     return file_id, dest, size
 
 

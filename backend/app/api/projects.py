@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -294,6 +294,47 @@ def render_project(project_id: str, payload: RenderRequest, db: Session = Depend
 
         threading.Thread(target=_run, daemon=True).start()
     return job
+
+
+@router.post("/{project_id}/render/upload", response_model=RenderJobOut)
+def upload_offline_render(
+    project_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Accept a WAV produced by the browser OfflineAudioContext mixdown."""
+    from app.config import get_settings
+
+    if not db.get(Project, project_id):
+        raise HTTPException(404, "Project not found")
+    settings = get_settings()
+    job = RenderJob(project_id=project_id, format="wav", status="rendering", progress=0.5)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    dest = settings.storage_path / "renders" / f"{job.id}.wav"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(file.file.read())
+    job.output_path = str(dest)
+    job.status = "done"
+    job.progress = 1.0
+    db.commit()
+    return job
+
+
+@router.get("/{project_id}/render/{job_id}/file")
+def download_render(project_id: str, job_id: str, db: Session = Depends(get_db)):
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+
+    job = db.get(RenderJob, job_id)
+    if not job or job.project_id != project_id or not job.output_path:
+        raise HTTPException(404, "Render not ready")
+    path = Path(job.output_path)
+    if not path.exists():
+        raise HTTPException(404, "File missing")
+    return FileResponse(path, filename=path.name)
 
 
 @router.get("/{project_id}/render/{job_id}", response_model=RenderJobOut)

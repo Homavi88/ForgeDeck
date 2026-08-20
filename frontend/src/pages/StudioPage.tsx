@@ -10,11 +10,13 @@ import { TopBar } from "../components/layout/TopBar";
 import { SamplerPanel } from "../components/sampler/SamplerPanel";
 import { SessionPanel } from "../components/session/SessionPanel";
 import { SynthPanel } from "../components/synth/SynthPanel";
+import { useProjectSync } from "../store/useProjectSync";
 import { useStudio } from "../store/useStudio";
 
 export default function StudioPage() {
   const { id } = useParams();
   const { loadProject, loading, error, mode, pollMeters, bootAudio, undo, redo } = useStudio();
+  useProjectSync(id);
 
   useEffect(() => {
     if (id) void loadProject(id);

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { useStudio } from "../../store/useStudio";
 
@@ -57,6 +59,7 @@ export function MixerPanel() {
         />
         Sidechain duck
       </label>
+      <FxPresetBar />
       <div className="grid grid-cols-2 gap-1">
         {FX.map((fx) => (
           <label key={fx} className="text-[9px] uppercase text-zinc-500">
@@ -78,6 +81,42 @@ export function MixerPanel() {
         ))}
       </div>
     </section>
+  );
+}
+
+function FxPresetBar() {
+  const [list, setList] = useState<Array<{ id: string; name: string; params: Record<string, number> }>>([]);
+  useEffect(() => {
+    void api.presets
+      .effects()
+      .then(setList)
+      .catch(() => undefined);
+  }, []);
+  if (!list.length) return null;
+  return (
+    <label className="text-[9px] uppercase text-zinc-500">
+      FX preset
+      <select
+        className="w-full bg-ink-900 border border-line rounded px-1 py-1 mt-1 text-[10px]"
+        defaultValue=""
+        onChange={(e) => {
+          const p = list.find((x) => x.id === e.target.value);
+          if (!p) return;
+          for (const [k, v] of Object.entries(p.params)) {
+            if (typeof v !== "number") continue;
+            getEngine().mixer.channels.A.fx.setWet(k, v);
+            getEngine().mixer.channels.B.fx.setWet(k, v * 0.6);
+          }
+        }}
+      >
+        <option value="">—</option>
+        {list.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

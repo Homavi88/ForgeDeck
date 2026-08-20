@@ -2,8 +2,9 @@ import { api } from "../api/client";
 import { AutomationEngine } from "./AutomationEngine";
 import { ClipLauncher } from "./ClipLauncher";
 import { Deck } from "./Deck";
-import { DrumMachine, PAD_IDS } from "./DrumMachine";
+import { DrumMachine } from "./DrumMachine";
 import { Mixer } from "./Mixer";
+import { applyMidiTarget, loadMidiBindings, persistMidiBindings, type MidiBindings } from "./midiMap";
 import { PianoRoll } from "./PianoRoll";
 import { Sampler } from "./Sampler";
 import { Synth } from "./Synth";
@@ -27,6 +28,8 @@ export class AudioEngine {
   ready = false;
   arrangeMode = false;
   buffers = new Map<string, AudioBuffer>();
+  midiBindings: MidiBindings = loadMidiBindings();
+  private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
   private clipSources: AudioBufferSourceNode[] = [];
 
   constructor() {
@@ -167,6 +170,15 @@ export class AudioEngine {
     if (src && dstBpm) dest.syncToBpm(dstBpm, src);
   }
 
+  setMidiBindings(bindings: MidiBindings): void {
+    this.midiBindings = bindings;
+    persistMidiBindings(bindings);
+  }
+
+  armMidiLearn(cb: (kind: "cc" | "note", number: number) => void): void {
+    this.midiLearn = cb;
+  }
+
   async enableMidi(): Promise<string> {
     const nav = navigator as Navigator & { requestMIDIAccess?: () => Promise<MIDIAccess> };
     if (!nav.requestMIDIAccess) return "Web MIDI not supported";
@@ -176,24 +188,35 @@ export class AudioEngine {
         const d = ev.data;
         if (!d) return;
         const status = d[0] & 0xf0;
-        const note = d[1];
+        const number = d[1];
         const vel = d[2] / 127;
-        const cc = d[1];
         if (status === 0xb0) {
-          if (cc === 7) this.mixer.master.setVolume(vel);
-          if (cc === 10) this.mixer.channels.A.setPan(vel * 2 - 1);
+          if (this.midiLearn) {
+            this.midiLearn("cc", number);
+            this.midiLearn = null;
+            return;
+          }
+          const target = this.midiBindings.cc[String(number)];
+          if (target) applyMidiTarget(this, target, vel);
           return;
         }
-        if (note >= 36 && note <= 51) {
-          const pad = PAD_IDS[note - 36];
-          if (status === 0x90 && vel > 0) this.drums.trigger(pad, this.ctx.currentTime, vel);
-          return;
+        if (status === 0x90 || status === 0x80) {
+          if (this.midiLearn && status === 0x90 && vel > 0) {
+            this.midiLearn("note", number);
+            this.midiLearn = null;
+            return;
+          }
+          const mapped = this.midiBindings.notes[String(number)];
+          if (mapped) {
+            applyMidiTarget(this, mapped, vel, status === 0x90 && vel > 0);
+            return;
+          }
+          if (status === 0x90 && vel > 0) this.synth.noteOn(number, vel);
+          if (status === 0x80 || (status === 0x90 && vel === 0)) this.synth.noteOff(number);
         }
-        if (status === 0x90 && vel > 0) this.synth.noteOn(note, vel);
-        if (status === 0x80 || (status === 0x90 && vel === 0)) this.synth.noteOff(note);
       };
     });
-    return `MIDI inputs: ${[...access.inputs].length} · pads 36-51 · keys · CC7 master`;
+    return `MIDI inputs: ${[...access.inputs].length} · mapped CC/notes + keys`;
   }
 }
 

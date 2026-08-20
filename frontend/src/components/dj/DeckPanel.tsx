@@ -1,5 +1,6 @@
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { useStudio } from "../../store/useStudio";
+import { Platter } from "./Platter";
 import { Waveform } from "./Waveform";
 
 function fmt(t: number): string {
@@ -30,13 +31,18 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         </div>
       </div>
       <div className="text-sm truncate">{file?.original_filename ?? "Empty — drop a track"}</div>
-      <Waveform
-        analysis={analysis}
-        position={pos}
-        duration={duration || 1}
-        color={color}
-        onSeek={(t) => deck().seek(t)}
-      />
+      <div className="flex gap-3 items-start">
+        <Platter side={side} />
+        <div className="flex-1 min-w-0">
+          <Waveform
+            analysis={analysis}
+            position={pos}
+            duration={duration || 1}
+            color={color}
+            onSeek={(t) => deck().seek(t)}
+          />
+        </div>
+      </div>
       <div className="flex justify-between font-mono text-lg">
         <span>{fmt(pos)}</span>
         <span className="text-zinc-500">-{fmt(remain)}</span>
@@ -60,6 +66,16 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         <Btn onClick={() => deck().markLoopOut()}>Out</Btn>
         <Btn onClick={() => deck().beatJump(-4, analysis?.bpm || bpmMaster)}>-4</Btn>
         <Btn onClick={() => deck().beatJump(4, analysis?.bpm || bpmMaster)}>+4</Btn>
+        {[1, 2, 4, 8].map((beats) => (
+          <Btn
+            key={`roll-${beats}`}
+            onMouseDown={() => deck().loopRollStart(beats, analysis?.bpm || bpmMaster)}
+            onMouseUp={() => deck().loopRollEnd()}
+            onMouseLeave={() => deck().loopRollEnd()}
+          >
+            Roll {beats}
+          </Btn>
+        ))}
         <Btn
           onClick={() => {
             const other = side === "A" ? "B" : "A";
@@ -121,9 +137,27 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
   );
 }
 
-function Btn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function Btn({
+  children,
+  onClick,
+  onMouseDown,
+  onMouseUp,
+  onMouseLeave,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  onMouseDown?: () => void;
+  onMouseUp?: () => void;
+  onMouseLeave?: () => void;
+}) {
   return (
-    <button onClick={onClick} className="px-2 py-1 text-[10px] uppercase tracking-wider bg-ink-700 rounded hover:bg-ink-600">
+    <button
+      onClick={onClick}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseLeave}
+      className="px-2 py-1 text-[10px] uppercase tracking-wider bg-ink-700 rounded hover:bg-ink-600"
+    >
       {children}
     </button>
   );

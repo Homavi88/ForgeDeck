@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { PAD_IDS } from "../../audio-engine/DrumMachine";
@@ -6,6 +7,12 @@ import { useStudio } from "../../store/useStudio";
 export function DrumMachinePanel() {
   const { drumSteps, drumLength, drumSwing, currentStep, bootAudio } = useStudio();
   const step = currentStep % drumLength;
+  const [kits, setKits] = useState<Array<{ id: string; name: string; pads: unknown[] }>>([]);
+  const [kitName, setKitName] = useState("808 Core");
+
+  useEffect(() => {
+    void api.presets.kits().then(setKits).catch(() => undefined);
+  }, []);
 
   return (
     <div className="flex-1 p-4 overflow-auto flex flex-col gap-4">
@@ -26,6 +33,38 @@ export function DrumMachinePanel() {
         >
           Save pattern
         </button>
+        <input
+          className="w-28 bg-ink-800 border border-line rounded px-2 py-1 text-xs"
+          value={kitName}
+          onChange={(e) => setKitName(e.target.value)}
+        />
+        <button
+          className="text-xs bg-ink-700 px-2 py-1 rounded"
+          onClick={async () => {
+            await api.presets.saveKit(
+              kitName,
+              PAD_IDS.map((id) => ({ id, muted: !!getEngine().drums.muted[id] })),
+            );
+            setKits(await api.presets.kits());
+          }}
+        >
+          Save kit
+        </button>
+        <select
+          className="bg-ink-800 border border-line rounded px-2 py-1 text-xs"
+          defaultValue=""
+          onChange={(e) => {
+            const kit = kits.find((k) => k.id === e.target.value);
+            if (kit) setKitName(kit.name);
+          }}
+        >
+          <option value="">Load kit…</option>
+          {kits.map((k) => (
+            <option key={k.id} value={k.id}>
+              {k.name}
+            </option>
+          ))}
+        </select>
         <label className="text-xs text-zinc-400">
           Steps
           <select

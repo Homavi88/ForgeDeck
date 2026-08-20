@@ -33,6 +33,8 @@ npm run dev
 
 Открой [http://localhost:5173](http://localhost:5173). API-документация: [http://localhost:8000/docs](http://localhost:8000/docs).
 
+Логин: [http://localhost:5173/login](http://localhost:5173/login) — demo `producer@pulseforge.local` / `demo` (пока `REQUIRE_AUTH=false`, API принимает и запросы без токена).
+
 Создай проект → открой студию → кликни по UI (браузер разблокирует AudioContext) → загрузи mp3/wav в Library → кинь трек на Deck A/B.
 
 ## Docker Compose
@@ -47,29 +49,30 @@ docker compose up --build
 ## Архитектура
 
 ```
-/backend        FastAPI, модели, REST, WebSocket
+/backend        FastAPI, модели, REST, WebSocket, JWT, presets
 /frontend       React UI
   /src/audio-engine   Transport, Deck, Mixer, FX, Drums, Synth, Timeline
-/workers        Celery: analyze, render, stems (stub)
+/workers        Celery: analyze, render, stems (Demucs or HPSS)
 /ai_agents      Orchestrator + tools + mock LLM
-/storage/audio  файлы для dev
+/storage/audio  файлы для dev (опционально S3)
 ```
 
 Поток загрузки:
 
-1. `POST /api/audio/upload` сохраняет файл
+1. `POST /api/audio/upload` сохраняет файл (локально, затем S3 если задан bucket)
 2. Worker считает duration, waveform overview, BPM, beats, key, RMS/peak
 3. Frontend рисует waveform + beatgrid и играет через `decodeAudioData`
 
 ## Режимы UI
 
-- **DJ** — деки, waveform, cue/hot cues, loop in/out, key lock, beat jump, quantize, sync, EQ/filter/FX, pan/mute/solo, sidechain
+- **DJ** — деки, vinyl platter/scratch, waveform, cue/hot cues, loop in/out, loop roll, key lock, beat jump, quantize, sync, EQ/filter/FX-пресеты, pan/mute/solo, sidechain
 - **Session** — clip launcher на 8 сцен
 - **Arrange** — клипы играют drums/synth/audio, automation lanes, mixer
-- **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern
-- **Synth** — OSC/ADSR/filter/LFO, piano roll, Web MIDI (клавиши + пады 36–51)
-- **Sampler** — trim/reverse/loop/pitch, slice to pads, HPSS stems
+- **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern/kit
+- **Synth** — OSC/ADSR/filter/LFO, piano roll, Web MIDI + learn map
+- **Sampler** — trim/reverse/loop/pitch, slice to pads, stems
 - **AI Producer** — preview → Apply/Reject
+- **Settings** — FX presets, MIDI map (Pioneer/Akai-style CC)
 
 ## AI tools
 
@@ -82,13 +85,17 @@ docker compose up --build
 ```bash
 cd backend
 PYTHONPATH=..:. pytest -q
+
+cd frontend
+npm run build
+npx playwright test
 ```
 
-## Ограничения MVP
+## Ограничения
 
-- Pitch на деке = `playbackRate` (темп и тональность связаны). Key lock — в TODO.
-- Stem separation (Demucs) — API-заглушка.
-- Render — упрощённый mixdown файлов проекта, не полный граф плагинов.
-- Нет полноценного login UI (demo user на старте).
+- Key lock — granular WSOLA, не Rubber Band WASM.
+- Stems — Demucs, если CLI установлен, иначе HPSS.
+- Offline export — mix загруженных дек через `OfflineAudioContext`, не полная копия live-графа с плагинами.
+- Auth — JWT есть; в dev `REQUIRE_AUTH=false` оставляет demo-пользователя.
 
 Подробный roadmap: [TODO.md](TODO.md).

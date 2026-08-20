@@ -3,7 +3,10 @@ ForgeDeck — запуск на macOS
 
 Нужно один раз:
   Python 3.11+   (python.org или: brew install python)
-  Node.js LTS    (https://nodejs.org/ или: brew install node)
+  Node.js LTS    (https://nodejs.org/ — macOS Installer, или: brew install node)
+
+setup.command из Finder не читает ~/.zshrc. Если Node уже стоит через Homebrew/nvm —
+скрипт подхватит его сам; если нет и есть brew, поставит Node автоматически.
 
 Двойной клик по файлам в этой папке (откроется Terminal):
 

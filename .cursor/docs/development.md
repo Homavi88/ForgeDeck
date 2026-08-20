@@ -66,6 +66,14 @@ Backend сейчас ~28 тестов: auth, projects, audio, analysis, stems (G
 
 Vite на `buildStart` копирует `rubberband-web` worklet в `public/worklets/rubberband-processor.js` (файл в `.gitignore`).
 
+## macOS: «Не найден Node.js» у setup.command
+
+Двойной клик по `.command` в Finder запускает bash **без** `~/.zshrc`. Homebrew/nvm часто «есть в Terminal», но не в этом окне.
+
+`mac/_lib.sh` добавляет `/opt/homebrew/bin`, nvm, fnm, volta, asdf, mise. Если Node всё равно нет и установлен Homebrew — `setup.command` делает `brew install node`.
+
+Иначе: поставить LTS с https://nodejs.org/ (macOS Installer), закрыть окно и снова `setup.command`. ZIP `ForgeDeck-main` в Downloads — нормально, скрипты идут из `mac/`.
+
 ## PYTHONPATH
 
 Uvicorn и pytest запускай из `backend/` с `PYTHONPATH=..:.`, чтобы импортировались `app`, `ai_agents`, `workers`.

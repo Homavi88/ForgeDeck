@@ -1,17 +1,75 @@
 # Shared by mac/*.command (source this file, do not double-click it).
-# Finder-launched apps have a tiny PATH — Homebrew/nvm must be injected.
+# Finder-launched .command files get a tiny PATH (no ~/.zshrc) — inject Homebrew
+# and common Node version managers, then optionally brew-install Node.
 
 pf_macos_path() {
-  export PATH="/opt/homebrew/bin:/usr/local/bin:${HOME}/.local/bin:/usr/bin:/bin:${PATH}"
+  export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:${HOME}/.local/bin:/usr/bin:/bin:${PATH}"
   if [ -x /opt/homebrew/bin/brew ]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
   elif [ -x /usr/local/bin/brew ]; then
     eval "$(/usr/local/bin/brew shellenv)"
   fi
-  if [ -s "${HOME}/.nvm/nvm.sh" ]; then
+
+  export NVM_DIR="${NVM_DIR:-${HOME}/.nvm}"
+  if [ -s "${NVM_DIR}/nvm.sh" ]; then
     # shellcheck disable=SC1091
-    . "${HOME}/.nvm/nvm.sh"
+    . "${NVM_DIR}/nvm.sh"
   fi
+
+  export VOLTA_HOME="${VOLTA_HOME:-${HOME}/.volta}"
+  export PATH="${VOLTA_HOME}/bin:${PATH}"
+
+  if [ -d "${HOME}/.fnm" ]; then
+    export PATH="${HOME}/.fnm:${PATH}"
+  fi
+  if [ -d "${HOME}/.local/share/fnm" ]; then
+    export PATH="${HOME}/.local/share/fnm:${PATH}"
+  fi
+  if command -v fnm >/dev/null 2>&1; then
+    eval "$(fnm env --shell bash 2>/dev/null)" || true
+  fi
+
+  if [ -s "${HOME}/.asdf/asdf.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${HOME}/.asdf/asdf.sh"
+  fi
+  if command -v mise >/dev/null 2>&1; then
+    eval "$(mise activate bash 2>/dev/null)" || true
+  fi
+
+  # Official nodejs.org pkg sometimes lands here even if brew is missing.
+  for extra in /usr/local/bin /opt/homebrew/bin "${HOME}/.nodenv/shims" "${HOME}/.n/bin"; do
+    export PATH="${extra}:${PATH}"
+  done
+}
+
+# Finder double-click often reports "node not found" when Node is only on a
+# login-shell PATH. After pf_macos_path, install via Homebrew if possible.
+pf_ensure_node() {
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    echo "Node $(node -v) · npm $(npm -v)"
+    return 0
+  fi
+  if command -v brew >/dev/null 2>&1; then
+    echo "[Node] не в PATH этого окна. Ставлю Node.js LTS через Homebrew (нужен интернет)…"
+    if brew install node; then
+      hash -r 2>/dev/null || true
+      if command -v node >/dev/null 2>&1; then
+        echo "Node $(node -v) · npm $(npm -v)"
+        return 0
+      fi
+    fi
+  fi
+  echo
+  echo "[Ошибка] Не найден Node.js (нужен для UI)."
+  echo "Скрипт из Finder не читает ~/.zshrc — если Node уже ставили, закрой окно"
+  echo "и запусти setup.command ещё раз после установки."
+  echo
+  echo "  1) Проще всего: https://nodejs.org/  → macOS Installer (LTS)"
+  echo "  2) Или в Terminal:  brew install node"
+  echo
+  echo "PATH сейчас: $PATH"
+  return 1
 }
 
 pf_root() {

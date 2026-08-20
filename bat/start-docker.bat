@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title PulseForge Docker
+title ForgeDeck Docker
 call "%~dp0_env.bat"
 
 where docker >nul 2>&1

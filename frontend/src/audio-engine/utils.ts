@@ -1,5 +1,5 @@
 /**
- * PulseForge Web Audio engine
+ * ForgeDeck Web Audio engine
  *
  * Python cannot do low-latency playback in the browser. All realtime sound
  * is generated here with the Web Audio API. BufferSource nodes are one-shot:

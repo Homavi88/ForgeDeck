@@ -19,7 +19,7 @@ export default function SharePage() {
     <div className="min-h-full bg-ink-950 flex items-center justify-center p-6">
       <div className="w-full max-w-lg bg-ink-900 border border-line rounded-xl p-6 space-y-4">
         <Link to="/" className="text-[10px] tracking-[0.3em] uppercase text-accent">
-          PulseForge
+          ForgeDeck
         </Link>
         {error && <div className="text-danger text-sm">{error}</div>}
         {!error && !meta && <div className="text-zinc-500 text-sm">Loading share…</div>}

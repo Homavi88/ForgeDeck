@@ -5,7 +5,7 @@ import { Shell } from "../components/layout/Shell";
 
 export default function LoginPage() {
   const nav = useNavigate();
-  const [email, setEmail] = useState("producer@pulseforge.local");
+  const [email, setEmail] = useState("producer@forgedeck.local");
   const [name, setName] = useState("Producer");
   const [password, setPassword] = useState("demo");
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -17,7 +17,7 @@ export default function LoginPage() {
       <div className="max-w-md mx-auto p-8">
         <h1 className="text-2xl font-semibold mb-2">Sign in</h1>
         <p className="text-sm text-zinc-500 mb-6">
-          Demo: <code className="text-accent">producer@pulseforge.local</code> / <code className="text-accent">demo</code>
+          Demo: <code className="text-accent">producer@forgedeck.local</code> / <code className="text-accent">demo</code>
         </p>
         <form
           className="space-y-3"

@@ -41,7 +41,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description=(
-        "PulseForge API — project storage, audio analysis, AI producer tools, "
+        "ForgeDeck API — project storage, audio analysis, AI producer tools, "
         "and export. Realtime playback is handled in the browser via Web Audio."
     ),
     version="0.1.0",

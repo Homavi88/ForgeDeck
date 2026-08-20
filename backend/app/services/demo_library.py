@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import AudioFile, Deck, Project, User
 
-DEMO_FILENAME = "PulseForge Demo Loop.wav"
+DEMO_FILENAME = "ForgeDeck Demo Loop.wav"
 
 
 def write_demo_wav(dest: Path, sr: int = 44100, bpm: float = 120.0, bars: int = 4) -> Path:

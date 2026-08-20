@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title PulseForge setup
+title ForgeDeck setup
 call "%~dp0_env.bat"
 
 echo.
-echo === PulseForge: создание окружения ===
+echo === ForgeDeck: создание окружения ===
 echo Папка проекта: %ROOT%
 echo.
 

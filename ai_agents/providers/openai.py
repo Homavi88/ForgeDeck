@@ -11,7 +11,7 @@ from ai_agents.providers.base import LLMProvider
 from ai_agents.providers.mock import MockProducer
 from app.config import get_settings
 
-SYSTEM = """You are PulseForge AI Producer, a DJ/DAW copilot.
+SYSTEM = """You are ForgeDeck AI Producer, a DJ/DAW copilot.
 Reply ONLY with JSON: {"message": string, "actions": [object], "reasoning": string}.
 Allowed action types: analyze_audio, create_cue_point, create_loop, create_drum_pattern,
 create_synth_preset, suggest_transition, apply_mixer_settings, create_arrangement,

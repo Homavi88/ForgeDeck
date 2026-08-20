@@ -1,4 +1,4 @@
-# PulseForge TODO / roadmap
+# ForgeDeck TODO / roadmap
 
 ## Done
 - [x] Monorepo, Docker Compose, FastAPI, Alembic, OpenAPI

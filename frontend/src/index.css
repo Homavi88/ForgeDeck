@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: #070709;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", Inter, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+input[type="range"] {
+  accent-color: #ff6a00;
+}
+
+.vu-bar {
+  background: linear-gradient(to top, #3dff7a 0%, #ffd23f 70%, #ff3b3b 95%);
+}
+
+.knob-label {
+  @apply text-[9px] uppercase tracking-[0.18em] text-zinc-500;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2e2e38;
+  border-radius: 99px;
+}

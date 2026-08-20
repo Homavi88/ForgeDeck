@@ -1,8 +1,14 @@
+<div align="center">
+
 # ForgeDeck
 
-Веб-приложение для DJ-сетов, продакшена и живого исполнения: **2 деки + микшер**, драм-машина, синтезатор, таймлайн и AI Producer.
+**Web DJ / DAW** — две деки как у CDJ, продакшен как в Ableton, всё в браузере.
 
-Realtime-звук идёт **только в браузере** (Web Audio API / AudioWorklet). Python-backend хранит проекты, анализирует аудио, гоняет фоновые задачи и AI-инструменты.
+Драм-машина · синтез · таймлайн · Rubber Band key lock · GPU stems · AI Producer
+
+Realtime-звук только в браузере (Web Audio). Python хранит проекты, анализ, AI и export.
+
+</div>
 
 ## Стек
 

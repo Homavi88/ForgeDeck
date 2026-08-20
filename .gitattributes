@@ -1,3 +1,6 @@
+# Agent/contributor internals — not product source for language stats.
+.cursor/docs/** linguist-documentation
+
 # Windows launchers must keep CRLF so cmd.exe parses them correctly.
 bat/*.bat text eol=crlf
 # macOS .command files are bash; keep LF and executable checkout.

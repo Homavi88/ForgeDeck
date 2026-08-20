@@ -40,7 +40,7 @@ Postgres + Redis + backend `:8000` + Celery worker + frontend `:5173` (nginx). C
 
 ## Переменные
 
-Шаблон: [`.env.example`](../.env.example). Важное:
+Шаблон: [`.env.example`](../../.env.example). Важное:
 
 | Переменная | Зачем |
 | --- | --- |

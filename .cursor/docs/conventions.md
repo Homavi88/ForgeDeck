@@ -15,7 +15,7 @@
 | Stem split | только `app/services/stems.py` (API и Celery его зовут) |
 | AI tool | `ai_agents/tools.py` + `TOOL_REGISTRY` + mock-интент в `providers/mock.py` |
 | Collab событие | `useProjectSync.ts` + `app/services/events.py` |
-| Документация фичи | этот `docs/` + строка в `CHANGELOG.md` |
+| Документация фичи | этот `.cursor/docs/` + строка в `CHANGELOG.md` |
 
 ## Правила, которые уже ломали продукт
 
@@ -39,5 +39,5 @@
 Это не пожелание: агент и человек обновляют docs **вместе с кодом**. Cursor: `.cursor/rules/docs-sync.mdc` (`alwaysApply`).
 
 1. Короткий пункт в `CHANGELOG.md` (Unreleased).
-2. Если менялся поток (новый endpoint, новый FX в chain, новая клавиша) — правка соответствующего `docs/*.md`.
-3. Чеклист продукта — `TODO.md`. Идеи UX, ещё не взятые в работу — `docs/roadmap.md`.
+2. Если менялся поток (новый endpoint, новый FX в chain, новая клавиша) — правка соответствующего `.cursor/docs/*.md`.
+3. Чеклист продукта — `TODO.md`. Идеи UX, ещё не взятые в работу — `.cursor/docs/roadmap.md`.

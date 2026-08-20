@@ -47,8 +47,8 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
 - `session` — `SessionPanel` (8 сцен, drop петли, Session rec / Capture)
 - `arrange` — `TimelinePanel` (warp-клипы, drop петли/стемов)
-- `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; dropdown **Load style drums** — только паттерн из style pack)
-- `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; dropdown **Load style synth** — params + notes)
+- `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; `StylePackSelect` drums-only)
+- `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; `StylePackSelect` synth-only)
 - `sampler` — `SamplerPanel` (стемы на пады)
 
 `AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы (горизонтальный скролл, `whitespace-nowrap`), Play / BPM / Key / Click, Save / Rec / Bounce; (2) Session rec, undo/redo, MIDI / mic / Keys, тогглы AI / Library / Decks (подсветка = включено, без «Hide …»), язык EN/RU, Share, Выключить. Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.

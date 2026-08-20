@@ -56,7 +56,7 @@ npm run dev
 
 Логин: [http://localhost:5173/login](http://localhost:5173/login) — demo `producer@pulseforge.local` / `demo` (пока `REQUIRE_AUTH=false`, API принимает и запросы без токена).
 
-Создай проект → открой студию → кликни по UI (браузер разблокирует AudioContext) → загрузи mp3/wav в Library → кинь трек на Deck A/B.
+Создай проект → студия сразу кладёт демо-петлю на Deck A. Кликни по UI (браузер разблокирует AudioContext) → Play. Свой трек: Library Upload (mp3/wav/flac/ogg).
 
 ## Docker Compose
 
@@ -81,7 +81,7 @@ docker compose up --build
 Поток загрузки:
 
 1. `POST /api/audio/upload` сохраняет файл (локально, затем S3 если задан bucket)
-2. Worker считает duration, waveform overview, BPM, beats, key, RMS/peak
+2. Анализ (miniaudio для mp3, soundfile для wav/flac) считает duration, waveform, BPM, beats, key, RMS/peak
 3. Frontend рисует waveform + beatgrid и играет через `decodeAudioData`
 
 ## Режимы UI
@@ -116,7 +116,8 @@ npx playwright test
 
 - Key lock — granular WSOLA, не Rubber Band WASM.
 - Stems — Demucs, если CLI установлен, иначе HPSS.
-- Offline export — mix загруженных дек через `OfflineAudioContext`, не полная копия live-графа с плагинами.
+- Bounce — деки + drums + synth + timeline + EQ/volume; delay/reverb не копируются 1:1.
+- MP3 анализируется через miniaudio (ffmpeg не нужен).
 - Auth — JWT есть; в dev `REQUIRE_AUTH=false` оставляет demo-пользователя.
 
 Подробный roadmap: [TODO.md](TODO.md).

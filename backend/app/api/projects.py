@@ -125,6 +125,9 @@ def create_project(
     db.commit()
     db.refresh(project)
     seed_project_studio(db, project)
+    from app.services.demo_library import attach_demo_to_first_project
+
+    attach_demo_to_first_project(db, user, project)
     db.refresh(project)
     return _serialize_project(project)
 

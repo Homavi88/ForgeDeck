@@ -3,6 +3,8 @@
 ## Done
 - [x] Monorepo, Docker Compose, FastAPI, Alembic, OpenAPI
 - [x] Upload + BPM/key/Camelot/waveform/beatgrid analysis
+- [x] MP3/M4A analysis via miniaudio (no ffmpeg required)
+- [x] First project auto-loads demo loop onto Deck A / Library
 - [x] 2 DJ decks + mixer + crossfader + EQ3 + filter + FX + VU
 - [x] Key lock (granular WSOLA), loop in/out, beat jump, quantize, slip flag
 - [x] Mixer pan / mute / solo / sidechain ducking from kick
@@ -19,11 +21,12 @@
 - [x] Optional S3 object store (local disk fallback)
 - [x] FX / MIDI / drum-kit preset APIs + browsers in Settings and Mixer
 - [x] Vinyl platter scratch + loop roll
-- [x] OfflineAudioContext mixdown + upload render
-- [x] Collaborative WebSocket transport (BPM / crossfader)
+- [x] Offline bounce of decks + drums + synth + timeline; live Rec of the master bus
+- [x] Collaborative WebSocket: BPM, play, mixer, decks, drums, notes, clips, mode
 - [x] Backend tests + Playwright smoke
+- [x] Windows `bat/` and macOS `mac/` launchers
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [ ] Rubber Band / SoundTouch WASM (studio-grade timestretch) — WSOLA is the working substitute
 - [ ] GPU Demucs worker — CPU Demucs CLI or HPSS already run
-- [ ] 1:1 plugin graph offline bounce — deck mixdown is the working substitute
+- [ ] Bit-identical plugin graph bounce (convolution FX, analog models)

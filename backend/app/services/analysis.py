@@ -3,7 +3,8 @@
 Realtime playback happens in the browser. This module is for *offline* analysis
 so the UI can show BPM/key/beatgrid without blocking the audio thread.
 
-librosa is optional. A numpy/soundfile fallback keeps local/dev installs light.
+MP3/M4A are decoded with miniaudio (dr_mp3) — no ffmpeg required.
+librosa is optional and, when present, runs on already-decoded PCM.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 MAJOR_PROFILE = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
 MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
 
+SOUNDFILE_OK = {".wav", ".flac", ".ogg", ".aiff", ".aif", ".w64"}
+
 
 def _try_librosa():
     if not settings.enable_librosa:
@@ -35,18 +38,103 @@ def _try_librosa():
         return None
 
 
-def load_mono(path: Path, max_seconds: float = 180.0) -> tuple[np.ndarray, int]:
-    info = sf.info(str(path))
-    sr = info.samplerate
-    frames = info.frames
-    # Cap long files so analysis stays interactive in MVP.
-    stop = min(frames, int(max_seconds * sr))
+def _from_interleaved(samples: np.ndarray, channels: int) -> np.ndarray:
+    if channels <= 1:
+        return samples.astype(np.float32, copy=False)
+    frames = samples.reshape(-1, channels)
+    return frames.mean(axis=1).astype(np.float32)
+
+
+def _load_soundfile(path: Path, max_seconds: float) -> tuple[np.ndarray, int, int] | None:
+    try:
+        info = sf.info(str(path))
+    except Exception:
+        return None
+    sr = int(info.samplerate)
+    stop = min(info.frames, int(max_seconds * sr)) if sr else info.frames
     audio, sr = sf.read(str(path), always_2d=True, stop=stop)
     mono = audio.mean(axis=1).astype(np.float32)
+    return _normalize(mono), int(sr), int(info.channels)
+
+
+def _load_miniaudio(path: Path, max_seconds: float) -> tuple[np.ndarray, int, int] | None:
+    try:
+        import miniaudio
+    except Exception:
+        return None
+    try:
+        decoded = miniaudio.decode_file(
+            str(path),
+            output_format=miniaudio.SampleFormat.FLOAT32,
+            nchannels=1,
+            sample_rate=22050,
+        )
+    except Exception:
+        return None
+    samples = np.asarray(decoded.samples, dtype=np.float32)
+    sr = int(decoded.sample_rate)
+    channels = int(decoded.nchannels)
+    mono = _from_interleaved(samples, channels)
+    cap = int(max_seconds * sr)
+    if cap > 0 and len(mono) > cap:
+        mono = mono[:cap]
+    return _normalize(mono), sr, channels
+
+
+def _load_pydub(path: Path, max_seconds: float) -> tuple[np.ndarray, int, int] | None:
+    """Last-resort decoder if ffmpeg happens to be installed."""
+    try:
+        from pydub import AudioSegment
+    except Exception:
+        return None
+    try:
+        seg = AudioSegment.from_file(str(path))
+    except Exception:
+        return None
+    if max_seconds and len(seg) > max_seconds * 1000:
+        seg = seg[: int(max_seconds * 1000)]
+    samples = np.array(seg.get_array_of_samples()).astype(np.float32)
+    if seg.sample_width == 2:
+        samples /= 32768.0
+    elif seg.sample_width == 4:
+        samples /= 2147483648.0
+    if seg.channels > 1:
+        samples = samples.reshape(-1, seg.channels).mean(axis=1)
+    return _normalize(samples), int(seg.frame_rate), int(seg.channels)
+
+
+def _normalize(mono: np.ndarray) -> np.ndarray:
     peak = float(np.max(np.abs(mono)) + 1e-9)
     if peak > 1.0:
         mono = mono / peak
-    return mono, int(sr)
+    return mono
+
+
+def load_mono(path: Path, max_seconds: float = 180.0) -> tuple[np.ndarray, int]:
+    audio, sr, _channels, _engine = load_audio(path, max_seconds)
+    return audio, sr
+
+
+def load_audio(path: Path, max_seconds: float = 180.0) -> tuple[np.ndarray, int, int, str]:
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix in SOUNDFILE_OK:
+        loaded = _load_soundfile(path, max_seconds)
+        if loaded:
+            return (*loaded, "soundfile")
+    loaded = _load_miniaudio(path, max_seconds)
+    if loaded:
+        return (*loaded, "miniaudio")
+    if suffix in SOUNDFILE_OK:
+        pass
+    else:
+        loaded = _load_soundfile(path, max_seconds)
+        if loaded:
+            return (*loaded, "soundfile")
+    loaded = _load_pydub(path, max_seconds)
+    if loaded:
+        return (*loaded, "pydub")
+    raise RuntimeError(f"Cannot decode audio: {path.suffix}")
 
 
 def waveform_overview(audio: np.ndarray, bins: int = 2048) -> list[float]:
@@ -71,7 +159,6 @@ def estimate_bpm_numpy(audio: np.ndarray, sr: int) -> tuple[float, list[float]]:
         return 120.0, []
     env = env - np.mean(env)
     env = np.maximum(env, 0)
-    # Autocorrelation of onset envelope.
     corr = np.correlate(env, env, mode="full")[len(env) - 1 :]
     min_lag = int((60.0 / 180.0) * sr / hop)
     max_lag = int((60.0 / 70.0) * sr / hop)
@@ -81,7 +168,6 @@ def estimate_bpm_numpy(audio: np.ndarray, sr: int) -> tuple[float, list[float]]:
         return 120.0, []
     lag = int(np.argmax(corr[min_lag:max_lag]) + min_lag)
     bpm = 60.0 * sr / (lag * hop)
-    # Fold into typical DJ range.
     while bpm < 80:
         bpm *= 2
     while bpm > 180:
@@ -95,7 +181,6 @@ def estimate_bpm_numpy(audio: np.ndarray, sr: int) -> tuple[float, list[float]]:
 
 def estimate_key_numpy(audio: np.ndarray, sr: int) -> str:
     """Very approximate key via chroma-like energy in 12 pitch classes."""
-    # Downsample for speed.
     if sr > 22050:
         audio = audio[:: sr // 22050]
         sr = 22050
@@ -130,9 +215,8 @@ def estimate_key_numpy(audio: np.ndarray, sr: int) -> str:
 
 def analyze_file(path: str | Path) -> dict[str, Any]:
     path = Path(path)
-    info = sf.info(str(path))
-    audio, sr = load_mono(path)
-    duration = float(info.frames / info.samplerate) if info.samplerate else len(audio) / sr
+    audio, sr, channels, decoder = load_audio(path)
+    duration = len(audio) / sr if sr else 0.0
     peaks = waveform_overview(audio)
     rms = float(np.sqrt(np.mean(audio**2))) if len(audio) else 0.0
     peak = float(np.max(np.abs(audio))) if len(audio) else 0.0
@@ -140,8 +224,13 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
 
     librosa = _try_librosa()
     beats: list[float]
+    engine = decoder
     if librosa is not None:
-        y, lr_sr = librosa.load(str(path), sr=22050, mono=True, duration=180)
+        y = audio
+        lr_sr = sr
+        if sr != 22050:
+            y = librosa.resample(audio, orig_sr=sr, target_sr=22050)
+            lr_sr = 22050
         tempo, beat_frames = librosa.beat.beat_track(y=y, sr=lr_sr)
         bpm = float(np.atleast_1d(tempo)[0])
         beats = [round(float(t), 4) for t in librosa.frames_to_time(beat_frames, sr=lr_sr)]
@@ -150,6 +239,7 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
         key = estimate_key_from_chroma(chroma_mean)
         onsets = librosa.onset.onset_detect(y=y, sr=lr_sr, units="time")
         onset_times = [round(float(t), 4) for t in onsets[:200]]
+        engine = f"librosa+{decoder}"
     else:
         bpm, beats = estimate_bpm_numpy(audio, sr)
         key = estimate_key_numpy(audio, sr)
@@ -159,8 +249,8 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
 
     return {
         "duration": round(duration, 4),
-        "sample_rate": int(info.samplerate),
-        "channels": int(info.channels),
+        "sample_rate": int(sr),
+        "channels": int(channels),
         "waveform": [round(v, 4) for v in peaks],
         "bpm": round(float(bpm), 2),
         "beats": beats[:800],
@@ -170,7 +260,7 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
         "peak": round(peak, 5),
         "loudness_db": round(lufs_approx, 2),
         "onsets": onset_times[:200],
-        "engine": "librosa" if librosa is not None else "numpy",
+        "engine": engine,
     }
 
 

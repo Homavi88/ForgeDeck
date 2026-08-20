@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
-import { renderOfflineWav } from "../../audio-engine/offlineRender";
+import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
@@ -83,25 +84,63 @@ export function TopBar() {
       >
         {saving ? "Saving…" : "Save"}
       </button>
+      <RecordButton />
       <ExportButton />
     </div>
   );
 }
 
+function RecordButton() {
+  const project = useStudio((s) => s.project);
+  const [on, setOn] = useState(false);
+  return (
+    <button
+      className={`px-3 py-1.5 rounded text-xs uppercase tracking-wider font-semibold ${
+        on ? "bg-danger text-white" : "bg-ink-700 hover:bg-ink-600"
+      }`}
+      onClick={async () => {
+        const eng = getEngine();
+        await useStudio.getState().bootAudio();
+        if (!on) {
+          eng.startRecording();
+          setOn(true);
+          return;
+        }
+        const buffer = eng.stopRecording();
+        setOn(false);
+        if (!buffer) return;
+        const blob = encodeWav(buffer);
+        if (project) await api.projects.uploadRender(project.id, blob).catch(() => undefined);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${project?.name || "set"}-live.wav`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }}
+    >
+      {on ? "Stop rec" : "Rec"}
+    </button>
+  );
+}
+
 function ExportButton() {
   const project = useStudio((s) => s.project);
+  const [busy, setBusy] = useState(false);
   return (
     <button
       className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold"
       onClick={async () => {
-        if (!project) return;
+        if (!project || busy) return;
+        setBusy(true);
         try {
+          await useStudio.getState().bootAudio();
           const blob = await renderOfflineWav();
           await api.projects.uploadRender(project.id, blob);
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `${project.name || "mix"}.wav`;
+          a.download = `${project.name || "mix"}-bounce.wav`;
           a.click();
           URL.revokeObjectURL(url);
         } catch (err) {
@@ -109,10 +148,12 @@ function ExportButton() {
           useStudio.setState({
             error: err instanceof Error ? `${err.message} — queued server render` : "Queued server render",
           });
+        } finally {
+          setBusy(false);
         }
       }}
     >
-      Export
+      {busy ? "Bounce…" : "Bounce"}
     </button>
   );
 }

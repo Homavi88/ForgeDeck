@@ -6,6 +6,7 @@ import { DrumMachine } from "./DrumMachine";
 import { Mixer } from "./Mixer";
 import { applyMidiTarget, loadMidiBindings, persistMidiBindings, type MidiBindings } from "./midiMap";
 import { PianoRoll } from "./PianoRoll";
+import { LiveRecorder } from "./recorder";
 import { Sampler } from "./Sampler";
 import { Synth } from "./Synth";
 import { TimelineEngine } from "./Timeline";
@@ -29,6 +30,7 @@ export class AudioEngine {
   arrangeMode = false;
   buffers = new Map<string, AudioBuffer>();
   midiBindings: MidiBindings = loadMidiBindings();
+  recorder = new LiveRecorder();
   private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
   private clipSources: AudioBufferSourceNode[] = [];
 
@@ -217,6 +219,14 @@ export class AudioEngine {
       };
     });
     return `MIDI inputs: ${[...access.inputs].length} · mapped CC/notes + keys`;
+  }
+
+  startRecording(): void {
+    this.recorder.start(this.ctx, this.mixer.limiter.output);
+  }
+
+  stopRecording(): AudioBuffer | null {
+    return this.recorder.stop();
   }
 }
 

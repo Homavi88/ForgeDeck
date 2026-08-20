@@ -29,3 +29,58 @@ def test_project_crud(client):
 
     deleted = client.delete(f"/api/projects/{pid}")
     assert deleted.json()["ok"] is True
+
+
+def test_autosave_upserts_main_pattern(client):
+    pid = client.post("/api/projects", json={"name": "Autosave"}).json()["id"]
+    graph = {
+        "bpm": 122,
+        "drums": {"steps": {"kick": [1, 0, 1]}, "length": 16, "swing": 0.1},
+        "synth": {"oscType": "sawtooth", "gain": 0.3},
+    }
+    first = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert first.status_code == 200, first.text
+    second = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert second.status_code == 200, second.text
+
+    a = client.post(
+        f"/api/projects/{pid}/patterns",
+        json={"name": "Main", "steps": {"kick": [1]}, "length": 16},
+    )
+    b = client.post(
+        f"/api/projects/{pid}/patterns",
+        json={"name": "Main", "steps": {"kick": [1, 1]}, "length": 32},
+    )
+    assert a.status_code == 200, a.text
+    assert b.status_code == 200, b.text
+    assert a.json()["id"] == b.json()["id"]
+
+    mains = [p for p in client.get(f"/api/projects/{pid}").json()["drum_patterns"] if p["name"] == "Main"]
+    assert len(mains) == 1
+    assert mains[0]["length"] == 32
+
+
+def test_persist_graph_heals_duplicate_main(client):
+    from sqlalchemy import text
+
+    from app.database import SessionLocal, engine
+    from app.models import DrumPattern
+
+    pid = client.post("/api/projects", json={"name": "Dup Main"}).json()["id"]
+    with engine.begin() as conn:
+        conn.execute(text("DROP INDEX IF EXISTS uq_drum_patterns_project_name"))
+    db = SessionLocal()
+    try:
+        db.add(DrumPattern(project_id=pid, name="Main", steps={"a": [1]}))
+        db.add(DrumPattern(project_id=pid, name="Main", steps={"b": [1]}))
+        db.commit()
+    finally:
+        db.close()
+
+    res = client.put(
+        f"/api/projects/{pid}",
+        json={"graph": {"bpm": 120, "drums": {"steps": {"kick": [1]}, "length": 16, "swing": 0}}},
+    )
+    assert res.status_code == 200, res.text
+    mains = [p for p in client.get(f"/api/projects/{pid}").json()["drum_patterns"] if p["name"] == "Main"]
+    assert len(mains) == 1

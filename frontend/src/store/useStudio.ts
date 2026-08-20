@@ -469,15 +469,6 @@ export const useStudio = create<StudioState>((set, get) => ({
           layout: { aiPanelOpen: s.aiPanelOpen, libraryOpen: s.libraryOpen },
         },
       });
-      if (s.project.id) {
-        await api.projects.savePattern(s.project.id, {
-          name: "Main",
-          length: s.drumLength,
-          swing: s.drumSwing,
-          bpm: s.bpm,
-          steps: s.drumSteps,
-        }).catch(() => undefined);
-      }
       set({ saving: false, lastSavedAt: Date.now() });
       get().pushToast({ id: "save", kind: "ok", text: t("toast.saved"), ttl: 1400 });
     } catch (err) {

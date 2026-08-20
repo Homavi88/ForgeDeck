@@ -7,9 +7,29 @@ from sqlalchemy import inspect, text
 from app.database import engine
 
 
+def _dedupe_named_rows(conn, table: str) -> list[str]:
+    """Keep the oldest row per (project_id, name); return extra ids."""
+    rows = conn.execute(
+        text(
+            f"SELECT id, project_id, name FROM {table} "
+            "WHERE project_id IS NOT NULL ORDER BY created_at ASC, id ASC"
+        )
+    ).fetchall()
+    seen: set[tuple[str, str]] = set()
+    extra: list[str] = []
+    for row_id, project_id, name in rows:
+        key = (str(project_id), str(name))
+        if key in seen:
+            extra.append(str(row_id))
+        else:
+            seen.add(key)
+    return extra
+
+
 def ensure_schema() -> None:
     insp = inspect(engine)
-    if "projects" not in insp.get_table_names():
+    tables = set(insp.get_table_names())
+    if "projects" not in tables:
         return
     cols = {c["name"] for c in insp.get_columns("projects")}
     stmts: list[str] = []
@@ -20,4 +40,35 @@ def ensure_schema() -> None:
             conn.execute(text(sql))
         conn.execute(
             text("CREATE UNIQUE INDEX IF NOT EXISTS ix_projects_share_token ON projects (share_token)")
+        )
+
+        if "mixer_channels" in tables and "effect_chains" in tables:
+            extra = _dedupe_named_rows(conn, "mixer_channels")
+            for row_id in extra:
+                conn.execute(text("DELETE FROM effect_chains WHERE mixer_channel_id = :id"), {"id": row_id})
+                conn.execute(text("DELETE FROM mixer_channels WHERE id = :id"), {"id": row_id})
+        if "drum_patterns" in tables:
+            for row_id in _dedupe_named_rows(conn, "drum_patterns"):
+                conn.execute(text("DELETE FROM drum_patterns WHERE id = :id"), {"id": row_id})
+        if "synth_presets" in tables:
+            for row_id in _dedupe_named_rows(conn, "synth_presets"):
+                conn.execute(text("DELETE FROM synth_presets WHERE id = :id"), {"id": row_id})
+
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_drum_patterns_project_name "
+                "ON drum_patterns (project_id, name)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_mixer_channels_project_name "
+                "ON mixer_channels (project_id, name)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_synth_presets_project_name "
+                "ON synth_presets (project_id, name)"
+            )
         )

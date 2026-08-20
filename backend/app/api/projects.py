@@ -255,8 +255,20 @@ def save_pattern(
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
-    pattern = DrumPattern(project_id=project.id, **payload.model_dump())
-    db.add(pattern)
+    from app.services.project_graph import keep_named
+
+    data = payload.model_dump()
+    pattern = keep_named(db, DrumPattern, project.id, data["name"])
+    if pattern is None:
+        pattern = DrumPattern(project_id=project.id, **data)
+        db.add(pattern)
+    else:
+        pattern.length = data["length"]
+        pattern.swing = data["swing"]
+        pattern.bpm = data["bpm"]
+        pattern.steps = data["steps"]
+        if data.get("kit_id") is not None:
+            pattern.kit_id = data["kit_id"]
     db.commit()
     db.refresh(pattern)
     return pattern
@@ -268,8 +280,15 @@ def save_synth(
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
-    preset = SynthPreset(project_id=project.id, **payload.model_dump())
-    db.add(preset)
+    from app.services.project_graph import keep_named
+
+    data = payload.model_dump()
+    preset = keep_named(db, SynthPreset, project.id, data["name"])
+    if preset is None:
+        preset = SynthPreset(project_id=project.id, **data)
+        db.add(preset)
+    else:
+        preset.params = data["params"]
     db.commit()
     db.refresh(preset)
     return preset

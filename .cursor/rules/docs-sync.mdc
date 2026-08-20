@@ -1,0 +1,41 @@
+---
+description: Keep ForgeDeck markdown docs in sync with every product or architecture change
+alwaysApply: true
+---
+
+# ForgeDeck: docs follow the code
+
+Markdown in this repo is the project memory. Do not treat `docs/` as optional.
+
+After **any** change that users or future developers will notice, update the matching files **in the same PR/commit set**. Shipping code without the docs update is incomplete.
+
+## Always
+
+1. Add a bullet under `CHANGELOG.md` → **Unreleased** (what changed, in the user’s or a developer’s words).
+2. Touch the layer file if the flow, API, graph, or UX changed — not only when you add a new page.
+
+## Which file
+
+| Kind of change | Update |
+| --- | --- |
+| New/removed REST or WS message | `docs/backend.md` |
+| New route, store field, keyboard shortcut | `docs/frontend.md`, `docs/studio.md` |
+| Deck, mixer, FX, key lock, bounce, worklets | `docs/audio-engine.md` |
+| AI tool, provider, apply path | `docs/ai.md` |
+| Env var, how to run, tests | `docs/development.md` |
+| Where to put code / new invariant | `docs/conventions.md` |
+| Split of browser vs Python | `docs/architecture.md` |
+| Finished product checkbox | `TODO.md` |
+| UX idea not started / started now | `docs/roadmap.md` (move off the list when built) |
+| Rename, license, “don’t fake GPU/Rubber Band” | `README.md` limitations + conventions |
+
+Index: `docs/README.md`. Contributing reminder: `CONTRIBUTING.md`.
+
+## Do not
+
+- Leave PulseForge in new copy.
+- Say Rubber Band landed if only WSOLA remains; say GPU Demucs if only HPSS ran.
+- Add docs that contradict the code “for later”.
+- Skip CHANGELOG because the diff is “just refactor” if the public behavior or the extension point changed.
+
+If you are unsure which doc: update `CHANGELOG.md` and `docs/conventions.md` at minimum.

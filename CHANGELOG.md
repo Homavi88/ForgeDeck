@@ -5,6 +5,7 @@
 ## Unreleased
 
 - Документация для разработки: `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`
+- Правило агента: всегда обновлять docs вместе с кодом (`.cursor/rules/docs-sync.mdc`, `AGENTS.md`)
 
 ## 0.1.0 (2026-08-20)
 

@@ -20,3 +20,5 @@
 - [`CHANGELOG.md`](../CHANGELOG.md) — что уже влито в `main`
 - [`TODO.md`](../TODO.md) — чеклист сделанного продукта
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — как коммитить и обновлять эти файлы
+- [`AGENTS.md`](../AGENTS.md) — агент обязан обновлять docs вместе с кодом
+

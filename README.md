@@ -110,7 +110,7 @@ docker compose up --build
 
 ## Документация
 
-Полный набор для разработки (не дублирует этот README):
+Полный набор для разработки (не дублирует этот README). **Документы обновляются в том же PR, что и код** — правило агента: [`.cursor/rules/docs-sync.mdc`](.cursor/rules/docs-sync.mdc), [AGENTS.md](AGENTS.md).
 
 | | |
 | --- | --- |

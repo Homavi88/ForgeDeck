@@ -5,7 +5,7 @@
 1. Прочитай [docs/README.md](docs/README.md) и [docs/conventions.md](docs/conventions.md).
 2. Ветка от `main`. Для агентов: `cursor/<short-name>-c63c`.
 3. Тесты: `cd backend && PYTHONPATH=..:. pytest -q` и `cd frontend && npm run build`.
-4. После фичи — пункт в `CHANGELOG.md` (Unreleased) и правка `docs/*`, если менялся поток.
+4. Документы **обязательны в том же PR**, что и код. Правило для агентов: [`.cursor/rules/docs-sync.mdc`](.cursor/rules/docs-sync.mdc). Минимум: `CHANGELOG.md` (Unreleased) + нужный файл в `docs/`.
 5. Не коммить `.env`, `storage/audio/**`, `frontend/public/worklets/rubberband-processor.js`.
 
 PR: что сломается без этой правки, как проверить руками (дека / bounce / stems / collab).

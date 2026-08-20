@@ -33,11 +33,11 @@ Celery (опционально, USE_CELERY=true)
 
 ## Снимок проекта
 
-Источник правды для студии — JSON `Project.graph`. На save фронт шлёт mixer, decks, drums, notes, clips, synth, queue. Бэкенд кладёт его в `graph` и дублирует куски в таблицы (`DrumPattern` «Main», `SynthPreset` «Current», `MixerChannel`). Новые поля студии добавляй **и** в graph на клиенте, **и** в hydrate, если они нужны API/AI.
+Источник правды для студии — JSON `Project.graph`. На save фронт шлёт mixer, decks, drums, notes, midiPatterns, clips, synth, queue. Бэкенд кладёт его в `graph` и дублирует куски в таблицы (`DrumPattern` «Main», `SynthPreset` «Current», `MixerChannel`). Новые поля студии добавляй **и** в graph на клиенте, **и** в hydrate, если они нужны API/AI.
 
 ## Звук: live vs bounce
 
-Live: `AudioEngine` → `Mixer` (A/B xfader, drums, synth) → master strip → limiter → destination.
+Live: `AudioEngine` → `Mixer` (A/B xfader + curve, drums, synth, **FX return**) → master strip → limiter → destination.
 
 Bounce: `offlineRender.ts` строит **тот же** `Mixer` на `OfflineAudioContext`, копирует live strip (EQ/filter/FX/volume/pan) и Rubber Band для key lock.
 

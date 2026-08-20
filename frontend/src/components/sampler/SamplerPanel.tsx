@@ -3,7 +3,9 @@ import { getEngine } from "../../audio-engine/AudioEngine";
 import { PAD_IDS } from "../../audio-engine/DrumMachine";
 import { sliceByOnsets } from "../../audio-engine/Sampler";
 import { t, useI18n } from "../../i18n";
+import { peekStemDrag, readStemDrag, setStemDrag } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
+import { STEM_NAMES } from "../../types";
 import { Waveform } from "../dj/Waveform";
 
 export function SamplerPanel() {
@@ -134,6 +136,41 @@ export function SamplerPanel() {
             {t("sampler.stems")}
           </button>
         )}
+      </div>
+      {file?.analysis?.stems && (
+        <div className="flex flex-wrap gap-1">
+          {STEM_NAMES.filter((n) => file.analysis?.stems?.[n]).map((name) => (
+            <button
+              key={name}
+              draggable
+              onDragStart={(e) => setStemDrag(e.dataTransfer, { audioFileId: file.id, stem: name })}
+              className="text-[10px] uppercase bg-ink-700 px-2 py-1 rounded cursor-grab"
+              onClick={() => void useStudio.getState().dropStemOnPad("vox", file.id, name)}
+            >
+              {name}
+            </button>
+          ))}
+          <span className="text-[10px] text-zinc-500 self-center">{t("sampler.stemHint")}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1 max-w-xl">
+        {PAD_IDS.map((id) => (
+          <button
+            key={id}
+            className="text-[10px] uppercase bg-ink-800 border border-line rounded px-2 py-2"
+            onDragOver={(e) => {
+              if (peekStemDrag(e.dataTransfer)) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const stem = readStemDrag(e.dataTransfer);
+              if (stem) void useStudio.getState().dropStemOnPad(id, stem.audioFileId, stem.stem);
+            }}
+            onClick={() => void bootAudio().then(() => getEngine().drums.trigger(id))}
+          >
+            {id}
+          </button>
+        ))}
       </div>
       <p className="text-xs text-zinc-500">{t("sampler.hint")}</p>
     </div>

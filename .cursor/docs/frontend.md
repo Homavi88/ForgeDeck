@@ -22,6 +22,8 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
+Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
+
 Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S; graph пишется одним `PUT`. Паттерн `Main` больше не дублируется отдельным POST на каждый save. Успешный save даёт тост «Saved».
 
 Undo/redo: снимки в `history` / `future` (не весь engine).
@@ -43,19 +45,19 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 `StudioPage` переключает `mode`:
 
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
-- `session` — `SessionPanel` (8 сцен)
-- `arrange` — `TimelinePanel`
-- `drums` — `DrumMachinePanel`
-- `synth` — `SynthPanel` + piano roll
-- `sampler` — `SamplerPanel`
+- `session` — `SessionPanel` (8 сцен, drop петли, Session rec / Capture)
+- `arrange` — `TimelinePanel` (warp-клипы, drop петли/стемов)
+- `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад)
+- `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum)
+- `sampler` — `SamplerPanel` (стемы на пады)
 
-`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys, **язык RU/EN**, **Выключить**). `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`. `PowerOffButton` также в `Shell` (домашняя / projects / library / settings). `api.shutdown()` → `POST /api/shutdown`.
+`AIPanel` справа, если не спрятана. Сверху `TopBar` (BPM, **тональность**, **Session rec**, Rec, Bounce, MIDI, mic, Hide AI / Library / Decks, Keys, **язык RU/EN**, **Выключить**). Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
 
-DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Camelot-соседи: `frontend/src/lib/camelot.ts` (как `harmony.compatible_camelot`). Drag трека: `lib/trackDrag.ts`.
+DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Микс-хелперы (offset, gain match): `lib/djMix.ts`. Camelot-соседи и next-crate: `frontend/src/lib/camelot.ts`. Clip warp math: `lib/clipWarp.ts`. Гаммы/аккорды/arp/strum piano roll: `lib/musicTheory.ts` + `lib/pianoRoll.ts`. MIDI-паттерны и ghost: `graph.midiPatterns` / `activeMidiPatternId` / `ghostNotes` в `useStudio`. Drag трека/стема: `lib/trackDrag.ts`. Graph extras: `fxReturns`, clip `keyFollow` / `sourceBpm` / `stem`.
 
 ## Коллаб
 
-Хук `useProjectSync(projectId)` открывает WS и шлёт `state` при изменении bpm/mixer/drums/…. Входящий state не эхается (`applying` ref). Edit lock: кнопки на деке и drum grid.
+Хук `useProjectSync(projectId)` открывает WS и шлёт `state` при изменении bpm/mixer/drums/notes/`midiPatterns`/clips/`sessionClips`/`fxReturns`/…. Входящий state не эхается (`applying` ref). Edit lock: кнопки на деке и drum grid.
 
 ## Клавиатура
 

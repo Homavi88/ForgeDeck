@@ -16,6 +16,9 @@ export function SynthPanel() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const map: Record<string, number> = { a: 60, s: 62, d: 64, f: 65, g: 67, h: 69, j: 71, k: 72 };
       if (e.repeat) return;
       const midi = map[e.key.toLowerCase()];
@@ -42,7 +45,7 @@ export function SynthPanel() {
   };
 
   return (
-    <div className="flex-1 p-4 overflow-auto flex flex-col gap-4">
+    <div className="flex-1 p-4 overflow-hidden flex flex-col gap-3 min-h-0">
       <div className="flex items-center gap-3">
         <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">{t("synth.title")}</div>
         <button
@@ -60,6 +63,17 @@ export function SynthPanel() {
           <input type="checkbox" checked={synth.poly} onChange={(e) => patch({ poly: e.target.checked })} />
           {t("synth.poly")}
         </label>
+        <button
+          className="text-xs bg-ink-700 px-2 py-1 rounded"
+          onClick={async () => {
+            const p = useStudio.getState().project;
+            if (!p) return;
+            const { api } = await import("../../api/client");
+            await api.projects.saveSynth(p.id, "Current", synth as unknown as Record<string, unknown>);
+          }}
+        >
+          {t("synth.save")}
+        </button>
       </div>
       <div className="flex gap-2">
         {OSC_TYPES.map((osc) => (
@@ -72,7 +86,7 @@ export function SynthPanel() {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-4 gap-4 max-w-3xl">
+      <div className="grid grid-cols-8 gap-2 max-w-5xl shrink-0">
         {(
           [
             ["gain", 0, 1, 0.01],
@@ -101,18 +115,7 @@ export function SynthPanel() {
         ))}
       </div>
       <Keyboard />
-      <p className="text-xs text-zinc-500">{t("synth.hint")}</p>
-      <button
-        className="self-start text-xs bg-ink-700 px-2 py-1 rounded"
-        onClick={async () => {
-          const p = useStudio.getState().project;
-          if (!p) return;
-          const { api } = await import("../../api/client");
-          await api.projects.saveSynth(p.id, "Current", synth as unknown as Record<string, unknown>);
-        }}
-      >
-        {t("synth.save")}
-      </button>
+      <p className="text-[10px] text-zinc-500 shrink-0">{t("synth.hint")}</p>
       <PianoRollPanel />
     </div>
   );
@@ -120,7 +123,7 @@ export function SynthPanel() {
 
 function Keyboard() {
   return (
-    <div className="relative h-32 max-w-3xl bg-ink-950 rounded border border-line overflow-hidden">
+    <div className="relative h-20 max-w-3xl bg-ink-950 rounded border border-line overflow-hidden shrink-0">
       {Array.from({ length: 24 }).map((_, i) => {
         const midi = START + i;
         const pc = midi % 12;
@@ -148,7 +151,7 @@ function Keyboard() {
         return (
           <button
             key={midi}
-            className="absolute top-0 h-20 w-6 bg-zinc-950 hover:bg-zinc-700 z-10"
+            className="absolute top-0 h-12 w-6 bg-zinc-950 hover:bg-zinc-700 z-10"
             style={{ left: whitesBefore * 40 - 12 }}
             onMouseDown={() => {
               void useStudio.getState().bootAudio().then(() => getEngine().synth.noteOn(midi));

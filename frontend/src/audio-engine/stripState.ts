@@ -5,7 +5,8 @@ export function snapshotStrip(ch: ChannelStrip): MixerStripState {
   return {
     volume: ch.volume.gain.value,
     gain: 20 * Math.log10(Math.max(1e-6, ch.trim.gain.value)),
-    eq: [ch.eq.low.gain.value, ch.eq.mid.gain.value, ch.eq.high.gain.value],
+    eq: [...ch.eq.user] as [number, number, number],
+    eqKill: [...ch.eq.kills] as [boolean, boolean, boolean],
     filter: ch.filter.knob,
     mute: ch.muted,
     solo: ch.soloed,
@@ -18,6 +19,8 @@ export function snapshotStrip(ch: ChannelStrip): MixerStripState {
       bitcrush: ch.fx.crush.wet.gain.value,
       compressor: ch.fx.compAmount,
     },
+    sendRev: ch.sendRev.gain.value,
+    sendDly: ch.sendDly.gain.value,
   };
 }
 
@@ -30,6 +33,7 @@ export function applyStripState(ch: ChannelStrip, state: MixerStripState | undef
   ch.setGainDb(state.gain ?? 0);
   const eq = state.eq ?? [0, 0, 0];
   ch.eq.set(eq[0], eq[1], eq[2]);
+  ch.eq.setKills(state.eqKill ?? [false, false, false]);
   ch.filter.setKnob(state.filter ?? 0);
   ch.setPan(state.pan ?? 0);
   ch.setMute(!!state.mute);
@@ -37,4 +41,6 @@ export function applyStripState(ch: ChannelStrip, state: MixerStripState | undef
   for (const [kind, wet] of Object.entries(state.fx || {})) {
     ch.fx.setWet(kind, wet);
   }
+  ch.setSendRev(state.sendRev ?? 0);
+  ch.setSendDly(state.sendDly ?? 0);
 }

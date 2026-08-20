@@ -2,13 +2,15 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { t, useI18n } from "../../i18n";
-import { peekTrackDrag, readTrackDragId } from "../../lib/trackDrag";
+import { peekTrackDrag, readTrackDragId, setStemDrag } from "../../lib/trackDrag";
 import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
 import { useStudio, type PitchRange } from "../../store/useStudio";
 import { Platter } from "./Platter";
 import { Waveform } from "./Waveform";
 
-const STEMS = ["vocals", "drums", "bass", "other"] as const;
+import type { StemName } from "../../types";
+
+const STEMS: StemName[] = ["vocals", "drums", "bass", "other"];
 const PITCH_CYCLE: PitchRange[] = [8, 16, 100];
 
 function fmt(time: number): string {
@@ -26,6 +28,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
   const locked = useStudio((s) => s.keyLock[side]);
   const locks = useStudio((s) => s.locks);
   const stemMute = useStudio((s) => s.stemMute);
+  const stemIso = useStudio((s) => s.stemIso[side]);
   const focused = useStudio((s) => s.focusDeck === side);
   const pfl = useStudio((s) => s.pfl[side]);
   const zoom = useStudio((s) => s.deckZoom[side]);
@@ -164,6 +167,10 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         >
           {t("deck.sync")}
         </Btn>
+        <Btn onClick={() => void useStudio.getState().instantDouble(side)}>{t("deck.double")}</Btn>
+        <Btn onClick={() => useStudio.getState().matchGain(side)}>{t("deck.matchGain")}</Btn>
+        <Btn onClick={() => useStudio.getState().quantizeSync(side)}>{t("deck.qSync")}</Btn>
+        <Btn onClick={() => useStudio.getState().echoOut(side)}>{t("deck.echoOut")}</Btn>
       </div>
       <div className="flex flex-wrap gap-3 text-[10px] uppercase text-zinc-500">
         <label className="flex items-center gap-1">
@@ -221,7 +228,9 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
           }}
         />
       </label>
-      {file && <StemRack side={side} fileId={file.id} stems={analysis?.stems} stemMute={stemMute} />}
+      {file && (
+        <StemRack side={side} fileId={file.id} stems={analysis?.stems} stemMute={stemMute} stemIso={stemIso} />
+      )}
     </section>
   );
 }
@@ -231,11 +240,13 @@ function StemRack({
   fileId,
   stems,
   stemMute,
+  stemIso,
 }: {
   side: "A" | "B";
   fileId: string;
   stems?: Record<string, string>;
   stemMute: Record<string, boolean>;
+  stemIso: string | null;
 }) {
   const names = STEMS.filter((s) => stems?.[s]);
   useI18n((s) => s.locale);
@@ -280,18 +291,38 @@ function StemRack({
         {names.length ? t("deck.reloadStems") : t("deck.splitStems")}
       </button>
       {names.map((name) => (
-        <label key={name} className="flex items-center gap-1">
-          <input
-            type="checkbox"
-            checked={!stemMute[name]}
-            onChange={(e) => {
-              const muted = !e.target.checked;
-              getEngine().setStemMute(name, muted);
-              useStudio.setState({ stemMute: { ...useStudio.getState().stemMute, [name]: muted } });
+        <div
+          key={name}
+          draggable
+          onDragStart={(e) => setStemDrag(e.dataTransfer, { audioFileId: fileId, stem: name })}
+          className="flex items-center gap-1 cursor-grab"
+          title={t("deck.stemDrag")}
+        >
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={!stemMute[name]}
+              onChange={(e) => {
+                const muted = !e.target.checked;
+                getEngine().setStemMute(name, muted);
+                useStudio.setState({ stemMute: { ...useStudio.getState().stemMute, [name]: muted } });
+              }}
+            />
+            {name}
+          </label>
+          <button
+            className={`text-[8px] px-1 rounded ${stemIso === name ? "bg-accent text-black" : "bg-ink-700"}`}
+            title={t("deck.stemIso")}
+            onClick={() => {
+              getEngine().setStemIso(side, name, useStudio.getState().stemMute);
+              useStudio.setState({
+                stemIso: { ...useStudio.getState().stemIso, [side]: getEngine().stemIso[side] },
+              });
             }}
-          />
-          {name}
-        </label>
+          >
+            ISO
+          </button>
+        </div>
       ))}
     </div>
   );

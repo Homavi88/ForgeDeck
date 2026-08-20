@@ -55,3 +55,12 @@ export function applyKeyLock(node: RubberBandWorklet, rate: number): void {
   node.setPitch(keyLockPitchScale(rate));
   node.setHighQuality(true);
 }
+
+/** Clip warp: tempo via BufferSource.playbackRate, pitch via Rubber Band (key follow = extra semitones). */
+export function applyClipWarp(node: RubberBandWorklet, rate: number, pitchSemitones = 0): void {
+  const r = Number.isFinite(rate) && rate > 0.05 ? rate : 1;
+  const extra = Math.pow(2, pitchSemitones / 12);
+  node.setTempo(1);
+  node.setPitch((extra * keyLockPitchScale(r)));
+  node.setHighQuality(true);
+}

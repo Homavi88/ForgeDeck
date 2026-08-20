@@ -1,6 +1,8 @@
 import { ChannelStrip } from "./ChannelStrip";
 import { LimiterFx } from "./effects/Compressor";
-import { equalPower } from "./utils";
+import { DelayFx } from "./effects/Delay";
+import { ReverbFx } from "./effects/Reverb";
+import { xfaderGains, type XfaderCurve } from "./utils";
 
 function isRealtime(ctx: BaseAudioContext): ctx is AudioContext {
   return typeof (ctx as AudioContext).createMediaStreamDestination === "function";
@@ -15,12 +17,17 @@ export class Mixer {
   xfaderB: GainNode;
   output: AudioNode;
   crossfader = 0.5;
+  xfaderCurve: XfaderCurve = "smooth";
 
   cueBus: GainNode;
   cueMix = 1;
   splitCue = false;
   headphoneMix: GainNode;
   headphoneDest: MediaStreamAudioDestinationNode | null = null;
+  returnRev: ReverbFx;
+  returnDly: DelayFx;
+  returnRevLevel: GainNode;
+  returnDlyLevel: GainNode;
   private masterHpGain: GainNode;
   private cueHpGain: GainNode;
   private stereoGate: GainNode;
@@ -46,6 +53,22 @@ export class Mixer {
     this.xfaderB.connect(this.master.input);
     this.channels.drums.output.connect(this.master.input);
     this.channels.synth.output.connect(this.master.input);
+
+    this.returnRev = new ReverbFx(ctx);
+    this.returnDly = new DelayFx(ctx);
+    this.returnRev.setReturn(1);
+    this.returnDly.setReturn(0.375, 0.35, 1);
+    this.returnRevLevel = ctx.createGain();
+    this.returnDlyLevel = ctx.createGain();
+    this.returnRevLevel.gain.value = 0.85;
+    this.returnDlyLevel.gain.value = 0.85;
+    for (const ch of Object.values(this.channels)) {
+      ch.sendRev.connect(this.returnRev.input);
+      ch.sendDly.connect(this.returnDly.input);
+    }
+    this.returnRev.output.connect(this.returnRevLevel).connect(this.master.input);
+    this.returnDly.output.connect(this.returnDlyLevel).connect(this.master.input);
+
     this.master.output.connect(this.limiter.input);
     this.limiter.output.connect(this.masterAnalyser);
 
@@ -94,9 +117,14 @@ export class Mixer {
     ]);
   }
 
+  setXfaderCurve(curve: XfaderCurve): void {
+    this.xfaderCurve = curve;
+    this.setCrossfader(this.crossfader);
+  }
+
   setCrossfader(x: number): void {
     this.crossfader = x;
-    const { a, b } = equalPower(x);
+    const { a, b } = xfaderGains(x, this.xfaderCurve);
     this.xfaderA.gain.value = a;
     this.xfaderB.gain.value = b;
   }
@@ -115,6 +143,12 @@ export class Mixer {
     this.splitCue = on;
     this.stereoGate.gain.value = on ? 0 : 1;
     this.splitGate.gain.value = on ? 1 : 0;
+  }
+
+  setReturnLevel(kind: "reverb" | "delay", v: number): void {
+    const g = Math.max(0, Math.min(1.5, v));
+    if (kind === "reverb") this.returnRevLevel.gain.value = g;
+    else this.returnDlyLevel.gain.value = g;
   }
 
   applySolo(): void {

@@ -2,6 +2,7 @@ import { t } from "../i18n";
 import { api } from "../api/client";
 import { AutomationEngine } from "./AutomationEngine";
 import { ClipLauncher } from "./ClipLauncher";
+import { scheduleWarpedClip, type WarpedVoice } from "./clipPlayback";
 import { Deck } from "./Deck";
 import { DrumMachine } from "./DrumMachine";
 import { Mixer } from "./Mixer";
@@ -38,8 +39,12 @@ export class AudioEngine {
   private micSource: MediaStreamAudioSourceNode | null = null;
   stemDecks: { A: Record<string, Deck>; B: Record<string, Deck> } = { A: {}, B: {} };
   stemsActive: { A: boolean; B: boolean } = { A: false, B: false };
+  stemIso: { A: string | null; B: string | null } = { A: null, B: null };
+  projectKey = "C minor";
+  onSessionLaunch?: (trackId: string, clip: SessionClip | null) => void;
   private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
-  private clipSources: AudioBufferSourceNode[] = [];
+  private clipVoices: WarpedVoice[] = [];
+  private sessionVoices: Record<string, WarpedVoice | null> = {};
   private hpEl: HTMLAudioElement | null = null;
 
   constructor() {
@@ -77,7 +82,18 @@ export class AudioEngine {
     this.transport.onTick((step, time) => {
       const seconds = step * this.transport.secondsPerStep;
       this.applyAutomation(seconds);
-      if (step % 16 === 0) this.launcher.onBar(Math.floor(step / 16));
+      if (step % 16 === 0) {
+        const bar = Math.floor(step / 16);
+        const pending = this.launcher.pendingScene;
+        this.launcher.onBar(bar);
+        if (pending != null && this.launcher.pendingScene == null) {
+          for (const track of ["drums", "synth", "deckA", "deckB"]) {
+            const clip = this.launcher.active[track] ?? null;
+            void this.startSessionClip(track, clip);
+            this.onSessionLaunch?.(track, clip);
+          }
+        }
+      }
       this.syncGating(step);
       void time;
     });
@@ -123,38 +139,91 @@ export class AudioEngine {
 
   playTimelineClip(clip: TimelineClip, when: number): void {
     if (clip.kind === "audio" && clip.audioFileId) {
-      const buf = this.buffers.get(clip.audioFileId);
-      if (!buf) {
-        void this.prefetch(clip.audioFileId);
-        return;
-      }
-      const src = this.ctx.createBufferSource();
-      src.buffer = buf;
-      const dest = clip.trackId === "deckB" ? this.mixer.channels.B.input : this.mixer.channels.A.input;
-      src.connect(dest);
-      src.start(when);
-      this.clipSources.push(src);
+      void this.playWarpedAudio(clip, when, false);
     }
     if (clip.kind === "drums" || clip.trackId === "drums") this.drums.enabled = true;
     if (clip.kind === "midi" || clip.trackId === "synth") this.piano.enabled = true;
   }
 
-  stopClips(): void {
-    for (const s of this.clipSources) {
-      try {
-        s.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-    this.clipSources = [];
+  private clipDest(trackId: string): AudioNode {
+    if (trackId === "deckB") return this.mixer.channels.B.input;
+    if (trackId === "drums") return this.mixer.channels.drums.input;
+    if (trackId === "synth") return this.mixer.channels.synth.input;
+    return this.mixer.channels.A.input;
   }
 
-  async prefetch(audioId: string): Promise<AudioBuffer> {
-    if (this.buffers.has(audioId)) return this.buffers.get(audioId)!;
-    const buf = await decodeUrl(this.ctx, api.audio.streamUrl(audioId));
-    this.buffers.set(audioId, buf);
+  bufferKey(audioId: string, stem?: string | null): string {
+    return stem ? `${audioId}::${stem}` : audioId;
+  }
+
+  private async playWarpedAudio(clip: TimelineClip | SessionClip, when: number, loop: boolean): Promise<void> {
+    const audioId = clip.audioFileId;
+    if (!audioId) return;
+    const stem = "stem" in clip ? clip.stem : undefined;
+    let buf = this.buffers.get(this.bufferKey(audioId, stem));
+    if (!buf) {
+      buf = await this.prefetch(audioId, stem);
+    }
+    const barSec = this.transport.secondsPerStep * 16;
+    const lengthBars = Math.max(1, clip.lengthBars || 4);
+    const voice = await scheduleWarpedClip(
+      this.ctx,
+      buf,
+      this.clipDest(clip.trackId),
+      when,
+      loop ? 3600 : lengthBars * barSec,
+      {
+        sourceBpm: clip.sourceBpm,
+        projectBpm: this.transport.bpm,
+        sourceKey: clip.sourceKey,
+        projectKey: this.projectKey,
+        keyFollow: !!clip.keyFollow,
+      },
+      loop,
+    );
+    this.clipVoices.push(voice);
+  }
+
+  stopClips(): void {
+    for (const v of this.clipVoices) v.stop();
+    this.clipVoices = [];
+    for (const k of Object.keys(this.sessionVoices)) {
+      this.sessionVoices[k]?.stop();
+      this.sessionVoices[k] = null;
+    }
+  }
+
+  async prefetch(audioId: string, stem?: string | null): Promise<AudioBuffer> {
+    const key = this.bufferKey(audioId, stem);
+    if (this.buffers.has(key)) return this.buffers.get(key)!;
+    const url = stem ? api.audio.stemUrl(audioId, stem) : api.audio.streamUrl(audioId);
+    const buf = await decodeUrl(this.ctx, url);
+    this.buffers.set(key, buf);
     return buf;
+  }
+
+  async startSessionClip(trackId: string, clip: SessionClip | null): Promise<void> {
+    this.sessionVoices[trackId]?.stop();
+    this.sessionVoices[trackId] = null;
+    if (!clip || clip.empty) return;
+    if (clip.kind !== "audio" || !clip.audioFileId) return;
+    const buf = await this.prefetch(clip.audioFileId, clip.stem);
+    const voice = await scheduleWarpedClip(
+      this.ctx,
+      buf,
+      this.clipDest(trackId),
+      this.ctx.currentTime,
+      3600,
+      {
+        sourceBpm: clip.sourceBpm,
+        projectBpm: this.transport.bpm,
+        sourceKey: clip.sourceKey,
+        projectKey: this.projectKey,
+        keyFollow: !!clip.keyFollow,
+      },
+      true,
+    );
+    this.sessionVoices[trackId] = voice;
   }
 
   async loadDeck(side: "A" | "B", audioId: string, beats: number[] = []): Promise<AudioBuffer> {
@@ -168,10 +237,14 @@ export class AudioEngine {
     if (!clip || clip.empty) {
       if (trackId === "drums") this.drums.enabled = false;
       if (trackId === "synth") this.piano.enabled = false;
+      void this.startSessionClip(trackId, null);
+      this.onSessionLaunch?.(trackId, clip);
       return clip;
     }
     if (clip.kind === "drums") this.drums.enabled = true;
     if (clip.kind === "midi") this.piano.enabled = true;
+    void this.startSessionClip(trackId, clip);
+    this.onSessionLaunch?.(trackId, clip);
     return clip;
   }
 
@@ -310,6 +383,7 @@ export class AudioEngine {
       const buf = await decodeUrl(this.ctx, api.audio.stemUrl(audioId, name));
       await deck.loadBuffer(buf, this.decks[side].beats);
       this.stemDecks[side][name] = deck;
+      this.buffers.set(this.bufferKey(audioId, name), buf);
     }
     this.stemsActive[side] = true;
     this.decks[side].output.gain.value = 0;
@@ -322,14 +396,29 @@ export class AudioEngine {
       for (const d of Object.values(this.stemDecks[s])) d.stop();
       this.stemDecks[s] = {};
       this.stemsActive[s] = false;
+      this.stemIso[s] = null;
       this.decks[s].output.gain.value = 1;
     }
   }
 
   setStemMute(name: string, muted: boolean): void {
     for (const side of ["A", "B"] as const) {
+      if (this.stemIso[side]) continue;
       const d = this.stemDecks[side][name];
       if (d) d.output.gain.value = muted ? 0 : 1;
+    }
+  }
+
+  setStemIso(side: "A" | "B", name: string | null, mute: Record<string, boolean> = {}): void {
+    this.stemIso[side] = this.stemIso[side] === name ? null : name;
+    this.applyStemMix(side, mute);
+  }
+
+  applyStemMix(side: "A" | "B", mute: Record<string, boolean>): void {
+    const iso = this.stemIso[side];
+    for (const [n, d] of Object.entries(this.stemDecks[side])) {
+      if (iso) d.output.gain.value = n === iso ? 1 : 0;
+      else d.output.gain.value = mute[n] ? 0 : 1;
     }
   }
 

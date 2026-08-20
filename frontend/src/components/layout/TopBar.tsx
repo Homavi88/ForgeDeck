@@ -4,6 +4,7 @@ import { getEngine } from "../../audio-engine/AudioEngine";
 import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
 import { LanguageSelect, t, useI18n, type MsgKey } from "../../i18n";
+import { KEY_OPTIONS } from "../../lib/musicTheory";
 import { PowerOffButton } from "./PowerOffButton";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
@@ -22,6 +23,8 @@ export function TopBar() {
     project,
     bpm,
     setBpm,
+    musicalKey,
+    setMusicalKey,
     togglePlay,
     playing,
     metronome,
@@ -35,9 +38,11 @@ export function TopBar() {
     aiPanelOpen,
     libraryOpen,
     decksFullscreen,
+    sessionRec,
     toggleAiPanel,
     toggleLibrary,
     toggleDecksFullscreen,
+    toggleSessionRec,
   } = useStudio();
   useI18n((s) => s.locale);
 
@@ -74,6 +79,21 @@ export function TopBar() {
         />
       </label>
       <label className="flex items-center gap-1 text-xs text-zinc-400">
+        {t("studio.key")}
+        <select
+          className="bg-ink-800 border border-line rounded px-1.5 py-1 text-zinc-200 max-w-[7.5rem]"
+          value={musicalKey}
+          onChange={(e) => setMusicalKey(e.target.value)}
+        >
+          {!KEY_OPTIONS.includes(musicalKey) && <option value={musicalKey}>{musicalKey}</option>}
+          {KEY_OPTIONS.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-1 text-xs text-zinc-400">
         <input
           type="checkbox"
           checked={metronome}
@@ -84,6 +104,13 @@ export function TopBar() {
         />
         {t("studio.click")}
       </label>
+      <button
+        className={`text-[10px] uppercase px-2 py-1 rounded ${sessionRec ? "bg-danger text-white" : "text-zinc-400"}`}
+        title={t("session.recTitle")}
+        onClick={() => void toggleSessionRec()}
+      >
+        {sessionRec ? t("session.recOn") : t("session.rec")}
+      </button>
       <button className="text-[10px] uppercase text-zinc-400" onClick={undo}>
         {t("studio.undo")}
       </button>

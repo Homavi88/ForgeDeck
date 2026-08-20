@@ -3,14 +3,18 @@ import { api } from "../api/client";
 import { getEngine } from "../audio-engine/AudioEngine";
 import { PAD_IDS } from "../audio-engine/DrumMachine";
 import { applyStripState } from "../audio-engine/stripState";
+import type { XfaderCurve } from "../audio-engine/utils";
 import { t } from "../i18n";
+import { beatOffset, matchGainDb, phaseAlignSeek } from "../lib/djMix";
 import type {
   AIAction,
   AudioFile,
   AutomationLaneState,
   ChatMessage,
   DrumSteps,
+  FxReturnsState,
   MidiNote,
+  MidiPattern,
   MixerStripState,
   ProjectDetail,
   SamplerState,
@@ -19,14 +23,18 @@ import type {
   SynthParams,
   TimelineClip,
 } from "../types";
+import { loopLengthBars } from "../lib/clipWarp";
 
 type Snapshot = {
   clips: TimelineClip[];
+  sessionClips: SessionClip[];
   drumSteps: DrumSteps;
   drumLength: number;
   drumSwing: number;
   synth: SynthParams;
   notes: MidiNote[];
+  midiPatterns: MidiPattern[];
+  activeMidiPatternId: string;
   mixer: Record<string, MixerStripState>;
   automation: AutomationLaneState[];
 };
@@ -60,6 +68,7 @@ interface StudioState {
   saving: boolean;
   error: string | null;
   bpm: number;
+  musicalKey: string;
   metronome: boolean;
   playing: boolean;
   masterLevel: number;
@@ -77,6 +86,9 @@ interface StudioState {
   synth: SynthParams;
   clips: TimelineClip[];
   notes: MidiNote[];
+  midiPatterns: MidiPattern[];
+  activeMidiPatternId: string;
+  ghostNotes: boolean;
   automation: AutomationLaneState[];
   sessionClips: SessionClip[];
   sampler: SamplerState;
@@ -85,6 +97,10 @@ interface StudioState {
   autoAdvance: boolean;
   micOn: boolean;
   stemMute: Record<string, boolean>;
+  stemIso: { A: string | null; B: string | null };
+  fxReturns: FxReturnsState;
+  sessionRec: boolean;
+  sessionRecOpen: Record<string, { clip: SessionClip; startBar: number }>;
   peers: Array<{ clientId: string; name: string; deck?: string | null }>;
   roomChat: Array<{ clientId: string; name: string; text: string; ts?: number }>;
   locks: Record<string, { clientId: string; name: string }>;
@@ -100,9 +116,15 @@ interface StudioState {
   save: () => Promise<void>;
   setMode: (m: StudioMode) => void;
   setBpm: (n: number) => void;
+  setMusicalKey: (key: string) => void;
+  writeNotes: (notes: MidiNote[]) => void;
+  selectMidiPattern: (id: string) => void;
+  addMidiPattern: () => void;
+  removeMidiPattern: (id: string) => void;
+  setGhostNotes: (on: boolean) => void;
   bootAudio: () => Promise<void>;
   togglePlay: () => Promise<void>;
-  loadToDeck: (side: "A" | "B", file: AudioFile) => Promise<void>;
+  loadToDeck: (side: "A" | "B", file: AudioFile, opts?: { focus?: boolean }) => Promise<void>;
   uploadFiles: (files: FileList | File[]) => Promise<void>;
   pollMeters: () => void;
   chatAI: (message: string, extra?: Record<string, unknown>) => Promise<void>;
@@ -112,6 +134,14 @@ interface StudioState {
   undo: () => void;
   redo: () => void;
   applyMixerChannel: (id: string, patch: Partial<MixerStripState>) => void;
+  xfaderCurve: XfaderCurve;
+  setXfaderCurve: (curve: XfaderCurve) => void;
+  setEqKill: (id: "A" | "B", band: 0 | 1 | 2, on: boolean) => void;
+  instantDouble: (from: "A" | "B") => Promise<void>;
+  matchGain: (side: "A" | "B") => void;
+  quantizeSync: (slave?: "A" | "B") => void;
+  echoOut: (side?: "A" | "B") => void;
+  beatOffsetReadout: () => { ms: number; beats: number } | null;
   addToQueue: (file: AudioFile) => void;
   removeFromQueue: (index: number) => void;
   playQueueItem: (index: number, side?: "A" | "B") => Promise<void>;
@@ -144,17 +174,29 @@ interface StudioState {
   toggleAiPanel: () => void;
   toggleLibrary: () => void;
   toggleDecksFullscreen: () => void;
+  placeLoopOnSession: (trackId: string, scene: number, file: AudioFile, stem?: string | null) => void;
+  placeLoopOnArrange: (trackId: string, startBar: number, file: AudioFile, stem?: string | null) => void;
+  dropStemOnPad: (padId: string, audioFileId: string, stem: string) => Promise<void>;
+  toggleSessionRec: () => Promise<void>;
+  captureSceneNow: () => void;
+  flushSessionRec: () => void;
+  noteSessionLaunch: (trackId: string, clip: SessionClip | null) => void;
+  toggleClipKeyFollow: (id: string, where: "timeline" | "session") => void;
+  setFxReturns: (patch: Partial<FxReturnsState>) => void;
 }
 
 const channelState = (): MixerStripState => ({
   volume: 0.85,
   gain: 0,
   eq: [0, 0, 0],
+  eqKill: [false, false, false],
   filter: 0,
   mute: false,
   solo: false,
   pan: 0,
   fx: { delay: 0, reverb: 0, flanger: 0, distortion: 0, bitcrush: 0, compressor: 0 },
+  sendRev: 0,
+  sendDly: 0,
 });
 
 function emptySteps(): DrumSteps {
@@ -178,14 +220,25 @@ const defaultSynth: SynthParams = {
   poly: true,
 };
 
-function snapOf(s: Omit<Snapshot, never> & Partial<StudioState>): Snapshot {
+function defaultMidiPatterns(notes: MidiNote[] = []): MidiPattern[] {
+  return [{ id: "pat-1", name: "Pattern 1", notes }];
+}
+
+function patchPatternNotes(patterns: MidiPattern[], id: string, notes: MidiNote[]): MidiPattern[] {
+  return patterns.map((p) => (p.id === id ? { ...p, notes } : p));
+}
+
+function snapOf(s: StudioState): Snapshot {
   return {
     clips: s.clips,
+    sessionClips: s.sessionClips,
     drumSteps: s.drumSteps,
     drumLength: s.drumLength,
     drumSwing: s.drumSwing,
     synth: s.synth,
     notes: s.notes,
+    midiPatterns: s.midiPatterns,
+    activeMidiPatternId: s.activeMidiPatternId,
     mixer: s.mixer,
     automation: s.automation,
   };
@@ -194,6 +247,7 @@ function snapOf(s: Omit<Snapshot, never> & Partial<StudioState>): Snapshot {
 let audioWired = false;
 let tapTimes: number[] = [];
 const toastTimers = new Map<string, number>();
+const echoTimers: Partial<Record<"A" | "B", number>> = {};
 const layout0 = loadLayout();
 
 export const useStudio = create<StudioState>((set, get) => ({
@@ -204,6 +258,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   saving: false,
   error: null,
   bpm: 120,
+  musicalKey: "C minor",
   metronome: false,
   playing: false,
   masterLevel: 0,
@@ -212,6 +267,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   deckFiles: { A: null, B: null },
   keyLock: { A: false, B: false },
   crossfader: 0.5,
+  xfaderCurve: "smooth",
   sidechain: true,
   mixer: { A: channelState(), B: channelState(), drums: channelState(), synth: channelState() },
   drumSteps: emptySteps(),
@@ -224,6 +280,9 @@ export const useStudio = create<StudioState>((set, get) => ({
     { id: "c2", trackId: "synth", name: "Bass", startBar: 8, lengthBars: 16, color: "#3dfff3", kind: "midi" },
   ],
   notes: [],
+  midiPatterns: [{ id: "pat-1", name: "Pattern 1", notes: [] }],
+  activeMidiPatternId: "pat-1",
+  ghostNotes: true,
   automation: [],
   sessionClips: [],
   sampler: { audioFileId: null, start: 0, end: 1, reverse: false, loop: false, playbackRate: 1 },
@@ -232,6 +291,10 @@ export const useStudio = create<StudioState>((set, get) => ({
   autoAdvance: true,
   micOn: false,
   stemMute: { vocals: false, drums: false, bass: false, other: false },
+  stemIso: { A: null, B: null },
+  fxReturns: { reverb: 0.85, delay: 0.85 },
+  sessionRec: false,
+  sessionRecOpen: {},
   peers: [],
   roomChat: [],
   locks: {},
@@ -273,6 +336,58 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ bpm });
   },
 
+  setMusicalKey: (musicalKey) => {
+    const project = get().project;
+    getEngine().projectKey = musicalKey;
+    set({ musicalKey, project: project ? { ...project, musical_key: musicalKey } : project });
+  },
+
+  writeNotes: (notes) => {
+    const s = get();
+    const midiPatterns = patchPatternNotes(s.midiPatterns, s.activeMidiPatternId, notes);
+    getEngine().setNotes(notes);
+    getEngine().piano.setLoopSteps(s.drumLength);
+    set({ notes, midiPatterns });
+  },
+
+  selectMidiPattern: (id) => {
+    const s = get();
+    if (id === s.activeMidiPatternId) return;
+    const next = s.midiPatterns.find((p) => p.id === id);
+    if (!next) return;
+    const midiPatterns = patchPatternNotes(s.midiPatterns, s.activeMidiPatternId, s.notes);
+    const notes = midiPatterns.find((p) => p.id === id)?.notes || next.notes;
+    getEngine().setNotes(notes);
+    getEngine().piano.setLoopSteps(s.drumLength);
+    set({ midiPatterns, activeMidiPatternId: id, notes });
+  },
+
+  addMidiPattern: () => {
+    get().pushUndo();
+    const s = get();
+    const n = s.midiPatterns.length + 1;
+    const pat: MidiPattern = { id: crypto.randomUUID(), name: `Pattern ${n}`, notes: [] };
+    const midiPatterns = patchPatternNotes(s.midiPatterns, s.activeMidiPatternId, s.notes);
+    getEngine().setNotes([]);
+    getEngine().piano.setLoopSteps(s.drumLength);
+    set({ midiPatterns: [...midiPatterns, pat], activeMidiPatternId: pat.id, notes: [] });
+  },
+
+  removeMidiPattern: (id) => {
+    const s = get();
+    if (s.midiPatterns.length < 2) return;
+    get().pushUndo();
+    const flushed = patchPatternNotes(s.midiPatterns, s.activeMidiPatternId, s.notes);
+    const midiPatterns = flushed.filter((p) => p.id !== id);
+    const active = s.activeMidiPatternId === id ? midiPatterns[0].id : s.activeMidiPatternId;
+    const notes = midiPatterns.find((p) => p.id === active)?.notes || [];
+    getEngine().setNotes(notes);
+    getEngine().piano.setLoopSteps(s.drumLength);
+    set({ midiPatterns, activeMidiPatternId: active, notes });
+  },
+
+  setGhostNotes: (ghostNotes) => set({ ghostNotes }),
+
   pushUndo: () => {
     const s = get();
     set({ history: [...s.history.slice(-29), snapOf(s)], future: [] });
@@ -312,6 +427,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       eng.transport.onTick((step) => set({ currentStep: step }));
     }
     hydrateEngine(get());
+    getEngine().onSessionLaunch = (trackId, clip) => get().noteSessionLaunch(trackId, clip);
     if (!get().sessionClips.length) {
       set({ sessionClips: eng.launcher.clips });
     } else {
@@ -348,6 +464,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       eng.transport.stop();
       eng.stopClips();
       eng.synth.allOff();
+      if (get().sessionRec) get().flushSessionRec();
       set({ playing: false });
     } else {
       eng.drums.enabled = mode !== "arrange";
@@ -375,16 +492,29 @@ export const useStudio = create<StudioState>((set, get) => ({
         project,
         library,
         bpm: project.bpm,
+        musicalKey: project.musical_key || "C minor",
         loading: false,
         synth: { ...defaultSynth, ...((g.synth as SynthParams) || {}) },
         clips: (g.timeline as { clips?: TimelineClip[] })?.clips || get().clips,
         notes: (g.notes as MidiNote[]) || [],
+        midiPatterns: defaultMidiPatterns((g.notes as MidiNote[]) || []),
+        activeMidiPatternId: "pat-1",
+        ghostNotes: g.ghostNotes !== false,
         automation: (g.automation as AutomationLaneState[]) || [],
         sessionClips: (g.session as SessionClip[]) || get().sessionClips,
         sampler: { ...get().sampler, ...((g.sampler as SamplerState) || {}) },
         sidechain: g.sidechain !== false,
         crossfader: typeof g.crossfader === "number" ? g.crossfader : 0.5,
+        xfaderCurve: g.xfaderCurve === "sharp" || g.xfaderCurve === "cut" ? g.xfaderCurve : "smooth",
         autoAdvance: g.autoAdvance !== false,
+        fxReturns: {
+          reverb: typeof (g.fxReturns as FxReturnsState | undefined)?.reverb === "number"
+            ? (g.fxReturns as FxReturnsState).reverb
+            : 0.85,
+          delay: typeof (g.fxReturns as FxReturnsState | undefined)?.delay === "number"
+            ? (g.fxReturns as FxReturnsState).delay
+            : 0.85,
+        },
         mode: ((g.mode as StudioMode) || "dj") as StudioMode,
         mixer: {
           A: { ...channelState(), ...mixerIn.A },
@@ -412,6 +542,22 @@ export const useStudio = create<StudioState>((set, get) => ({
       if (layout) {
         next.aiPanelOpen = layout.aiPanelOpen !== false;
         next.libraryOpen = layout.libraryOpen !== false;
+      }
+      const storedPatterns = g.midiPatterns as MidiPattern[] | undefined;
+      if (Array.isArray(storedPatterns) && storedPatterns.length) {
+        const cleaned = storedPatterns
+          .filter((p) => p && typeof p.id === "string")
+          .map((p, i) => ({
+            id: p.id,
+            name: typeof p.name === "string" && p.name ? p.name : `Pattern ${i + 1}`,
+            notes: Array.isArray(p.notes) ? p.notes : [],
+          }));
+        if (cleaned.length) {
+          const activeId = (g.activeMidiPatternId as string) || cleaned[0].id;
+          next.midiPatterns = cleaned;
+          next.activeMidiPatternId = cleaned.some((p) => p.id === activeId) ? activeId : cleaned[0].id;
+          next.notes = cleaned.find((p) => p.id === next.activeMidiPatternId)?.notes || next.notes || [];
+        }
       }
       set(next as StudioState);
       getEngine().transport.bpm = project.bpm;
@@ -444,6 +590,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       await api.projects.save(s.project.id, {
         name: s.project.name,
         bpm: s.bpm,
+        musical_key: s.musicalKey,
         graph: {
           version: 2,
           mode: s.mode,
@@ -452,12 +599,17 @@ export const useStudio = create<StudioState>((set, get) => ({
           timeline: { clips: s.clips },
           mixer: s.mixer,
           crossfader: s.crossfader,
+          xfaderCurve: s.xfaderCurve,
           notes: s.notes,
+          midiPatterns: s.midiPatterns,
+          activeMidiPatternId: s.activeMidiPatternId,
+          ghostNotes: s.ghostNotes,
           automation: s.automation,
           session: s.sessionClips,
           sampler: s.sampler,
           sidechain: s.sidechain,
           autoAdvance: s.autoAdvance,
+          fxReturns: s.fxReturns,
           queue: s.queue.map((f) => f.id),
           queueIndex: s.queueIndex,
           decks: {
@@ -477,7 +629,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     }
   },
 
-  loadToDeck: async (side, file) => {
+  loadToDeck: async (side, file, opts) => {
     await get().bootAudio();
     await getEngine().loadDeck(side, file.id, file.analysis?.beats || []);
     const view = get().trackView[file.id];
@@ -490,7 +642,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       keyLock: { ...get().keyLock, [side]: keyLock },
       deckZoom: { ...get().deckZoom, [side]: zoom },
       pitchRange: { ...get().pitchRange, [side]: pitchRange },
-      focusDeck: side,
+      ...(opts?.focus === false ? {} : { focusDeck: side }),
     });
   },
 
@@ -561,6 +713,174 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!ch) return;
     applyStripState(ch, mixer[id]);
     getEngine().mixer.setSolo(id, mixer[id].solo);
+  },
+
+  setXfaderCurve: (curve) => {
+    getEngine().mixer.setXfaderCurve(curve);
+    set({ xfaderCurve: curve });
+  },
+
+  setEqKill: (id, band, on) => {
+    const cur = get().mixer[id];
+    if (!cur) return;
+    const eqKill = [...(cur.eqKill || [false, false, false])] as [boolean, boolean, boolean];
+    eqKill[band] = on;
+    getEngine().mixer.channels[id]?.eq.setKill(band, on);
+    set({ mixer: { ...get().mixer, [id]: { ...cur, eqKill } } });
+  },
+
+  instantDouble: async (from) => {
+    const to: "A" | "B" = from === "A" ? "B" : "A";
+    const file = get().deckFiles[from];
+    if (!file) {
+      get().pushToast({ id: "double", kind: "warn", text: t("toast.doubleEmpty"), ttl: 1800 });
+      return;
+    }
+    await get().bootAudio();
+    const eng = getEngine();
+    const src = eng.decks[from];
+    const pos = src.position;
+    const pitch = src.pitch;
+    const playing = src.playing;
+    const keyLock = src.keyLock;
+    const pitchRange = get().pitchRange[from];
+    await get().loadToDeck(to, file, { focus: false });
+    const dst = eng.decks[to];
+    dst.setPitch(pitch);
+    dst.setKeyLock(keyLock);
+    set({
+      keyLock: { ...get().keyLock, [to]: keyLock },
+      pitchRange: { ...get().pitchRange, [to]: pitchRange },
+    });
+    dst.seek(pos, false);
+    if (playing && !dst.playing) dst.play();
+    if (eng.stemsActive[from]) {
+      const names = Object.keys(eng.stemDecks[from]);
+      if (names.length) {
+        await eng.loadStems(to, file.id, names);
+        dst.seek(pos, false);
+        if (playing && !dst.playing) dst.play();
+      }
+    }
+    set({ playing: eng.decks.A.playing || eng.decks.B.playing });
+    get().pushToast({
+      id: "double",
+      kind: "ok",
+      text: t("toast.doubled", { from, to }),
+      ttl: 1800,
+    });
+  },
+
+  matchGain: (side) => {
+    const other: "A" | "B" = side === "A" ? "B" : "A";
+    const selfAn = get().deckFiles[side]?.analysis;
+    const otherAn = get().deckFiles[other]?.analysis;
+    if (!selfAn || !otherAn) {
+      get().pushToast({ id: "gain", kind: "warn", text: t("toast.gainNoAnalysis"), ttl: 2000 });
+      return;
+    }
+    const result = matchGainDb(selfAn, otherAn);
+    if (!result) {
+      get().pushToast({ id: "gain", kind: "warn", text: t("toast.gainNoAnalysis"), ttl: 2000 });
+      return;
+    }
+    const cur = get().mixer[side];
+    getEngine().mixer.channels[side]?.setGainDb(result.db);
+    set({ mixer: { ...get().mixer, [side]: { ...cur, gain: result.db } } });
+    get().pushToast({
+      id: "gain",
+      kind: "ok",
+      text: t(result.clamped ? "toast.gainMatchClamp" : "toast.gainMatch", {
+        db: result.db.toFixed(1),
+        side,
+      }),
+      ttl: 2000,
+    });
+  },
+
+  quantizeSync: (slave) => {
+    const s = get();
+    const dst = slave || s.focusDeck;
+    const master: "A" | "B" = dst === "A" ? "B" : "A";
+    const dstFile = s.deckFiles[dst];
+    const masterFile = s.deckFiles[master];
+    if (!dstFile || !masterFile) {
+      get().pushToast({ id: "qsync", kind: "warn", text: t("toast.qSyncEmpty"), ttl: 1800 });
+      return;
+    }
+    const eng = getEngine();
+    const dstDeck = eng.decks[dst];
+    const masterDeck = eng.decks[master];
+    const dstBpm = dstFile.analysis?.bpm || s.bpm;
+    const masterBpm = masterFile.analysis?.bpm || s.bpm;
+    dstDeck.syncToBpm(dstBpm, masterBpm);
+    const tSeek = phaseAlignSeek(
+      { position: dstDeck.position, bpm: dstBpm, beats: dstDeck.beats.length ? dstDeck.beats : dstFile.analysis?.beats || [] },
+      {
+        position: masterDeck.position,
+        bpm: masterBpm,
+        beats: masterDeck.beats.length ? masterDeck.beats : masterFile.analysis?.beats || [],
+      },
+    );
+    dstDeck.seek(tSeek, false);
+    get().pushToast({ id: "qsync", kind: "ok", text: t("toast.qSync", { side: dst }), ttl: 1600 });
+  },
+
+  echoOut: (side) => {
+    const id = side || get().focusDeck;
+    const eng = getEngine();
+    const deck = eng.decks[id];
+    const ch = eng.mixer.channels[id];
+    if (!deck?.buffer || !ch) {
+      get().pushToast({ id: "echo", kind: "warn", text: t("toast.echoIdle"), ttl: 1800 });
+      return;
+    }
+    if (!deck.playing) {
+      get().pushToast({ id: "echo", kind: "warn", text: t("toast.echoIdle"), ttl: 1800 });
+      return;
+    }
+    if (ch.echoOutActive) return;
+    const bpm = get().deckFiles[id]?.analysis?.bpm || get().bpm;
+    const beat = 60 / Math.max(60, bpm);
+    const prevWet = ch.fx.delay.wet.gain.value;
+    const rev = Math.max(ch.fx.reverb.wet.gain.value, 0.28);
+    ch.armEchoOut(Math.min(1.5, beat), 0.58, 0.88, rev);
+    const fillMs = prevWet < 0.08 ? Math.min(420, beat * 850) : 50;
+    window.setTimeout(() => {
+      if (!getEngine().mixer.channels[id]) return;
+      ch.starveFxSend(0.1);
+    }, fillMs);
+    const prev = echoTimers[id];
+    if (prev) window.clearTimeout(prev);
+    echoTimers[id] = window.setTimeout(() => {
+      delete echoTimers[id];
+      deck.pause();
+      ch.restoreFxSend();
+      get().applyMixerChannel(id, { mute: true });
+      set({ playing: eng.decks.A.playing || eng.decks.B.playing });
+    }, fillMs + 2600);
+    get().pushToast({ id: "echo", kind: "ok", text: t("toast.echoOut", { side: id }), ttl: 2000 });
+  },
+
+  beatOffsetReadout: () => {
+    const s = get();
+    const fileA = s.deckFiles.A;
+    const fileB = s.deckFiles.B;
+    if (!fileA || !fileB) return null;
+    const eng = getEngine();
+    if (!eng.ready) return null;
+    return beatOffset(
+      {
+        position: eng.decks.A.position,
+        bpm: fileA.analysis?.bpm || s.bpm,
+        beats: eng.decks.A.beats.length ? eng.decks.A.beats : fileA.analysis?.beats || [],
+      },
+      {
+        position: eng.decks.B.position,
+        bpm: fileB.analysis?.bpm || s.bpm,
+        beats: eng.decks.B.beats.length ? eng.decks.B.beats : fileB.analysis?.beats || [],
+      },
+    );
   },
 
   chatAI: async (message, extra = {}) => {
@@ -663,8 +983,8 @@ export const useStudio = create<StudioState>((set, get) => ({
           (n) => ({ ...n, id: crypto.randomUUID() }),
         );
         const merged = item.type === "create_chord_progression" ? notes : [...get().notes, ...notes];
-        eng.setNotes(merged);
-        set({ notes: merged, mode: "synth" });
+        get().writeNotes(merged);
+        set({ mode: "synth" });
       }
       if (item.type === "suggest_compatible_tracks" && r.tracks) {
         set({ compatible: r.tracks as StudioState["compatible"] });
@@ -852,6 +1172,171 @@ export const useStudio = create<StudioState>((set, get) => ({
       set({ decksFullscreen: false, aiPanelOpen: l.aiPanelOpen, libraryOpen: l.libraryOpen });
     }
   },
+
+  setFxReturns: (patch) => {
+    const fxReturns = { ...get().fxReturns, ...patch };
+    const eng = getEngine();
+    if (typeof patch.reverb === "number") eng.mixer.setReturnLevel("reverb", patch.reverb);
+    if (typeof patch.delay === "number") eng.mixer.setReturnLevel("delay", patch.delay);
+    set({ fxReturns });
+  },
+
+  placeLoopOnSession: (trackId, scene, file, stem) => {
+    get().pushUndo();
+    const eng = getEngine();
+    const clips = [...(get().sessionClips.length ? get().sessionClips : eng.launcher.clips)];
+    const src = file.analysis;
+    const lengthBars = loopLengthBars(src?.duration, src?.bpm);
+    const name = stem ? `${stem} · ${file.original_filename}` : file.original_filename;
+    const i = clips.findIndex((c) => c.trackId === trackId && c.scene === scene);
+    const next: SessionClip = {
+      id: i >= 0 ? clips[i].id : `${trackId}-${scene}`,
+      trackId,
+      scene,
+      name,
+      kind: "audio",
+      lengthBars,
+      color: TRACK_COLORS[trackId] || "#3dff7a",
+      empty: false,
+      audioFileId: file.id,
+      stem: stem ?? null,
+      sourceBpm: src?.bpm ?? null,
+      sourceKey: src?.key ?? null,
+      keyFollow: false,
+    };
+    if (i >= 0) clips[i] = next;
+    else clips.push(next);
+    eng.launcher.clips = clips;
+    set({ sessionClips: clips });
+    void get().bootAudio().then(() => {
+      void eng.prefetch(file.id, stem);
+    });
+  },
+
+  placeLoopOnArrange: (trackId, startBar, file, stem) => {
+    get().pushUndo();
+    const src = file.analysis;
+    const clip: TimelineClip = {
+      id: crypto.randomUUID(),
+      trackId,
+      name: stem ? `${stem} · ${file.original_filename}` : file.original_filename,
+      startBar: Math.max(0, startBar),
+      lengthBars: loopLengthBars(src?.duration, src?.bpm),
+      color: TRACK_COLORS[trackId] || "#3dff7a",
+      kind: "audio",
+      audioFileId: file.id,
+      stem: stem ?? null,
+      sourceBpm: src?.bpm ?? null,
+      sourceKey: src?.key ?? null,
+      keyFollow: false,
+    };
+    const clips = [...get().clips, clip];
+    getEngine().timeline.clips = clips;
+    set({ clips });
+    void get().bootAudio().then(() => {
+      void getEngine().prefetch(file.id, stem);
+    });
+  },
+
+  dropStemOnPad: async (padId, audioFileId, stem) => {
+    await get().bootAudio();
+    const buf = await getEngine().prefetch(audioFileId, stem);
+    getEngine().drums.assign(padId, buf);
+    get().pushToast({ id: "stem-pad", kind: "ok", text: t("toast.stemPad", { stem, pad: padId }), ttl: 1800 });
+  },
+
+  noteSessionLaunch: (trackId, clip) => {
+    const s = get();
+    if (!s.sessionRec) return;
+    const bar = Math.max(0, Math.floor(s.currentStep / 16));
+    const open = { ...s.sessionRecOpen };
+    const prev = open[trackId];
+    let clips = s.clips;
+    if (prev && bar > prev.startBar) {
+      clips = [...clips, sessionToTimeline(prev.clip, prev.startBar, bar - prev.startBar)];
+      getEngine().timeline.clips = clips;
+    }
+    if (clip && !clip.empty) open[trackId] = { clip, startBar: bar };
+    else delete open[trackId];
+    set({ clips, sessionRecOpen: open });
+  },
+
+  flushSessionRec: () => {
+    const s = get();
+    const bar = Math.max(0, Math.floor(s.currentStep / 16));
+    const extra: TimelineClip[] = [];
+    for (const rec of Object.values(s.sessionRecOpen)) {
+      extra.push(sessionToTimeline(rec.clip, rec.startBar, Math.max(1, bar - rec.startBar)));
+    }
+    if (!extra.length) {
+      set({ sessionRec: false, sessionRecOpen: {} });
+      return;
+    }
+    const clips = [...s.clips, ...extra];
+    getEngine().timeline.clips = clips;
+    set({ clips, sessionRec: false, sessionRecOpen: {} });
+    get().pushToast({
+      id: "session-rec",
+      kind: "ok",
+      text: t("toast.sessionCaptured", { n: extra.length }),
+      ttl: 2800,
+    });
+  },
+
+  toggleSessionRec: async () => {
+    await get().bootAudio();
+    const s = get();
+    if (s.sessionRec) {
+      get().flushSessionRec();
+      return;
+    }
+    const eng = getEngine();
+    const bar = Math.max(0, Math.floor(s.currentStep / 16));
+    const open: Record<string, { clip: SessionClip; startBar: number }> = {};
+    for (const [trackId, clip] of Object.entries(eng.launcher.active)) {
+      if (clip && !clip.empty) open[trackId] = { clip, startBar: bar };
+    }
+    set({ sessionRec: true, sessionRecOpen: open });
+    if (s.mode !== "session") get().setMode("session");
+    if (!s.playing) void get().togglePlay();
+    get().pushToast({ id: "session-rec", kind: "info", text: t("toast.sessionRecOn"), ttl: 2200 });
+  },
+
+  captureSceneNow: () => {
+    const eng = getEngine();
+    const bar = Math.max(0, Math.floor(get().currentStep / 16));
+    const extra: TimelineClip[] = [];
+    for (const clip of Object.values(eng.launcher.active)) {
+      if (clip && !clip.empty) extra.push(sessionToTimeline(clip, bar, Math.max(1, clip.lengthBars)));
+    }
+    if (!extra.length) {
+      get().pushToast({ id: "session-cap", kind: "warn", text: t("toast.sessionEmpty"), ttl: 2000 });
+      return;
+    }
+    get().pushUndo();
+    const clips = [...get().clips, ...extra];
+    eng.timeline.clips = clips;
+    set({ clips, mode: "arrange" });
+    eng.arrangeMode = true;
+    get().pushToast({
+      id: "session-cap",
+      kind: "ok",
+      text: t("toast.sessionCaptured", { n: extra.length }),
+      ttl: 2800,
+    });
+  },
+
+  toggleClipKeyFollow: (id, where) => {
+    if (where === "timeline") {
+      const clips = get().clips.map((c) => (c.id === id ? { ...c, keyFollow: !c.keyFollow } : c));
+      getEngine().timeline.clips = clips;
+      set({ clips });
+      return;
+    }
+    const sessionClips = get().sessionClips.map((c) => (c.id === id ? { ...c, keyFollow: !c.keyFollow } : c));
+    getEngine().launcher.clips = sessionClips;
+    set({ sessionClips });
+  },
 }));
 
 function hydrateEngine(s: StudioState): void {
@@ -861,15 +1346,21 @@ function hydrateEngine(s: StudioState): void {
   eng.drums.steps = s.drumSteps;
   eng.drums.length = s.drumLength;
   eng.drums.swing = s.drumSwing;
+  eng.piano.setLoopSteps(s.drumLength);
   eng.synth.setParams(s.synth);
   eng.setNotes(s.notes);
   eng.timeline.clips = s.clips;
+  if (s.sessionClips.length) eng.launcher.clips = s.sessionClips;
   eng.mixer.sidechain = s.sidechain;
+  eng.mixer.setXfaderCurve(s.xfaderCurve);
   eng.mixer.setCrossfader(s.crossfader);
   eng.mixer.setCueMix(s.cueMix);
   eng.mixer.setSplitCue(s.splitCue);
   eng.mixer.setPfl("A", s.pfl.A);
   eng.mixer.setPfl("B", s.pfl.B);
+  eng.mixer.setReturnLevel("reverb", s.fxReturns.reverb);
+  eng.mixer.setReturnLevel("delay", s.fxReturns.delay);
+  eng.projectKey = s.musicalKey;
   eng.arrangeMode = s.mode === "arrange";
   for (const lane of s.automation) eng.automation.setLane(lane.target, lane.points);
   for (const id of Object.keys(s.mixer)) {
@@ -879,9 +1370,36 @@ function hydrateEngine(s: StudioState): void {
     ch.setVolume(st.volume);
     ch.setGainDb(st.gain);
     ch.eq.set(st.eq[0], st.eq[1], st.eq[2]);
+    ch.eq.setKills(st.eqKill || [false, false, false]);
     ch.filter.setKnob(st.filter);
     ch.setPan(st.pan);
     ch.setMute(st.mute);
+    ch.setSendRev(st.sendRev ?? 0);
+    ch.setSendDly(st.sendDly ?? 0);
     eng.mixer.setSolo(id, st.solo);
   }
+}
+
+const TRACK_COLORS: Record<string, string> = {
+  drums: "#ff6a00",
+  synth: "#3dfff3",
+  deckA: "#3dff7a",
+  deckB: "#ffd23f",
+};
+
+function sessionToTimeline(clip: SessionClip, startBar: number, lengthBars: number): TimelineClip {
+  return {
+    id: crypto.randomUUID(),
+    trackId: clip.trackId,
+    name: clip.name,
+    startBar,
+    lengthBars: Math.max(1, lengthBars),
+    color: clip.color,
+    kind: clip.kind === "midi" ? "midi" : clip.kind === "drums" ? "drums" : "audio",
+    audioFileId: clip.audioFileId,
+    stem: clip.stem,
+    sourceBpm: clip.sourceBpm,
+    sourceKey: clip.sourceKey,
+    keyFollow: clip.keyFollow,
+  };
 }

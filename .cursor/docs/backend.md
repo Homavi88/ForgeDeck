@@ -19,7 +19,7 @@
 
 - `User` → `Project`, `AudioFile`
 - `Project.graph` — JSON студии; `share_token` для публичной страницы
-- `AudioFile.analysis` — JSON: bpm, key, camelot, waveform, beats, stems, `stems_engine`
+- `AudioFile.analysis` — JSON: bpm, key, camelot, waveform, beats, stems, `stems_engine`, **energy 1–10**, **mix_in / mix_out** (phrase heuristic)
 - `Deck`, `MixerChannel`, `DrumPattern`, `SynthPreset`, `Clip`, `Arrangement`, `CuePoint`, `LoopRegion`, `RenderJob`, `AIConversation`
 
 ## REST (практическое)

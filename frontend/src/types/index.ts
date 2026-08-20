@@ -2,6 +2,9 @@ export type StudioMode = "dj" | "session" | "arrange" | "drums" | "synth" | "sam
 
 export type OscType = "sine" | "square" | "sawtooth" | "triangle";
 
+export const STEM_NAMES = ["vocals", "drums", "bass", "other"] as const;
+export type StemName = (typeof STEM_NAMES)[number];
+
 export interface AudioAnalysis {
   duration: number;
   sample_rate: number;
@@ -17,6 +20,12 @@ export interface AudioAnalysis {
   onsets: number[];
   engine: string;
   stems?: Record<string, string>;
+  /** 1–10 from RMS / loudness_db (crate energy). */
+  energy?: number;
+  /** Seconds — first solid phrase (beatgrid heuristic). */
+  mix_in?: number;
+  /** Seconds — last phrase start (beatgrid heuristic). */
+  mix_out?: number;
 }
 
 export interface AudioFile {
@@ -67,6 +76,12 @@ export interface TimelineClip {
   color: string;
   audioFileId?: string | null;
   kind?: string;
+  /** Stem layer name when this clip is a remix of a split stem. */
+  stem?: string | null;
+  sourceBpm?: number | null;
+  sourceKey?: string | null;
+  /** Transpose warped audio to project musical_key (Rubber Band). */
+  keyFollow?: boolean;
 }
 
 export interface DrumSteps {
@@ -97,6 +112,12 @@ export interface MidiNote {
   velocity: number;
 }
 
+export interface MidiPattern {
+  id: string;
+  name: string;
+  notes: MidiNote[];
+}
+
 export interface SessionClip {
   id: string;
   trackId: string;
@@ -107,6 +128,10 @@ export interface SessionClip {
   color: string;
   empty: boolean;
   audioFileId?: string | null;
+  stem?: string | null;
+  sourceBpm?: number | null;
+  sourceKey?: string | null;
+  keyFollow?: boolean;
 }
 
 export interface AutomationLaneState {
@@ -118,11 +143,21 @@ export interface MixerStripState {
   volume: number;
   gain: number;
   eq: [number, number, number];
+  eqKill: [boolean, boolean, boolean];
   filter: number;
   mute: boolean;
   solo: boolean;
   pan: number;
   fx: Record<string, number>;
+  /** Aux send into mixer return reverb (0–1). */
+  sendRev?: number;
+  /** Aux send into mixer return delay (0–1). */
+  sendDly?: number;
+}
+
+export interface FxReturnsState {
+  reverb: number;
+  delay: number;
 }
 
 export interface SamplerState {

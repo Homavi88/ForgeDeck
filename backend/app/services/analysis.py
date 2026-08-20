@@ -247,6 +247,9 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
 
     from app.services.harmony import camelot
 
+    mix_in, mix_out = mix_in_out(beats, onset_times, duration, float(bpm))
+    energy = energy_1_to_10(lufs_approx, rms)
+
     return {
         "duration": round(duration, 4),
         "sample_rate": int(sr),
@@ -261,7 +264,74 @@ def analyze_file(path: str | Path) -> dict[str, Any]:
         "loudness_db": round(lufs_approx, 2),
         "onsets": onset_times[:200],
         "engine": engine,
+        "energy": energy,
+        "mix_in": mix_in,
+        "mix_out": mix_out,
     }
+
+
+def energy_1_to_10(loudness_db: float, rms: float) -> int:
+    """Map RMS / LUFS-ish loudness to crate energy 1–10. Honest, not perceived 'hype'."""
+    from_db = (float(loudness_db) + 28.0) / 2.2
+    from_rms = float(rms) / 0.03
+    raw = 0.65 * from_db + 0.35 * from_rms
+    return int(np.clip(round(raw), 1, 10))
+
+
+def _nearest_time(times: list[float], target: float) -> float:
+    if not times:
+        return target
+    best = times[0]
+    dist = abs(times[0] - target)
+    for t in times:
+        d = abs(t - target)
+        if d < dist:
+            dist = d
+            best = t
+    return float(best)
+
+
+def mix_in_out(
+    beats: list[float],
+    onsets: list[float],
+    duration: float,
+    bpm: float,
+) -> tuple[float, float]:
+    """First solid phrase / last phrase from beatgrid or onsets.
+
+    Heuristic, not vocal/drop detection: 8-bar phrasing snapped to beats.
+    """
+    duration = max(0.0, float(duration))
+    beat = 60.0 / max(float(bpm), 1.0)
+    bar = beat * 4.0
+    phrase = bar * 8.0
+    times = beats if len(beats) >= 8 else list(onsets)
+
+    mix_in = 0.0
+    if times:
+        mix_in = _first_solid_phrase(times, beat)
+    mix_in = float(np.clip(mix_in, 0.0, max(0.0, duration - beat)))
+
+    mix_out = max(0.0, duration - phrase)
+    if times:
+        last = float(times[-1])
+        cand = last - phrase
+        mix_out = max(mix_in + bar, cand if cand > 0 else mix_out)
+        mix_out = _nearest_time(times, mix_out)
+    mix_out = float(np.clip(mix_out, mix_in, duration))
+    return round(mix_in, 4), round(mix_out, 4)
+
+
+def _first_solid_phrase(times: list[float], beat: float) -> float:
+    if len(times) < 8:
+        return float(times[0]) if times else 0.0
+    expected = max(beat, 1e-3)
+    for i in range(0, len(times) - 7):
+        diffs = np.diff(np.asarray(times[i : i + 8], dtype=np.float64))
+        rel = np.abs(diffs - expected) / expected
+        if float(np.mean(rel)) < 0.18:
+            return float(times[i])
+    return float(times[0])
 
 
 def estimate_key_from_chroma(chroma: np.ndarray) -> str:

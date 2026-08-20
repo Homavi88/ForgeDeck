@@ -87,17 +87,17 @@ docker compose up --build
 Поток загрузки:
 
 1. `POST /api/audio/upload` сохраняет файл (локально, затем S3 если задан bucket)
-2. Анализ (miniaudio для mp3, soundfile для wav/flac) считает duration, waveform, BPM, beats, key, RMS/peak
+2. Анализ (miniaudio для mp3, soundfile для wav/flac) считает duration, waveform, BPM, beats, key, RMS/peak, energy 1–10, mix-in/mix-out
 3. Frontend рисует waveform + beatgrid и играет через `decodeAudioData`
 
 ## Режимы UI
 
-- **DJ** — деки, vinyl platter/scratch, overview+zoom waveform, crate/queue, cue/hot cues, loop in/out, loop roll, Rubber Band key lock, beat jump, quantize, sync, EQ/filter/FX-пресеты, pan/mute/solo, sidechain, stem rack, mic/line-in
-- **Session** — clip launcher на 8 сцен
-- **Arrange** — клипы играют drums/synth/audio, automation lanes, mixer
-- **Drums** — 16 падов, sequencer 16/32/64, swing, save pattern/kit, edit lock
-- **Synth** — OSC/ADSR/filter/LFO, piano roll, Web MIDI + learn map
-- **Sampler** — trim/reverse/loop/pitch, slice to pads, stems
+- **DJ** — деки, vinyl platter/scratch, overview+zoom waveform, crate/queue (energy + mix-in/out, next-track highlight), cue/hot cues, loop in/out, loop roll, Rubber Band key lock, beat jump, quantize, sync, instant doubles, crossfader curve, EQ kills, gain match, beat offset / Q-sync, echo out, EQ/filter/FX-пресеты, pan/mute/solo, **FX send/return**, sidechain, stem rack (ISO, drag stem), mic/line-in
+- **Session** — clip launcher на 8 сцен, drop петли (warp to BPM), Session rec / Capture to arrange
+- **Arrange** — клипы играют drums/synth/audio (warped), automation lanes, mixer
+- **Drums** — 16 падов, sequencer 16/32/64, paint + velocity graph, swing, save pattern/kit, edit lock, drop стема на пад
+- **Synth** — OSC/ADSR/filter/LFO, FL-style piano roll (stamp, scale, arp/strum, ghost patterns), Web MIDI + learn map
+- **Sampler** — trim/reverse/loop/pitch, slice to pads, stems на пады
 - **AI Producer** — preview → Apply/Reject; вкладка Room — presence, чат, локи
 - **Share** — публичная страница `/share/:token` после Bounce/Rec
 - **Settings** — FX presets, MIDI map (Pioneer/Akai-style CC)

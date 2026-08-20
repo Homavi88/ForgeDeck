@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { t, useI18n } from "../../i18n";
-import { compatibleCamelot } from "../../lib/camelot";
+import { compatibleCamelot, suggestNextCrateId } from "../../lib/camelot";
+import { fmtMixTime } from "../../lib/clipWarp";
 import { setTrackDrag } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
 import type { AudioFile } from "../../types";
@@ -15,6 +16,7 @@ export function LibraryBrowser() {
   useI18n((s) => s.locale);
   const deckA = deckFiles.A?.analysis;
   const neighbors = deckA?.camelot ? compatibleCamelot(deckA.camelot) : null;
+  const nextCrateId = suggestNextCrateId(deckFiles.A, queue);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -97,7 +99,13 @@ export function LibraryBrowser() {
                 <div className="truncate">{file.original_filename}</div>
                 <div className="text-zinc-500 font-mono">
                   {file.analysis?.bpm?.toFixed(1) ?? file.analysis_status} · {file.analysis?.key ?? ""} {cam ?? ""}
+                  {file.analysis?.energy != null ? ` · E${file.analysis.energy}` : ""}
                 </div>
+                {(file.analysis?.mix_in != null || file.analysis?.mix_out != null) && (
+                  <div className="text-[10px] text-zinc-600 font-mono">
+                    in {fmtMixTime(file.analysis.mix_in)} · out {fmtMixTime(file.analysis.mix_out)}
+                  </div>
+                )}
                 <div className="flex gap-1 mt-1">
                   <button className="px-1 bg-ink-700 rounded" onClick={() => void loadToDeck("A", file)}>
                     A
@@ -124,10 +132,14 @@ export function LibraryBrowser() {
                 key={`${file.id}-${i}`}
                 draggable
                 onDragStart={(e) => setTrackDrag(e.dataTransfer, file)}
-                className={`flex items-center gap-1 text-[11px] cursor-grab ${i === queueIndex ? "text-accent" : "text-zinc-300"}`}
+                className={`flex items-center gap-1 text-[11px] cursor-grab ${
+                  i === queueIndex ? "text-accent" : file.id === nextCrateId ? "text-mint" : "text-zinc-300"
+                }`}
               >
                 <button className="truncate flex-1 text-left" onClick={() => void playQueueItem(i, "A")}>
                   {i + 1}. {file.original_filename}
+                  {file.analysis?.energy != null ? ` E${file.analysis.energy}` : ""}
+                  {file.id === nextCrateId ? ` · ${t("library.nextMix")}` : ""}
                 </button>
                 <button className="text-zinc-500" onClick={() => removeFromQueue(i)}>
                   ×

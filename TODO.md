@@ -10,8 +10,8 @@
 - [x] 2 DJ decks + mixer + crossfader + EQ3 + filter + FX + VU
 - [x] Key lock (Rubber Band WASM, CDJ master tempo; WSOLA fallback)
 - [x] Mixer pan / mute / solo / sidechain ducking from kick
-- [x] Drum machine + save pattern, sampler slice-to-pads, kit save/load
-- [x] Synth + piano roll + Web MIDI (keys, pads, CC map + learn UI)
+- [x] Synth + piano roll (FL-style draw/stamp/scale/velocity, arp/strum, pattern ghosts) + Web MIDI
+- [x] Drum machine: paint sequencer, velocity graph editor, fill/shift/humanize, save pattern/kit
 - [x] Session clip launcher (8 scenes)
 - [x] Arrangement timeline plays drums/synth/audio clips + automation lanes
 - [x] Project graph hydrate on save (patterns, mixer, synth)
@@ -45,6 +45,12 @@
 - [x] Pioneer-ish MIDI map as the default CC layout
 - [x] Russian UI + language chooser RU/EN (`fd_locale`)
 - [x] In-app Quit (Выключить): close launcher terminals and stop API/UI
+- [x] DJ mix tools: instant doubles, xfader curve, EQ kills, gain match, beat offset / Q-sync, live echo-out
+- [x] Session/Arrange audio clips warp to project BPM (Rubber Band); optional key follow
+- [x] Session rec / Capture to arrange
+- [x] Stem ISO + drag stem onto pads / Arrange
+- [x] Mixer send/return reverb+delay
+- [x] Crate energy + mix-in/mix-out + next-track highlight
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

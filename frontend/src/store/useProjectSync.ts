@@ -3,7 +3,7 @@ import { getEngine } from "../audio-engine/AudioEngine";
 import { getToken } from "../api/client";
 import { currentUser } from "./auth";
 import { useStudio } from "../store/useStudio";
-import type { MixerStripState, MidiNote, StudioMode, SynthParams, TimelineClip, DrumSteps } from "../types";
+import type { MixerStripState, MidiNote, MidiPattern, SessionClip, StudioMode, SynthParams, TimelineClip, DrumSteps } from "../types";
 
 const WS = import.meta.env.VITE_WS_URL || "";
 
@@ -13,6 +13,7 @@ type CollabSnapshot = {
   bpm: number;
   playing: boolean;
   crossfader: number;
+  xfaderCurve?: "smooth" | "sharp" | "cut";
   mode: StudioMode;
   sidechain: boolean;
   mixer: Record<string, MixerStripState>;
@@ -23,8 +24,12 @@ type CollabSnapshot = {
   drumLength: number;
   drumSwing: number;
   notes: MidiNote[];
+  midiPatterns?: MidiPattern[];
+  activeMidiPatternId?: string;
   clips: TimelineClip[];
+  sessionClips?: SessionClip[];
   synth: SynthParams;
+  fxReturns?: { reverb: number; delay: number };
 };
 
 export type RoomPeer = { clientId: string; name: string; deck?: string | null };
@@ -57,6 +62,7 @@ export function useProjectSync(projectId: string | undefined): void {
   const bpm = useStudio((s) => s.bpm);
   const playing = useStudio((s) => s.playing);
   const crossfader = useStudio((s) => s.crossfader);
+  const xfaderCurve = useStudio((s) => s.xfaderCurve);
   const mode = useStudio((s) => s.mode);
   const sidechain = useStudio((s) => s.sidechain);
   const mixer = useStudio((s) => s.mixer);
@@ -68,8 +74,12 @@ export function useProjectSync(projectId: string | undefined): void {
   const drumLength = useStudio((s) => s.drumLength);
   const drumSwing = useStudio((s) => s.drumSwing);
   const notes = useStudio((s) => s.notes);
+  const midiPatterns = useStudio((s) => s.midiPatterns);
+  const activeMidiPatternId = useStudio((s) => s.activeMidiPatternId);
   const clips = useStudio((s) => s.clips);
+  const sessionClips = useStudio((s) => s.sessionClips);
   const synth = useStudio((s) => s.synth);
+  const fxReturns = useStudio((s) => s.fxReturns);
 
   useEffect(() => {
     if (!projectId) return;
@@ -98,6 +108,7 @@ export function useProjectSync(projectId: string | undefined): void {
           bpm: s.bpm,
           playing: s.playing,
           crossfader: s.crossfader,
+          xfaderCurve: s.xfaderCurve,
           mode: s.mode,
           sidechain: s.sidechain,
           mixer: s.mixer,
@@ -108,8 +119,12 @@ export function useProjectSync(projectId: string | undefined): void {
           drumLength: s.drumLength,
           drumSwing: s.drumSwing,
           notes: s.notes,
+          midiPatterns: s.midiPatterns,
+          activeMidiPatternId: s.activeMidiPatternId,
           clips: s.clips,
+          sessionClips: s.sessionClips,
           synth: s.synth,
+          fxReturns: s.fxReturns,
         }),
       );
     };
@@ -162,6 +177,7 @@ export function useProjectSync(projectId: string | undefined): void {
         bpm,
         playing,
         crossfader,
+        xfaderCurve,
         mode,
         sidechain,
         mixer,
@@ -172,8 +188,12 @@ export function useProjectSync(projectId: string | undefined): void {
         drumLength,
         drumSwing,
         notes,
+        midiPatterns,
+        activeMidiPatternId,
         clips,
+        sessionClips,
         synth,
+        fxReturns,
       };
       ws.send(JSON.stringify(snap));
     }, 120);
@@ -182,6 +202,7 @@ export function useProjectSync(projectId: string | undefined): void {
     bpm,
     playing,
     crossfader,
+    xfaderCurve,
     mode,
     sidechain,
     mixer,
@@ -193,8 +214,12 @@ export function useProjectSync(projectId: string | undefined): void {
     drumLength,
     drumSwing,
     notes,
+    midiPatterns,
+    activeMidiPatternId,
     clips,
+    sessionClips,
     synth,
+    fxReturns,
   ]);
 
   useEffect(() => {
@@ -212,6 +237,9 @@ async function applySnapshot(p: CollabSnapshot): Promise<void> {
   if (typeof p.crossfader === "number") {
     eng.mixer.setCrossfader(p.crossfader);
     useStudio.setState({ crossfader: p.crossfader });
+  }
+  if (p.xfaderCurve === "smooth" || p.xfaderCurve === "sharp" || p.xfaderCurve === "cut") {
+    studio.setXfaderCurve(p.xfaderCurve);
   }
   if (p.mode && p.mode !== studio.mode) studio.setMode(p.mode);
   if (typeof p.sidechain === "boolean") {
@@ -239,13 +267,25 @@ async function applySnapshot(p: CollabSnapshot): Promise<void> {
       drumSwing: p.drumSwing ?? studio.drumSwing,
     });
   }
-  if (p.notes) {
-    eng.setNotes(p.notes);
-    useStudio.setState({ notes: p.notes });
+  if (p.midiPatterns?.length) {
+    const id = p.activeMidiPatternId || p.midiPatterns[0].id;
+    const notes = p.midiPatterns.find((x) => x.id === id)?.notes || p.notes || [];
+    eng.setNotes(notes);
+    eng.piano.setLoopSteps(p.drumLength || studio.drumLength);
+    useStudio.setState({ midiPatterns: p.midiPatterns, activeMidiPatternId: id, notes });
+  } else if (p.notes) {
+    useStudio.getState().writeNotes(p.notes);
   }
   if (p.clips) {
     eng.timeline.clips = p.clips;
     useStudio.setState({ clips: p.clips });
+  }
+  if (p.sessionClips) {
+    eng.launcher.clips = p.sessionClips;
+    useStudio.setState({ sessionClips: p.sessionClips });
+  }
+  if (p.fxReturns) {
+    studio.setFxReturns(p.fxReturns);
   }
   if (p.synth) {
     eng.synth.setParams(p.synth);

@@ -34,4 +34,11 @@ export class ReverbFx {
     this.tapeWet.gain.value = wet * 0.22;
     this.dry.gain.value = 1 - wet * 0.4;
   }
+
+  /** 100% wet, no dry — mix-bus return. */
+  setReturn(wet = 1): void {
+    this.wet.gain.value = wet;
+    this.tapeWet.gain.value = wet * 0.22;
+    this.dry.gain.value = 0;
+  }
 }

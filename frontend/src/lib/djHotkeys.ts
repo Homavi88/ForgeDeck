@@ -14,6 +14,11 @@ export const DJ_KEYMAP: readonly [string, MsgKey][] = [
   [", / .", "keys.jump"],
   ["N / Shift+N", "keys.n"],
   ["Y", "keys.y"],
+  ["Shift+Y", "keys.shiftY"],
+  ["D / Shift+D", "keys.d"],
+  ["G", "keys.g"],
+  ["O", "keys.o"],
+  ["Z X V", "keys.kills"],
   ["K", "keys.k"],
   ["F", "keys.f"],
   ["T", "keys.t"],
@@ -48,6 +53,23 @@ export function handleDjHotkey(e: KeyboardEvent): boolean {
   const eng = getEngine();
   const deck = eng.decks[side];
   const bpm = deckBpm(side);
+  const lower = key.toLowerCase();
+
+  if (e.type === "keyup") {
+    if (lower === "z") {
+      s.setEqKill(side, 0, false);
+      return true;
+    }
+    if (lower === "x") {
+      s.setEqKill(side, 1, false);
+      return true;
+    }
+    if (lower === "v") {
+      s.setEqKill(side, 2, false);
+      return true;
+    }
+    return false;
+  }
 
   const playFocused = () => {
     if (!deck.buffer) return;
@@ -68,7 +90,7 @@ export function handleDjHotkey(e: KeyboardEvent): boolean {
     return true;
   }
 
-  const lower = key.toLowerCase();
+  if (e.repeat && (lower === "z" || lower === "x" || lower === "v")) return true;
 
   if (lower === "a") {
     e.preventDefault();
@@ -124,10 +146,45 @@ export function handleDjHotkey(e: KeyboardEvent): boolean {
   }
   if (lower === "y") {
     e.preventDefault();
+    if (e.shiftKey) {
+      s.quantizeSync();
+      return true;
+    }
     const other = side === "A" ? "B" : "A";
     const trackBpm = s.deckFiles[side]?.analysis?.bpm;
     const masterBpm = s.deckFiles[other]?.analysis?.bpm || s.bpm;
     if (trackBpm) deck.syncToBpm(trackBpm, masterBpm);
+    return true;
+  }
+  if (lower === "d") {
+    e.preventDefault();
+    const from = e.shiftKey ? (side === "A" ? "B" : "A") : side;
+    void s.instantDouble(from);
+    return true;
+  }
+  if (lower === "g") {
+    e.preventDefault();
+    s.matchGain(side);
+    return true;
+  }
+  if (lower === "o") {
+    e.preventDefault();
+    s.echoOut(side);
+    return true;
+  }
+  if (lower === "z") {
+    e.preventDefault();
+    s.setEqKill(side, 0, true);
+    return true;
+  }
+  if (lower === "x") {
+    e.preventDefault();
+    s.setEqKill(side, 1, true);
+    return true;
+  }
+  if (lower === "v") {
+    e.preventDefault();
+    s.setEqKill(side, 2, true);
     return true;
   }
   if (lower === "k") {

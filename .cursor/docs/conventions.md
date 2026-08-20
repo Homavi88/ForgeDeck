@@ -13,6 +13,7 @@
 | PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor` |
 | Сохранить новое поле проекта | graph в `useStudio.save`, типы в `types/index.ts`, при необходимости `project_graph.py` |
 | REST endpoint | `backend/app/api/*.py`, схема в `schemas.py`, owner check через `require_*` |
+| Выключить приложение | `PowerOffButton` + `app/services/shutdown.py` + `POST /api/shutdown` (localhost) |
 | Stem split | только `app/services/stems.py` (API и Celery его зовут) |
 | AI tool | `ai_agents/tools.py` + `TOOL_REGISTRY` + mock-интент в `providers/mock.py` |
 | Collab событие | `useProjectSync.ts` + `app/services/events.py` |

@@ -22,7 +22,8 @@ API:      http://127.0.0.1:8000/docs
   ../storage/audio/demo-loop.wav
   → в студии Library → Upload → кнопки A / B → клик по экрану → Play
 
-Остановить: закрой окна API/UI либо stop.command
+Остановить: кнопка «Выключить» в приложении, либо закрой окна
+  API/UI/launcher, либо stop.command
 
 Docker Desktop: start-docker.command
 

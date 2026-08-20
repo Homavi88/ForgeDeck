@@ -45,6 +45,15 @@ function j(url: string, method: string, body?: unknown) {
 
 export const api = {
   health: () => fetch(`${API}/api/health`).then((r) => r.json()),
+  shutdown: async () => {
+    const res = await fetch(`${API}/api/shutdown`, withAuth({ method: "POST" }));
+    if (res.status === 403) {
+      const body = (await res.json().catch(() => ({}))) as { detail?: unknown };
+      const detail = body.detail;
+      throw new Error(typeof detail === "string" ? detail : "Shutdown is only allowed from this computer");
+    }
+    return { ok: true as const };
+  },
   auth: {
     register: (email: string, name: string, password: string) =>
       parse<{ access_token: string; user: { id: string; email: string; name: string } }>(

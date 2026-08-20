@@ -4,6 +4,7 @@ import { getEngine } from "../../audio-engine/AudioEngine";
 import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
 import { LanguageSelect, t, useI18n } from "../../i18n";
+import { PowerOffButton } from "./PowerOffButton";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
 
@@ -136,6 +137,7 @@ export function TopBar() {
       <ShareButton />
       <RecordButton />
       <ExportButton />
+      <PowerOffButton compact />
     </div>
   );
 }

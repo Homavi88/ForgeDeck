@@ -28,7 +28,7 @@ Realtime-звук только в браузере (Web Audio). Python хран�
 1. Один раз (или сразу `start.bat` — он сам доустановит): **`bat\setup.bat`**
    создаёт `.venv`, копирует `.env`, ставит Python- и npm-зависимости, пишет демо-wav.
 2. **`bat\start.bat`** поднимает API и UI в двух окнах и открывает http://127.0.0.1:5173
-3. Остановка: закрыть окна или **`bat\stop.bat`**
+3. Остановка: кнопка **Выключить** в приложении, закрыть окна или **`bat\stop.bat`**
 
 Нужны Python 3 (галочка Add to PATH) и Node.js LTS. Docker — отдельно: `bat\start-docker.bat`.
 
@@ -38,7 +38,7 @@ Realtime-звук только в браузере (Web Audio). Python хран�
 
 1. Один раз (или сразу `start.command`): **`mac/setup.command`**
 2. **`mac/start.command`** — API + UI в двух окнах и браузер на http://127.0.0.1:5173
-3. Остановка: закрыть окна или **`mac/stop.command`**
+3. Остановка: кнопка **Выключить** в приложении, закрыть окна или **`mac/stop.command`**
 
 Нужны `python3` и Node.js (с python.org / nodejs.org или `brew install python node`). Если `setup.command` пишет «Не найден Node.js» — это окно Finder без `~/.zshrc`: поставь LTS с nodejs.org или Homebrew; скрипт сам попробует `brew install node`. Gatekeeper: правый клик → Открыть. Docker — `mac/start-docker.command`.
 

@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Кнопка **Выключить** в шапке (домашняя и студия): закрывает окна API/UI/launcher и останавливает процессы на :8000 / :5173 (`POST /api/shutdown`, только localhost)
 - UI на русском и английском: переключатель RU/EN в шапке (Shell) и в студии (TopBar); язык в `localStorage` (`fd_locale`), иначе `navigator.language` `ru*` → ru, иначе en
 - macOS `setup.command`: ищет Node в Homebrew/nvm/fnm/volta; если нет — ставит через `brew install node` (двойной клик из Finder не видит `~/.zshrc`)
 - Внутренние docs перенесены в `.cursor/docs/` (не на GitHub-лендинге); агент читает их по `docs-sync` правилу

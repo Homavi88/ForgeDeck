@@ -16,6 +16,12 @@ function detect(): Locale {
   return "en";
 }
 
+type NestedKey<T> = {
+  [K in keyof T & string]: T[K] extends string ? K : T[K] extends Record<string, unknown> ? `${K}.${NestedKey<T[K]>}` : never;
+}[keyof T & string];
+
+export type MsgKey = NestedKey<Dict>;
+
 function lookup(dict: Dict, path: string): string {
   const parts = path.split(".");
   let cur: unknown = dict;
@@ -31,7 +37,7 @@ function fill(template: string, vars?: Record<string, string | number>): string 
   return template.replace(/\{(\w+)\}/g, (_, k: string) => (vars[k] != null ? String(vars[k]) : `{${k}}`));
 }
 
-export function t(path: string, vars?: Record<string, string | number>): string {
+export function t(path: MsgKey, vars?: Record<string, string | number>): string {
   const locale = useI18n.getState().locale;
   return fill(lookup(dicts[locale], path), vars);
 }

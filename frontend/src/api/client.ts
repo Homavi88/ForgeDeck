@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 const API = import.meta.env.VITE_API_URL || "";
 const TOKEN_KEY = "pf_token";
 
@@ -50,7 +52,7 @@ export const api = {
     if (res.status === 403) {
       const body = (await res.json().catch(() => ({}))) as { detail?: unknown };
       const detail = body.detail;
-      throw new Error(typeof detail === "string" ? detail : "Shutdown is only allowed from this computer");
+      throw new Error(typeof detail === "string" ? detail : t("quit.localhostOnly"));
     }
     return { ok: true as const };
   },

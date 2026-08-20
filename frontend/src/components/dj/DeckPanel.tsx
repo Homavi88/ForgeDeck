@@ -151,7 +151,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             onMouseUp={() => deck().loopRollEnd()}
             onMouseLeave={() => deck().loopRollEnd()}
           >
-            Roll {beats}
+            {t("deck.roll", { n: beats })}
           </Btn>
         ))}
         <Btn

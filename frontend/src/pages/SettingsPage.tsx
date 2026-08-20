@@ -70,7 +70,7 @@ export default function SettingsPage() {
           <button
             className="text-[10px] uppercase tracking-wider text-zinc-500"
             onClick={async () => {
-              const name = prompt(t("settings.fxName"), "My FX") || "My FX";
+              const name = prompt(t("settings.fxName"), t("settings.fxDefault")) || t("settings.fxDefault");
               const fxState = useStudio.getState().mixer.A.fx;
               await api.presets.saveEffect(name, fxState);
               await refresh();
@@ -159,7 +159,7 @@ export default function SettingsPage() {
             <button
               className="text-[10px] uppercase tracking-wider text-zinc-500"
               onClick={async () => {
-                const name = prompt(t("settings.mapName"), "My controller") || "My controller";
+                const name = prompt(t("settings.mapName"), t("settings.mapDefault")) || t("settings.mapDefault");
                 await api.presets.saveMidi(name, bindings);
                 persistMidiBindings(bindings);
                 await refresh();

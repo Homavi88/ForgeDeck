@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { api } from "../../api/client";
-
-const CONFIRM =
-  "Закрыть ForgeDeck? Остановятся API, интерфейс и окна терминала.";
+import { t, useI18n } from "../../i18n";
 
 function goodbyeScreen(): void {
   document.body.innerHTML =
@@ -10,15 +8,16 @@ function goodbyeScreen(): void {
     "font-family:ui-sans-serif,system-ui,sans-serif;background:#0b0b10;color:#a1a1aa;" +
     'text-align:center;padding:24px">' +
     "<div><p style=\"letter-spacing:0.3em;text-transform:uppercase;font-size:11px;color:#f59e0b;margin:0 0 12px\">ForgeDeck</p>" +
-    "<p style=\"margin:0;font-size:18px;color:#e4e4e7\">Выключен. Можно закрыть вкладку.</p></div></div>";
+    `<p style="margin:0;font-size:18px;color:#e4e4e7">${t("quit.goodbye")}</p></div></div>`;
 }
 
 export function PowerOffButton({ compact = false }: { compact?: boolean }) {
   const [busy, setBusy] = useState(false);
+  useI18n((s) => s.locale);
 
   async function quit() {
     if (busy) return;
-    if (!window.confirm(CONFIRM)) return;
+    if (!window.confirm(t("quit.confirm"))) return;
     setBusy(true);
     try {
       await api.shutdown();
@@ -42,7 +41,7 @@ export function PowerOffButton({ compact = false }: { compact?: boolean }) {
   return (
     <button
       type="button"
-      title="Quit ForgeDeck"
+      title={t("quit.title")}
       disabled={busy}
       onClick={() => void quit()}
       className={
@@ -51,7 +50,7 @@ export function PowerOffButton({ compact = false }: { compact?: boolean }) {
           : "px-3 py-1.5 rounded border border-danger/40 text-danger text-xs uppercase tracking-wider hover:bg-danger/10 disabled:opacity-50"
       }
     >
-      {busy ? "…" : "Выключить"}
+      {busy ? "…" : t("quit.button")}
     </button>
   );
 }

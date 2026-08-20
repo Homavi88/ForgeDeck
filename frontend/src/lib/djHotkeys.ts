@@ -1,7 +1,8 @@
 import { getEngine } from "../audio-engine/AudioEngine";
+import type { MsgKey } from "../i18n";
 import { useStudio } from "../store/useStudio";
 
-export const DJ_KEYMAP = [
+export const DJ_KEYMAP: readonly [string, MsgKey][] = [
   ["A / B", "keys.a"],
   ["Space", "keys.space"],
   ["Shift+Space", "keys.shiftSpace"],
@@ -17,7 +18,7 @@ export const DJ_KEYMAP = [
   ["F", "keys.f"],
   ["T", "keys.t"],
   ["?", "keys.help"],
-] as const;
+];
 
 function typing(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;

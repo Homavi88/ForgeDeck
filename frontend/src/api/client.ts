@@ -85,6 +85,14 @@ export const api = {
     save: (id: string, patch: Record<string, unknown>) => parse(j(`/api/projects/${id}`, "PUT", patch)),
     remove: (id: string) => fetch(`${API}/api/projects/${id}`, withAuth({ method: "DELETE" })).then((r) => r.json()),
     duplicate: (id: string) => parse<import("../types").ProjectDetail>(fetch(`${API}/api/projects/${id}/duplicate`, withAuth({ method: "POST" }))),
+    snapshots: (id: string) =>
+      parse<import("../types").ProjectSnapshot[]>(fetch(`${API}/api/projects/${id}/snapshots`, withAuth())),
+    createSnapshot: (id: string, label: string) =>
+      parse<import("../types").ProjectSnapshot>(j(`/api/projects/${id}/snapshots`, "POST", { label })),
+    restoreSnapshot: (id: string, snapshotId: string) =>
+      parse<import("../types").ProjectDetail>(
+        fetch(`${API}/api/projects/${id}/snapshots/${snapshotId}/restore`, withAuth({ method: "POST" })),
+      ),
     render: (id: string, format = "wav") => parse(j(`/api/projects/${id}/render`, "POST", { format })),
     uploadRender: async (id: string, blob: Blob) => {
       const body = new FormData();

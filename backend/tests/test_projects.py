@@ -189,3 +189,48 @@ def test_persist_insert_order(client):
     saved = client.get(f"/api/projects/{pid}").json()["graph"]
     assert saved["mixer"]["A"]["insertOrder"] == order
     assert saved["mixer"]["A"]["volume"] == 0.7
+
+
+def test_project_snapshots_and_revision_conflicts(client):
+    project = client.post("/api/projects", json={"name": "Versions"}).json()
+    pid = project["id"]
+    assert project["graph_revision"] == 0
+
+    first = client.put(
+        f"/api/projects/{pid}",
+        json={
+            "graph": {"version": 2, "bpm": 122, "timeline": {"clips": []}},
+            "expected_revision": 0,
+            "snapshot_label": "First arrangement",
+        },
+    )
+    assert first.status_code == 200, first.text
+    assert first.json()["graph_revision"] == 1
+
+    stale = client.put(
+        f"/api/projects/{pid}",
+        json={"graph": {"version": 2, "bpm": 126}, "expected_revision": 0},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["graph_revision"] == 1
+
+    snapshots = client.get(f"/api/projects/{pid}/snapshots")
+    assert snapshots.status_code == 200
+    first_snapshot = snapshots.json()[0]
+    assert first_snapshot["label"] == "First arrangement"
+    assert first_snapshot["graph"]["bpm"] == 122
+
+    manual = client.post(f"/api/projects/{pid}/snapshots", json={"label": "Before change"})
+    assert manual.status_code == 200
+
+    second = client.put(
+        f"/api/projects/{pid}",
+        json={"graph": {"version": 2, "bpm": 128}, "expected_revision": 1},
+    )
+    assert second.status_code == 200
+    assert second.json()["graph_revision"] == 2
+
+    restored = client.post(f"/api/projects/{pid}/snapshots/{first_snapshot['id']}/restore")
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["graph"]["bpm"] == 122
+    assert restored.json()["graph_revision"] == 3

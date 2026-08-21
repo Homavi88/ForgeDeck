@@ -82,4 +82,4 @@ def persist_graph(db: Session, project: Project, graph: dict[str, Any]) -> None:
             channel.filter_knob = float(state["filter"])
 
     db.add(project)
-    db.commit()
+    db.flush()

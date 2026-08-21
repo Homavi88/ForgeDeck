@@ -104,6 +104,11 @@ export function lookupMidiTarget(
   return table[midiBindingKey(channel, number)] || table[String(number)];
 }
 
+/** Deck commands are discrete: CC mappings must fire only on a rising edge. */
+export function isMidiDeckActionTarget(target: string): boolean {
+  return /^(A|B)\.(play|cue|pfl|keylock|hotcue\.[1-4]|loop\.(off|1|2|4|8|16))$/.test(target);
+}
+
 export type MidiHost = {
   mixer: Mixer;
   drums: DrumMachine;

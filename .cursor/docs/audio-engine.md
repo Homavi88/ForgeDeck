@@ -24,7 +24,7 @@ EQ3 isolator **kills** (−72 dB) не затирают значение руч�
 
 Crossfader: `xfaderGains(x, curve)` — smooth = equal-power, sharp = узкий overlap, cut = оба открыты до ~7% у краёв.
 
-PFL: `pflOut` каналов A/B → `cueBus`. Headphones: mix master analyser + cue bus (`cueMix` 0=master … 1=cue) → `MediaStreamAudioDestinationNode` (только realtime `AudioContext`, не Offline bounce). Hidden `<audio>` и опциональное **окно cue** (`window.open` blank HTML) играют **тот же stream** — не второй SPA и не второй AudioContext. `selectAudioOutput()` (Chrome) или `enumerateDevices()` **без** `getUserMedia`. Split cue: L=master, R=cue на основном `destination`. `setSinkId` копируется на hidden и popup audio.
+PFL: `pflOut` каналов A/B → `cueBus`. Headphones: mix master analyser + cue bus (`cueMix` 0=master … 1=cue) → `MediaStreamAudioDestinationNode` (только realtime `AudioContext`, не Offline bounce). Hidden `<audio>` и опциональное **окно cue** (`window.open` blank HTML) играют **тот же stream** — не второй SPA и не второй AudioContext. `selectAudioOutput()` (Chrome) или `enumerateDevices()` **без** `getUserMedia`. Выбор в popup сначала проверяет свой output, затем `postMessage` в studio; parent применяет `setSinkId` к обоим элементам. Если popup не принимает выбранный sink, он не заменяет hidden audio. Split cue: L=master, R=cue на основном `destination`.
 
 `EffectChain` устройства сами по себе не склеены; `ChannelStrip.wireInserts(insertOrder)` ставит EQ3 / Filter / comp / dist / crush / flanger / delay / reverb в сохранённом порядке. **bypass** ставит wet=0. `fxSend` всегда сразу перед первым FX, чтобы echo-out глушил хвосты, а не EQ. Default order = прежний фиксированный.
 
@@ -80,6 +80,6 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 | `clipPlayback.ts` | shared Rubber Band / playbackRate warp + optional clip GainNode fade |
 | `AutomationEngine` | filter/EQ/volume lanes; live tick + bounce ramps |
 | `LiveRecorder` | MediaRecorder с master |
-| `midiMap.ts` | Pioneer-ish CC + DDJ-400-style notes (`channel:note`, ch1=A / ch2=B); learn from Settings or Shift+click on the deck |
+| `midiMap.ts` | Pioneer-ish CC + DDJ-400-style notes (`channel:note`, ch1=A / ch2=B); learn from Settings or Shift+click on the deck; CC deck targets fire only on a rising edge |
 
 `ChannelStrip` / FX принимают `BaseAudioContext`, чтобы тот же код жил в OfflineAudioContext.

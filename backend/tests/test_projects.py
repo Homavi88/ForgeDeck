@@ -218,7 +218,8 @@ def test_project_snapshots_and_revision_conflicts(client):
     assert snapshots.status_code == 200
     first_snapshot = snapshots.json()[0]
     assert first_snapshot["label"] == "First arrangement"
-    assert first_snapshot["graph"]["bpm"] == 122
+    assert first_snapshot["revision"] == 1
+    assert "graph" not in first_snapshot
 
     manual = client.post(f"/api/projects/{pid}/snapshots", json={"label": "Before change"})
     assert manual.status_code == 200
@@ -251,3 +252,23 @@ def test_live_recording_render_keeps_provenance(client):
     assert body["source"] == "live_rec"
     assert body["details"]["duration"] == 12.5
     assert body["details"]["sampleRate"] == 48000
+
+
+def test_bounce_render_keeps_provenance(client):
+    pid = client.post("/api/projects", json={"name": "Bounce"}).json()["id"]
+    uploaded = client.post(
+        f"/api/projects/{pid}/render/upload",
+        data={
+            "source": "bounce",
+            "details": '{"duration": 8, "bpm": 124, "musical_key": "A minor", "sampleRate": 44100, "channels": 2}',
+        },
+        files={"file": ("mix.wav", b"RIFF-test", "audio/wav")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    body = uploaded.json()
+    assert body["source"] == "bounce"
+    assert body["details"]["bpm"] == 124
+    assert body["details"]["musical_key"] == "A minor"
+
+    missing = client.post(f"/api/projects/{pid}/snapshots/does-not-exist/restore")
+    assert missing.status_code == 404

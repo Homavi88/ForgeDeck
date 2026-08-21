@@ -63,11 +63,12 @@ class ProjectSnapshotCreate(BaseModel):
 
 
 class ProjectSnapshotOut(ORMModel):
+    """List/create payload — graph stays on disk until restore."""
+
     id: str
     project_id: str
     revision: int
     label: str
-    graph: dict[str, Any]
     created_at: datetime | None = None
 
 

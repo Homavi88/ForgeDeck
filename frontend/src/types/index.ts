@@ -261,7 +261,6 @@ export interface ProjectSnapshot {
   project_id: string;
   revision: number;
   label: string;
-  graph: Record<string, unknown>;
   created_at?: string | null;
 }
 

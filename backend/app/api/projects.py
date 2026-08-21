@@ -200,7 +200,7 @@ def create_snapshot(
     return snapshot
 
 
-@router.post("/{project_id}/snapshots/{snapshot_id}/restore", response_model=ProjectOut)
+@router.post("/{project_id}/snapshots/{snapshot_id}/restore", response_model=ProjectDetail)
 def restore_snapshot(
     snapshot_id: str,
     project: Project = Depends(require_project),
@@ -221,7 +221,7 @@ def restore_snapshot(
     _record_snapshot(db, project, f"Restored: {snapshot.label}")
     db.commit()
     db.refresh(project)
-    return project
+    return _serialize_project(project)
 
 
 @router.put("/{project_id}", response_model=ProjectOut)
@@ -232,8 +232,8 @@ def update_project(
 ):
     if payload.expected_revision is not None and payload.expected_revision != project.graph_revision:
         raise HTTPException(
-            409,
-            {"detail": "Project has a newer revision", "graph_revision": project.graph_revision},
+            status_code=409,
+            detail={"code": "revision_conflict", "graph_revision": project.graph_revision},
         )
     data = payload.model_dump(exclude_unset=True, exclude={"expected_revision", "snapshot_label"})
     graph_changed = payload.graph is not None and payload.graph != project.graph

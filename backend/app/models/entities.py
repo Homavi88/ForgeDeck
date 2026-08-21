@@ -81,7 +81,7 @@ class ProjectSnapshot(Base, TimestampMixin):
     __tablename__ = "project_snapshots"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     revision: Mapped[int] = mapped_column(Integer)
     label: Mapped[str] = mapped_column(String(255), default="Autosave")
     graph: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

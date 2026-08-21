@@ -26,9 +26,9 @@ Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session),
 
 Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
 
-Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S; graph пишется одним `PUT`. Паттерн `Main` больше не дублируется отдельным POST на каждый save. Успешный save даёт тост «Saved».
+Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S / кнопка Save (`snapshot_label`: Autosave vs Manual save). `PUT` шлёт `expected_revision`; 409 на autosave не затирает другую вкладку (тост), ручной Save перезаписывает. Параллельные save ставятся в очередь. **History** в TopBar: список restore points, Pin, Restore (сначала «Before restore»). Undo/redo в памяти — не то же самое, что серверные snapshots.
 
-Undo/redo: снимки в `history` / `future` (не весь engine).
+Undo/redo: снимки в `history` / `future` (не весь engine; не путать с `ProjectSnapshot`).
 
 Auth token: `localStorage` через `api/client.ts`; `decodeUrl` подставляет Bearer, иначе стемы/файлы 401. Style packs: `api.presets.styles()` / `style(id)` — `GET /api/presets/styles`, без токена.
 
@@ -53,7 +53,7 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 - `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; `StylePackSelect` synth-only)
 - `sampler` — `SamplerPanel` (стемы на пады)
 
-`AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы (горизонтальный скролл, `whitespace-nowrap`), Play / BPM / Key / Click, Save / Rec / Bounce; (2) Session rec, undo/redo, MIDI / mic / Keys, тогглы AI / Library / Decks (подсветка = включено, без «Hide …»), язык EN/RU, Share, Выключить. Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
+`AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы (горизонтальный скролл, `whitespace-nowrap`), Play / BPM / Key / Click, Save / **History** / Rec / Bounce; (2) Session rec, undo/redo, MIDI / mic / Keys, тогглы AI / Library / Decks (подсветка = включено, без «Hide …»), язык EN/RU, Share, Выключить. Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
 
 DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Микс-хелперы (offset, gain match): `lib/djMix.ts`. Camelot-соседи и next-crate: `frontend/src/lib/camelot.ts`. Clip warp math: `lib/clipWarp.ts`. Clip edit (snap/dup/fade): `lib/clipEdit.ts`. Automation targets/draw: `lib/automation.ts` + `audio-engine/applyAutomation.ts`. Гаммы/аккорды/arp/strum piano roll: `lib/musicTheory.ts` + `lib/pianoRoll.ts`. MIDI-паттерны и ghost: `graph.midiPatterns` / `activeMidiPatternId` / `ghostNotes` в `useStudio`. Drag трека/стема: `lib/trackDrag.ts`. Graph extras: `fxReturns`, clip `keyFollow` / `sourceBpm` / `stem` / `fadeInBars` / `fadeOutBars`.
 

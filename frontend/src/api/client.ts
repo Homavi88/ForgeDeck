@@ -3,6 +3,24 @@ import { t } from "../i18n";
 const API = import.meta.env.VITE_API_URL || "";
 const TOKEN_KEY = "pf_token";
 
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+
+  constructor(status: number, message: string, body?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+export function conflictRevision(err: unknown): number | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const detail = (err.body as { detail?: { graph_revision?: unknown } } | null)?.detail;
+  return typeof detail?.graph_revision === "number" ? detail.graph_revision : null;
+}
+
 export function getToken(): string {
   return localStorage.getItem(TOKEN_KEY) || "";
 }
@@ -22,14 +40,16 @@ function withAuth(init: RequestInit = {}): RequestInit {
 async function parse<T>(res: Response | Promise<Response>): Promise<T> {
   res = await res;
   if (!res.ok) {
-    let detail = res.statusText;
+    let body: unknown;
+    let detail: unknown = res.statusText;
     try {
-      const body = await res.json();
-      detail = body.detail || JSON.stringify(body);
+      body = await res.json();
+      detail = (body as { detail?: unknown }).detail ?? body;
     } catch {
       /* ignore */
     }
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    const message = typeof detail === "string" ? detail : JSON.stringify(detail);
+    throw new ApiError(res.status, message, body);
   }
   return res.json() as Promise<T>;
 }

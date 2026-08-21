@@ -48,7 +48,8 @@ def ensure_schema() -> None:
                 "CREATE TABLE IF NOT EXISTS project_snapshots ("
                 "id VARCHAR(36) PRIMARY KEY, project_id VARCHAR(36) NOT NULL, revision INTEGER NOT NULL, "
                 "label VARCHAR(255) NOT NULL DEFAULT 'Autosave', graph JSON NOT NULL, "
-                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+                "FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE)"
             )
         )
         conn.execute(

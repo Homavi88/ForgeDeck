@@ -35,12 +35,31 @@ def ensure_schema() -> None:
     stmts: list[str] = []
     if "share_token" not in cols:
         stmts.append("ALTER TABLE projects ADD COLUMN share_token VARCHAR(64)")
+    if "graph_revision" not in cols:
+        stmts.append("ALTER TABLE projects ADD COLUMN graph_revision INTEGER NOT NULL DEFAULT 0")
     with engine.begin() as conn:
         for sql in stmts:
             conn.execute(text(sql))
         conn.execute(
             text("CREATE UNIQUE INDEX IF NOT EXISTS ix_projects_share_token ON projects (share_token)")
         )
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS project_snapshots ("
+                "id VARCHAR(36) PRIMARY KEY, project_id VARCHAR(36) NOT NULL, revision INTEGER NOT NULL, "
+                "label VARCHAR(255) NOT NULL DEFAULT 'Autosave', graph JSON NOT NULL, "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_project_snapshots_project_id ON project_snapshots (project_id)")
+        )
+        if "render_jobs" in tables:
+            render_cols = {c["name"] for c in insp.get_columns("render_jobs")}
+            if "source" not in render_cols:
+                conn.execute(text("ALTER TABLE render_jobs ADD COLUMN source VARCHAR(32) NOT NULL DEFAULT 'server_render'"))
+            if "details" not in render_cols:
+                conn.execute(text("ALTER TABLE render_jobs ADD COLUMN details JSON NOT NULL DEFAULT '{}'"))
 
         if "mixer_channels" in tables and "effect_chains" in tables:
             extra = _dedupe_named_rows(conn, "mixer_channels")

@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Roadmap: production leftovers for finishing a track in-app (freeze/flatten, bounce range/bit depth, rec-into-lane, MIDI file, tempo map) — still not started; VST/AU remains impossible in the browser.
 - Project history: durable restore points (last 30) for the studio graph — autosave, Save / Ctrl+S, and **History → Pin**. Restore reloads that version (current work is saved as “Before restore” first). Autosave sends `expected_revision` so a stale tab cannot overwrite a newer save; clicking Save still keeps this window. Bounce and Rec uploads store `source` + details (bpm/duration/peak) on the render job.
 - Project documentation moved from `.cursor/docs/` to `docs/` (architecture, studio, audio engine, API, AI, conventions). Agent rule `docs-sync` and `AGENTS.md` follow the new path. Product landing stays `README.md`.
 - Windows launcher: `bat/setup.bat` / `start.bat` no longer rely only on the double-clicked cmd PATH for Node.js. They find standard installs plus nvm/fnm/Volta/Scoop/Chocolatey, install Node LTS from the `winget` source (then Chocolatey), then download a SHA-256-verified official ZIP into the current user's LocalAppData as the automatic no-admin fallback — avoiding a broken `msstore` certificate.

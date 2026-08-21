@@ -16,6 +16,16 @@ if not defined PYLAUNCH (
   if not defined PF_NOPAUSE pause
   exit /b 1
 )
+call :verify_python
+if errorlevel 1 (
+  echo [Ошибка] Нужен обычный 64-битный Python 3.11–3.13.
+  echo Установленная версия не имеет готовых Windows-пакетов для зависимостей ForgeDeck.
+  %PYLAUNCH% -c "import platform; print('Найден Python', platform.python_version(), platform.architecture()[0])"
+  echo Установи 64-битный Python 3.12 с https://www.python.org/downloads/
+  echo и включи "Add python.exe to PATH", затем запусти setup.bat снова.
+  if not defined PF_NOPAUSE pause
+  exit /b 1
+)
 
 call "%~dp0_node.bat"
 if not defined NODE_EXE call :install_portable_node
@@ -43,7 +53,7 @@ if not exist "%PY%" (
 
 echo [2/5] Python-зависимости
 "%PY%" -m pip install --upgrade pip >nul
-"%PY%" -m pip install -r "%ROOT%\backend\requirements.txt"
+"%PY%" -m pip install --only-binary=:all: -r "%ROOT%\backend\requirements.txt"
 if errorlevel 1 (
   echo [Ошибка] pip install не прошёл
   pause
@@ -108,4 +118,9 @@ if not defined PYLAUNCH (
   python --version >nul 2>&1
   if not errorlevel 1 set "PYLAUNCH=python"
 )
+exit /b 0
+
+:verify_python
+%PYLAUNCH% -c "import struct, sys, sysconfig; supported = (3, 11) <= sys.version_info[:2] <= (3, 13) and struct.calcsize('P') == 8 and not sysconfig.get_config_var('Py_GIL_DISABLED'); raise SystemExit(0 if supported else 1)" >nul 2>&1
+if errorlevel 1 exit /b 1
 exit /b 0

@@ -11,6 +11,8 @@ websockets==14.1
 psycopg[binary]==3.2.3
 redis==5.2.1
 celery==5.4.0
+# Windows wheels are pinned for CPython 3.11–3.13; setup.bat rejects unsupported
+# interpreters instead of attempting a local compiler build.
 numpy==2.1.3
 soundfile==0.12.1
 scipy==1.14.1

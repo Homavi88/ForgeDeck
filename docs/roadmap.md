@@ -2,7 +2,7 @@
 
 Чеклист уже сделанного продукта: [`TODO.md`](../TODO.md). Здесь — удобства, которые обсуждались и **намеренно не начаты**, чтобы не потерять приоритет.
 
-DJ must-have с клавиатурой, library search, drag на деку, PFL, тостами и hide AI/library — в коде (см. [studio.md](studio.md)). История проекта (restore points) — в коде.
+DJ must-have с клавиатурой, library search, drag на деку, PFL, тостами и hide AI/library — в коде (см. [studio.md](studio.md)). История проекта (restore points) — в коде. Mix-to-file / timeline / session / DJ→prod leftovers from the production list — in code except the honest skips below.
 
 ## Продакшен (писать и отдавать трек)
 
@@ -11,51 +11,50 @@ DJ must-have с клавиатурой, library search, drag на деку, PFL,
 ### Довести микс до файла
 
 - ~~**Freeze / flatten** — drums, synth или audio+inserts в новый WAV-клип на той же дорожке.~~ Arrange toolbar + Console: Freeze / Unfreeze / Flatten. Freeze = insert rack (`ChannelStrip.duck`), не мастер и не send-returns. Unfreeze читает `graph.frozenLanes`.
-- ~~**Bounce куска** — цикл / между локаторами.~~ Arrange **from / bars**; пусто = весь микс (как раньше, потолок 8 мин).
-- ~~**24-bit / 48 kHz** Bounce~~ (PCM, без dither). Rec live остаётся 16-bit. **Dither** при даунсемпле в 16-bit — ещё нет.
-- **Стемы / per-track export** — drums / synth / каждая `prodLane` отдельно, с тем же insert rack. ISO стемов Demucs — не то же самое. Freeze одной дорожки ≠ batch export всех.
-- ~~**Rec в дорожку** — mic/line пишет клип на выбранный Arrange lane.~~ Rec по-прежнему пишет master + скачивание; клип падает на `selectedMixId`.
-- **Список Bounce/Rec** — `RenderJob.source` + `details` уже есть; в UI нет браузера прошлых файлов, только share последнего.
-- **LUFS / true peak** на Bounce (сейчас peak limiter на master, без громкости под стриминг).
-- **MP3/FLAC Bounce** для шаринга (share отдаёт WAV). Серверный `render.py` — наивный mix файлов **без** FX, не 1:1.
+- ~~**Bounce куска** — цикл / между локаторами.~~ Arrange **from / bars**; пусто = весь микс (как раньше, потолок 8 мин). Loop range uses that window.
+- ~~**24-bit / 48 kHz** Bounce~~ PCM. Rec live остаётся 16-bit **с TPDF dither**.
+- ~~**Стемы / per-track export**~~ — выбранная полоска или **Export all** (insert rack). ISO стемов Demucs — не то же самое.
+- ~~**Rec в дорожку**~~ Rec пишет master + скачивание; клип падает на `selectedMixId`.
+- ~~**Список Bounce/Rec**~~ TopBar **Renders** (`GET /renders`, download with Bearer).
+- ~~**LUFS / true peak** на Bounce~~ gated BS.1770-ish at 48 kHz; optional **−14 LUFS / −1 dBTP** (LUFS toggle).
+- ~~**MP3/FLAC Bounce**~~ WAV stays 24-bit PCM in the browser; server `render_convert` writes FLAC (soundfile) or MP3 (ffmpeg/libmp3lame if installed). Share still prefers the last done job file.
 
 ### Таймлайн как в DAW
 
-- **Локаторы / loop range / skip** на Arrange (есть snap/zoom/fade, нет маркеров куплета-дропа).
-- **Tempo map** — смена BPM и размера по тактам; клипы уже warp к *одному* project BPM.
-- **Warp-маркеры** на аудио (транзиенты), не только `projectBpm / sourceBpm`.
-- **Clip gain / reverse / transpose** отдельно от fade и Key follow.
-- **Crossfade** между соседними клипами (сейчас fade только внутри клипа).
-- **Automation всего стрипа** — pan, sends, bypass, wet каждого insert. Сейчас мышью: volume / filter / EQ-low. Filter LP↔HP на bounce по-прежнему приближение.
+- ~~**Локаторы / loop range**~~ Bounce from/bars + Arrange **Loop range** on Transport.
+- ~~**Tempo map**~~ points `{bar, bpm}` (`Tempo @ from` writes current BPM at Bounce-from). Meter changes are not in.
+- **Warp-маркеры** на аудио (транзиенты) — clip **offset** is a stand-in, not a marker list.
+- ~~**Clip gain / reverse / transpose**~~ + **crossfade** onto the previous clip on that track.
+- ~~**Automation стрипа**~~ volume / filter / EQ-low / **pan / send rev / send dly**. Wet/bypass per insert still not drawn. Filter LP↔HP on bounce is still approximate.
 - **Несколько инструментов** — второй synth, второй drum rack, sampler как Arrange-инструмент. Сейчас один synth + один 16-pad kit на весь проект.
-- **MIDI import/export** (Standard MIDI File) в piano roll / из него; пакет stems+MIDI для сведения в другом DAW.
-- **Count-in / pre-roll** и щелчок только в cue (для записи в дорожку).
-- **Группы / шины** — несколько `prodLanes` в один bus с общим insert rack. Sidechain сейчас только с kick drums.
+- ~~**MIDI import/export**~~ Standard MIDI File on the piano roll.
+- ~~**Count-in / pre-roll**~~ TopBar bars (0–8) + metronome; not cue-only click.
+- ~~**Группы / шины**~~ extra `prodLanes` can route into another extra lane (`busId`). A/B stay on the xfader.
 
 ### Session
 
-- Больше 8 сцен, имена/цвета сцен, follow actions (запустить следующую сцену через N тактов).
-- Session rec как audio takes, не только clip launcher → Arrange.
+- ~~Больше 8 сцен, имена, follow actions~~ 12 scenes, stock names, follow-bars → next scene.
+- ~~Session rec как audio takes~~ master take on the selected Arrange lane **plus** launcher clips → Arrange.
 
 ### DJ → продакшен
 
-- **Beatgrid edit** вручную (анализ есть, правки сетки нет).
-- **Memory cues / фразы** сверх 4 hotcue.
-- Echo-out в Bounce как автоматизация (сейчас **только live**).
-- Ableton Link / MIDI clock — играть клипы с железным секвенсором. Не HID/CDJ.
+- ~~**Beatgrid edit**~~ ±10 ms nudge (analysis overlay + warp; file unchanged).
+- ~~**Hotcues 1–8**~~ (was 4).
+- ~~Echo-out в Bounce~~ last 2 bars starve inserts / raise delay+reverb.
+- Ableton Link — **не делать вид**. MIDI clock on the first Web MIDI output is JS timing, not sample-accurate Link.
 
 ### Надёжность сессии
 
-- **Project bundle** — zip graph + audio files (export JSON без семплов не переносится на другую машину).
-- Collab `state` не шлёт `prodLanes` и automation — второй клиент не видит production console.
-- Снимки History хранят весь graph в SQLite (лимит 30); большой проект раздует БД — имеет смысл сжимать / не писать каждый autosave.
+- ~~**Project bundle**~~ `GET /projects/{id}/bundle` zip (`project.json`, `graph.json`, `audio/`).
+- ~~Collab `prodLanes` / automation / `frozenLanes`~~ in `state`.
+- ~~Снимки History сжимать~~ gzip+base64 when the graph is ≥2 KB (`snapshot_codec`).
 
 ### Если выкладывать не только localhost
 
-- `REQUIRE_AUTH=true` по умолчанию в прод-профиле, смена пароля, TTL JWT короче 168 ч.
+- ~~`APP_ENV=production` → auth on, JWT ≤24 h, смена пароля~~ Settings form; `POST /api/auth/password`.
 - Серверный render не выдавать за 1:1 (это уже так в коде; UI не должен обещать «offline mixdown»).
-- CI на pytest + `npm run build` (сейчас workflow в основном Windows desktop installer).
-- Desktop (`desktop/`): подпись NSIS, автообновления. Без подписи SmartScreen будет ругаться.
+- ~~CI на pytest + `npm run build`~~ `.github/workflows/ci.yml`. Windows installer workflow is separate.
+- Desktop (`desktop/`): подпись NSIS, автообновления. Без подписи SmartScreen будет ругаться. **Skip until a cert exists.**
 
 ## Средний приоритет (осталось)
 
@@ -71,5 +70,7 @@ DJ must-have с клавиатурой, library search, drag на деку, PFL,
 - Репозиторий GitHub может называться `DJ`, продукт — ForgeDeck (Settings → Rename repository)
 - Split cue на одном выходе — не замена настоящей cue-паре; `setSinkId` есть не во всех браузерах
 - Браузер не хост VST/AU — production console = встроенный Web Audio
+- Ableton Link в браузере нет; MIDI clock ≠ Link
+- NSIS без сертификата будет ругаться — это не баг лаунчера
 
 Когда пункт берёшь в работу: вычеркни здесь и после мержа добавь строку в `CHANGELOG.md`.

@@ -1,7 +1,7 @@
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { ProductionMixer } from "../mix/ProductionMixer";
 import { t, useI18n } from "../../i18n";
-import { arrangeIdForMix, SESSION_SCENES, sessionLanes } from "../../lib/mix";
+import { arrangeIdForMix, SESSION_SCENE_NAMES, SESSION_SCENES, sessionLanes } from "../../lib/mix";
 import { peekStemDrag, peekTrackDrag, readStemDrag, readTrackDragId } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
 
@@ -48,14 +48,15 @@ export function SessionPanel() {
             }}
           >
             {t("session.scene", { n: scene + 1 })}
+            <span className="block text-[8px] font-normal normal-case text-zinc-500">{SESSION_SCENE_NAMES[scene]}</span>
           </button>
         ))}
       </div>
-      <div className="grid gap-2" style={{ gridTemplateColumns: "80px repeat(8, minmax(72px, 1fr))" }}>
+      <div className="grid gap-2" style={{ gridTemplateColumns: `80px repeat(${SESSION_SCENES}, minmax(72px, 1fr))` }}>
         <div />
         {Array.from({ length: SESSION_SCENES }).map((_, i) => (
-          <div key={i} className="text-[9px] uppercase text-zinc-600 text-center">
-            {i + 1}
+          <div key={i} className="text-[9px] uppercase text-zinc-600 text-center truncate" title={SESSION_SCENE_NAMES[i]}>
+            {SESSION_SCENE_NAMES[i] || i + 1}
           </div>
         ))}
         {lanes.map((lane) => {
@@ -157,6 +158,22 @@ function Row({
             }}
           >
             <span className="truncate w-full text-center">{empty ? "—" : clip?.name}</span>
+            {!empty && (
+              <input
+                type="number"
+                min={0}
+                max={64}
+                className="w-10 mt-0.5 bg-black/20 border-0 rounded text-[9px] text-center"
+                title={t("session.followHint")}
+                value={clip?.followBars || ""}
+                placeholder={t("session.follow")}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  useStudio.getState().setFollowAction(trackId, scene, n > 0 ? n : undefined);
+                }}
+              />
+            )}
             {!empty && clip?.kind === "audio" && (
               <span className="font-mono text-[8px] opacity-80">
                 {bpm ? Math.round(bpm) : "—"} {key ? String(key).split(" ")[0] : ""}

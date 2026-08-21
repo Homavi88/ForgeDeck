@@ -60,6 +60,8 @@ export function ProductionMixer() {
             removable={!isCoreMixId(lane.id)}
             selected={selectedMixId === lane.id}
             frozen={!!frozenLanes[lane.id]}
+            busId={mixer[lane.id]?.busId || ""}
+            buses={prodLanes.filter((l) => l.id !== lane.id)}
             level={levels[lane.id] || 0}
             volume={mixer[lane.id]?.volume ?? 0.85}
             mute={!!mixer[lane.id]?.mute}
@@ -83,6 +85,8 @@ function ProdStrip({
   removable,
   selected,
   frozen,
+  busId,
+  buses,
   level,
   volume,
   mute,
@@ -94,6 +98,8 @@ function ProdStrip({
   removable: boolean;
   selected: boolean;
   frozen?: boolean;
+  busId?: string;
+  buses: { id: string; name: string }[];
   level: number;
   volume: number;
   mute: boolean;
@@ -147,6 +153,25 @@ function ProdStrip({
           S
         </button>
       </div>
+      {removable && (
+        <select
+          className="w-full text-[8px] bg-ink-900 border border-line rounded px-0.5 py-0.5"
+          value={busId || ""}
+          title={t("mixer.busHint")}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            const next = e.target.value || undefined;
+            useStudio.getState().applyMixerChannel(id, { busId: next || null });
+          }}
+        >
+          <option value="">{t("mixer.busMaster")}</option>
+          {buses.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      )}
       {removable && (
         <button
           className="text-[9px] text-zinc-500 hover:text-danger"

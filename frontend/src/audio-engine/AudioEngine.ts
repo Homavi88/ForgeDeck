@@ -111,10 +111,10 @@ export class AudioEngine {
       this.applyAutomation(seconds);
       if (step % 16 === 0) {
         const bar = Math.floor(step / 16);
-        const pending = this.launcher.pendingScene;
-        this.launcher.onBar(bar);
-        if (pending != null && this.launcher.pendingScene == null) {
-          for (const track of this.launcher.trackIds()) {
+        const launched = this.launcher.onBar(bar);
+        if (launched.length) {
+          const tracks = new Set(launched.map((c) => c.trackId));
+          for (const track of tracks) {
             const clip = this.launcher.active[track] ?? null;
             void this.startSessionClip(track, clip);
             this.onSessionLaunch?.(track, clip);
@@ -199,6 +199,7 @@ export class AudioEngine {
             fadeOutSec: Math.max(0, (clip as TimelineClip).fadeOutBars || 0) * barSec,
           }
         : undefined;
+    const tl = clip as TimelineClip;
     const voice = await scheduleWarpedClip(
       this.ctx,
       buf,
@@ -211,6 +212,10 @@ export class AudioEngine {
         sourceKey: clip.sourceKey,
         projectKey: this.projectKey,
         keyFollow: !!clip.keyFollow,
+        transpose: "transpose" in clip ? tl.transpose : 0,
+        gain: "gain" in clip ? tl.gain : 1,
+        reverse: "reverse" in clip ? !!tl.reverse : false,
+        audioOffsetSec: "audioOffsetSec" in clip ? tl.audioOffsetSec : 0,
       },
       loop,
       fade,

@@ -52,3 +52,17 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=4, max_length=128)
+
+
+@router.post("/password")
+def change_password(payload: PasswordChangeIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not verify_password(payload.current_password, user.hashed_password):
+        raise HTTPException(401, "Current password is wrong")
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"ok": True}

@@ -34,6 +34,7 @@ export function TimelinePanel() {
     frozenLanes,
     bounceRange,
     renderBusy,
+    loopOn,
   } = useStudio();
   useI18n((s) => s.locale);
   const barPx = BAR_PX * arrangeZoom;
@@ -244,6 +245,91 @@ export function TimelinePanel() {
               </label>
             </>
           )}
+          {selected && selected.kind === "audio" && (
+            <>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.gain")}
+                <input
+                  type="number"
+                  min={0}
+                  max={4}
+                  step={0.05}
+                  className="w-14 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={Number((selected.gain ?? 1).toFixed(2))}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { gain: Number(e.target.value) })}
+                />
+              </label>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.transpose")}
+                <input
+                  type="number"
+                  min={-24}
+                  max={24}
+                  step={1}
+                  className="w-12 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={selected.transpose || 0}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { transpose: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.offset")}
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="w-14 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={Number((selected.audioOffsetSec || 0).toFixed(3))}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { audioOffsetSec: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.xfade")}
+                <input
+                  type="number"
+                  min={0}
+                  step={arrangeSnap}
+                  className="w-14 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={Number((selected.crossfadeBars || 0).toFixed(3))}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { crossfadeBars: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <button
+                className={`text-xs border border-line rounded px-2 py-0.5 ${selected.reverse ? "bg-accent text-black" : "bg-ink-800"}`}
+                onClick={() => useStudio.getState().setClipAudio(selected.id, { reverse: !selected.reverse })}
+              >
+                {t("arrange.reverse")}
+              </button>
+            </>
+          )}
+          <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+            <input
+              type="checkbox"
+              checked={loopOn}
+              onChange={(e) => useStudio.getState().setLoopOn(e.target.checked)}
+            />
+            {t("arrange.loop")}
+          </label>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5"
+            title={t("arrange.tempoHint")}
+            onClick={() => useStudio.getState().setTempoPoint(bounceRange?.startBar || 0, bpm)}
+          >
+            {t("arrange.tempoHere")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy}
+            onClick={() => void useStudio.getState().exportLane()}
+          >
+            {t("arrange.exportLane")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy}
+            onClick={() => void useStudio.getState().exportAllLanes()}
+          >
+            {t("arrange.exportAll")}
+          </button>
           <button
             className="text-xs bg-accent text-black font-semibold px-2 py-1 rounded"
             onClick={() => useStudio.getState().addAudioLane()}

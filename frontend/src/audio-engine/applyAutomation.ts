@@ -38,6 +38,24 @@ export function writeAutomationValue(mixer: Mixer, target: string, value: number
     } else {
       ch.eq.set(value, ch.eq.user[1], ch.eq.user[2]);
     }
+    return;
+  }
+  if (parsed.kind === "pan") {
+    const p = Math.max(-1, Math.min(1, value));
+    if (timed) ch.panner.pan.setValueAtTime(p, when);
+    else ch.setPan(p);
+    return;
+  }
+  if (parsed.kind === "sendRev") {
+    const v = Math.max(0, Math.min(1, value));
+    if (timed) ch.sendRev.gain.setValueAtTime(v, when);
+    else ch.setSendRev(v);
+    return;
+  }
+  if (parsed.kind === "sendDly") {
+    const v = Math.max(0, Math.min(1, value));
+    if (timed) ch.sendDly.gain.setValueAtTime(v, when);
+    else ch.setSendDly(v);
   }
 }
 
@@ -87,5 +105,17 @@ function rampKind(
     ch.filter.node.type = p.type;
     ch.filter.node.frequency.linearRampToValueAtTime(p.freq, when);
     ch.filter.node.Q.linearRampToValueAtTime(p.q, when);
+    return;
+  }
+  if (kind === "pan") {
+    ch.panner.pan.linearRampToValueAtTime(Math.max(-1, Math.min(1, value)), when);
+    return;
+  }
+  if (kind === "sendRev") {
+    ch.sendRev.gain.linearRampToValueAtTime(Math.max(0, Math.min(1, value)), when);
+    return;
+  }
+  if (kind === "sendDly") {
+    ch.sendDly.gain.linearRampToValueAtTime(Math.max(0, Math.min(1, value)), when);
   }
 }

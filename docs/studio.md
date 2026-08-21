@@ -6,19 +6,19 @@
 
 **DJ** — две деки как у CDJ, vinyl platter, waveform overview+zoom, cue/hotcues, loop in/out, loop roll, Rubber Band key lock, beat jump, quantize, slip, sync, **instant doubles**, **crossfader curve**, **EQ kills**, **gain match**, **beat offset / Q-sync**, **echo out**, EQ3, filter, FX, pan/mute/solo, **PFL/CUE**, sidechain, stem rack, crate/queue auto-advance, поиск/сортировка library, drag трека на деку.
 
-**Session** — clip launcher, 8 сцен на **тех же дорожках, что Arrange** (drums / synth / Deck A/B + `prodLanes`). **+ Audio track** добавляет ряд здесь и канал в Console. Петлю из library можно бросить на слот — она играет в BPM проекта (warp). Сцена запускает **все** ряды на следующем такте. **Session rec** (TopBar) пишет запущенные сцены на Arrange; **Capture to arrange** снимает текущие клипы на плейхед. Внизу та же **Console**, что в Arrange.
+**Session** — clip launcher, **12 сцен** (Intro / Groove / …) на **тех же дорожках, что Arrange** (drums / synth / Deck A/B + `prodLanes`). **+ Audio track** добавляет ряд здесь и канал в Console. Петлю из library можно бросить на слот — она играет в BPM проекта (warp). Сцена запускает **все** ряды на следующем такте. Число **Fol** на клипе — follow action (следующая сцена через N тактов). **Session rec** пишет запущенные сцены на Arrange **и** master audio take на выбранную дорожку; **Capture to arrange** снимает текущие клипы на плейхед. Внизу та же **Console**, что в Arrange.
 
-**Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, snap bar/beat/1/8, zoom). Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. **Freeze / Unfreeze / Flatten** на выбранной дорожке консоли: offline WAV insert rack → один audio clip; Unfreeze возвращает клипы из `frozenLanes`; Flatten бросает оригиналы. **Bounce from / bars** — окно экспорта (пусто = весь микс). Под клипами **Automation**: рисуешь volume / filter / EQ low по сетке (Alt снимает точки). AI Apply по-прежнему пишет `deck_a.filter.cutoff` и т.д. **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass, **порядок = звук**: ←/→ или drag). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
+**Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, **gain / reverse / transpose / offset / xfade**, snap bar/beat/1/8, zoom). **Loop range** берёт Bounce from/bars. **Tempo @ from** пишет точку tempo map. Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. **Freeze / Unfreeze / Flatten** на выбранной дорожке консоли: offline WAV insert rack → один audio clip; Unfreeze возвращает клипы из `frozenLanes`; Flatten бросает оригиналы. **Export lane / all** — тот же insert rack, не Demucs. **Bounce from / bars** — окно экспорта (пусто = весь микс). Под клипами **Automation**: volume / filter / EQ low / pan / send rev / send dly. **+ Audio track** добавляет дорожку и канал консоли. Extra-дорожка может уйти в **bus** другой extra-дорожки. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts**. Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
 
 **Drums** — 16 падов, 16/32/64 шага, paint по сетке (как Channel Rack), graph editor velocity, fill 1/4·1/8·all·offbeat, сдвиг << >>, humanize, swing, save pattern/kit, **Load style drums** (оригинальный шаблон жанра, только сетка), edit lock в коллабе. Shift-клик по имени пада — mute. Клик по паду выбирает ряд для graph editor.
 
-**Synth** — OSC, ADSR, filter, LFO, **piano roll как в FL** (карандаш с длиной, select/marquee, штамп аккордов, подсветка гаммы, snap, velocity, quantize/humanize, **Arp/Strum**, банк паттернов + **ghost-ноты**), Web MIDI + learn, **Load style synth** (params + ноты из шаблона).
+**Synth** — OSC, ADSR, filter, LFO, **piano roll как в FL** (карандаш с длиной, select/marquee, штамп аккордов, подсветка гаммы, snap, velocity, quantize/humanize, **Arp/Strum**, банк паттернов + **ghost-ноты**, **Import/Export MIDI**), Web MIDI + learn, **Load style synth** (params + ноты из шаблона).
 
 **Sampler** — trim/reverse/loop/pitch, slice to pads, split stems. Готовые стемы тащатся на пады или Arrange.
 
 В TopBar рядом с BPM — **тональность** проекта (`musical_key`). Она кормит подсветку гаммы на piano roll, AI bass/melody/chords и clip **Key follow**. **Session rec** пишет clip launcher на Arrange.
 
-Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек — тогглы во **второй** строке TopBar (`AI` / `Library` / `Decks`, активные подсвечены). Первая строка: режимы (не обрезаются), Play, BPM, тональность, Save / **History** / Rec / Bounce. **History** — точки восстановления graph на сервере (autosave, ручной Save, Pin). Restore сначала пишет «Before restore». Язык **EN/RU** там же; выбор в `fd_locale`. **Выключить** спрашивает подтверждение, закрывает терминалы лаунчера и гасит API+UI.
+Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек — тогглы во **второй** строке TopBar (`AI` / `Library` / `Decks`, активные подсвечены). Первая строка: режимы, Play, BPM, тональность, Save / **History** / **Renders** / Rec / Bounce (WAV/FLAC/MP3, LUFS, echo). **History** — точки восстановления graph на сервере. **Renders** — прошлые Bounce/Rec/exports. **Zip** скачивает graph+audio. Count-in и MIDI clock — вторая строка. Язык **EN/RU** там же. **Выключить** спрашивает подтверждение, закрывает терминалы лаунчера и гасит API+UI.
 
 ## Library
 
@@ -28,14 +28,17 @@
 
 Кнопка **CUE** на канале микшера и **PFL** на деке — pre-fader listen (после FX, до mute/volume). Cue mix: master ↔ cue. **Open cue window** — blank popup с тем же headphone `MediaStream` (не новый React/AudioContext). Выход: `selectAudioOutput()` если браузер умеет, иначе список `enumerateDevices` **без** mic `getUserMedia` + `setSinkId`. Если одного выхода: **Split cue** (L = master, R = cue).
 
-Shift+click Play / Cue / PFL / hotcue / loop / key lock на деке — MIDI learn (`channel:note`). Карта по умолчанию Pioneer-ish (ch1=A, ch2=B), не официальный дамп DDJ.
+Shift+click Play / Cue / PFL / hotcue **1–8** / loop / key lock на деке — MIDI learn (`channel:note`). **Grid − / +** сдвигает beatgrid на 10 мс (оверлей; файл не пишется). Карта по умолчанию Pioneer-ish (ch1=A, ch2=B), не официальный дамп DDJ.
 
 ## Экспорт и шаринг
 
-- **Bounce** — offline WAV, **24-bit / 48 kHz**, полный mixer graph (или **from/bars** с Arrange). Upload `source=bounce` + bpm/key/bitDepth. Скачивание; тост «Rendering…» / «Bounce ready». Не dither.
-- **Rec** — live с master (+ mic, если включён); HUD: время, peak, размер; upload `source=live_rec`; клип на выбранный Arrange lane (длина по буферу); плюс скачивание 16-bit WAV
+- **Bounce** — offline mix, **24-bit / 48 kHz** WAV (optional FLAC/MP3 via server), полный mixer graph (или **from/bars**). LUFS/true-peak; optional −14 LUFS / −1 dBTP. Echo-out на последних 2 тактах. Upload `source=bounce`. Не sample-identical с железом Pioneer. TPDF dither только если encode 16-bit (Rec).
+- **Rec** — live с master (+ mic); HUD; upload `source=live_rec`; клип на выбранный Arrange lane; 16-bit WAV + TPDF
+- **Export lane / all** — insert rack одной или всех полосок (`source=lane_export`)
+- **Renders** — список последних 40 джоб; скачивание с Bearer
+- **Zip** — `GET /bundle` graph + referenced audio
 - **Share** — `POST /api/projects/{id}/share` → `/share/:token` (нужен bounce или rec)
-- **History** — Restore points на сервере (не undo в RAM). Последние 30.
+- **History** — Restore points на сервере (не undo в RAM). Последние 30; крупные снимки сжаты.
 
 Тосты также: autosave «Saved», анализ после upload, прогресс Split stems, загрузка electronic style pack.
 

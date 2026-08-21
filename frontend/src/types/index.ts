@@ -88,6 +88,16 @@ export interface TimelineClip {
   fadeOutBars?: number;
   /** Offline freeze of that mixer lane (insert rack). Unfreeze restores `frozenLanes` originals. */
   frozen?: boolean;
+  /** Clip gain (linear, 1 = unity). */
+  gain?: number;
+  /** Play the audio buffer backwards. */
+  reverse?: boolean;
+  /** Extra semitones on top of Key follow (Rubber Band). */
+  transpose?: number;
+  /** Skip this many seconds into the source file. */
+  audioOffsetSec?: number;
+  /** Overlap fade with the previous clip on the same track (bars). */
+  crossfadeBars?: number;
 }
 
 export interface DrumSteps {
@@ -158,6 +168,7 @@ export interface SessionClip {
   sourceBpm?: number | null;
   sourceKey?: string | null;
   keyFollow?: boolean;
+  followBars?: number;
 }
 
 export interface AutomationLaneState {
@@ -193,6 +204,8 @@ export interface MixerStripState {
   sendDly?: number;
   /** Serial insert order (EQ / filter / FX). Missing → stock ChannelStrip order. */
   insertOrder?: string[];
+  /** Route this strip into another lane (or master). Cycles are ignored. */
+  busId?: string | null;
 }
 
 export interface FxReturnsState {

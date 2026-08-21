@@ -1,14 +1,18 @@
 from copy import deepcopy
+import io
 import json
 import secrets
+import zipfile
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import default_graph, get_current_user, require_project, seed_project_studio
 from app.models import (
     Arrangement,
+    AudioFile,
     Deck,
     DrumPattern,
     MixerChannel,
@@ -42,11 +46,13 @@ SNAPSHOT_LIMIT = 30
 
 
 def _record_snapshot(db: Session, project: Project, label: str) -> ProjectSnapshot:
+    from app.services.snapshot_codec import pack_graph
+
     snapshot = ProjectSnapshot(
         project_id=project.id,
         revision=project.graph_revision,
         label=label,
-        graph=deepcopy(project.graph or {}),
+        graph=pack_graph(deepcopy(project.graph or {})),
     )
     db.add(snapshot)
     db.flush()
@@ -213,7 +219,9 @@ def restore_snapshot(
     )
     if snapshot is None:
         raise HTTPException(404, "Snapshot not found")
-    project.graph = deepcopy(snapshot.graph)
+    from app.services.snapshot_codec import unpack_graph
+
+    project.graph = unpack_graph(deepcopy(snapshot.graph))
     project.graph_revision += 1
     from app.services.project_graph import persist_graph
 
@@ -292,6 +300,54 @@ def duplicate_project(project: Project = Depends(require_project), db: Session =
 @router.get("/{project_id}/export")
 def export_project_json(project: Project = Depends(require_project)):
     return _serialize_project(project)
+
+
+@router.get("/{project_id}/bundle")
+def download_project_bundle(project: Project = Depends(require_project), db: Session = Depends(get_db)):
+    """Zip graph JSON + referenced audio files so the project can move machines."""
+    from pathlib import Path
+
+    ids: set[str] = set()
+    graph = project.graph or {}
+    decks = graph.get("decks") or {}
+    for side in ("A", "B"):
+        fid = (decks.get(side) or {}).get("audioFileId")
+        if isinstance(fid, str) and fid:
+            ids.add(fid)
+    for clip in (graph.get("timeline") or {}).get("clips") or []:
+        fid = clip.get("audioFileId") if isinstance(clip, dict) else None
+        if isinstance(fid, str) and fid:
+            ids.add(fid)
+    for clip in graph.get("session") or []:
+        fid = clip.get("audioFileId") if isinstance(clip, dict) else None
+        if isinstance(fid, str) and fid:
+            ids.add(fid)
+    sampler = graph.get("sampler") or {}
+    if isinstance(sampler.get("audioFileId"), str) and sampler["audioFileId"]:
+        ids.add(sampler["audioFileId"])
+    files = (
+        db.query(AudioFile).filter(AudioFile.user_id == project.user_id, AudioFile.id.in_(ids)).all() if ids else []
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            "project.json",
+            json.dumps(_serialize_project(project), default=str),
+        )
+        zf.writestr("graph.json", json.dumps(graph, default=str))
+        for audio in files:
+            path = Path(audio.path)
+            if not path.exists():
+                continue
+            safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in audio.original_filename) or "audio"
+            zf.write(path, f"audio/{audio.id}-{safe}")
+    buf.seek(0)
+    filename = f"{project.name or 'forgedeck'}.zip".replace("/", "_")
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/{project_id}/tracks", response_model=TrackOut)
@@ -414,13 +470,14 @@ def upload_offline_render(
     file: UploadFile = File(...),
     source: str = Form("bounce"),
     details: str = Form("{}"),
+    format: str = Form("wav"),
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
     """Accept a browser-produced WAV with its recording/bounce provenance."""
     from app.config import get_settings
 
-    if source not in {"bounce", "live_rec", "session_rec"}:
+    if source not in {"bounce", "live_rec", "session_rec", "lane_export"}:
         raise HTTPException(422, "Unsupported render source")
     try:
         parsed_details = json.loads(details) if details else {}
@@ -429,9 +486,12 @@ def upload_offline_render(
     if not isinstance(parsed_details, dict):
         raise HTTPException(422, "Render details must be an object")
     settings = get_settings()
+    fmt = (format or "wav").lower().lstrip(".")
+    if fmt not in {"wav", "flac", "mp3"}:
+        raise HTTPException(422, "format must be wav, flac, or mp3")
     job = RenderJob(
         project_id=project.id,
-        format="wav",
+        format=fmt,
         source=source,
         details=parsed_details,
         status="rendering",
@@ -443,11 +503,42 @@ def upload_offline_render(
     dest = settings.storage_path / "renders" / f"{job.id}.wav"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(file.file.read())
-    job.output_path = str(dest)
+    out = dest
+    if fmt != "wav":
+        try:
+            from app.services.render_convert import transcode_wav
+
+            out = transcode_wav(dest, fmt)
+        except FileNotFoundError as exc:
+            job.status = "error"
+            job.error_message = str(exc)
+            job.output_path = str(dest)
+            job.format = "wav"
+            db.commit()
+            raise HTTPException(503, str(exc)) from exc
+        except Exception as exc:
+            job.status = "error"
+            job.error_message = str(exc)
+            job.output_path = str(dest)
+            db.commit()
+            raise HTTPException(500, f"Transcode failed: {exc}") from exc
+    job.output_path = str(out)
+    job.format = fmt if out.suffix.lower().lstrip(".") == fmt else "wav"
     job.status = "done"
     job.progress = 1.0
     db.commit()
     return job
+
+
+@router.get("/{project_id}/renders", response_model=list[RenderJobOut])
+def list_renders(project: Project = Depends(require_project), db: Session = Depends(get_db)):
+    return (
+        db.query(RenderJob)
+        .filter(RenderJob.project_id == project.id)
+        .order_by(RenderJob.created_at.desc())
+        .limit(40)
+        .all()
+    )
 
 
 @router.get("/{project_id}/render/{job_id}/file")

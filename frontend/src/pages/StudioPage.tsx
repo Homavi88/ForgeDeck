@@ -60,6 +60,12 @@ export default function StudioPage() {
     automation,
     frozenLanes,
     bounceRange,
+    bounceFormat,
+    bounceNormalize,
+    echoOutBounce,
+    countInBars,
+    loopOn,
+    tempoMap,
     aiPanelOpen,
     libraryOpen,
     decksFullscreen,
@@ -120,6 +126,12 @@ export default function StudioPage() {
     automation,
     frozenLanes,
     bounceRange,
+    bounceFormat,
+    bounceNormalize,
+    echoOutBounce,
+    countInBars,
+    loopOn,
+    tempoMap,
   ]);
 
   useEffect(() => {

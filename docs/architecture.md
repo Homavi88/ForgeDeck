@@ -45,7 +45,7 @@ Bounce: `offlineRender.ts` строит **тот же** `Mixer` на `OfflineAud
 
 ## Auth
 
-JWT Bearer или `?token=` (нужно WebSocket и `<audio>` fetch). Если `REQUIRE_AUTH=false`, без токена подставляется demo-пользователь `producer@forgedeck.local`. Проекты и аудио проверяют `user_id`.
+JWT Bearer или `?token=` (нужно WebSocket и `<audio>` fetch). Если `REQUIRE_AUTH=false` **и** не production, без токена подставляется demo-пользователь `producer@forgedeck.local`. `APP_ENV=production` всегда требует логин и режет JWT до 24 ч. Проекты и аудио проверяют `user_id`. `POST /api/auth/password` меняет пароль.
 
 ## Имена и брендинг
 

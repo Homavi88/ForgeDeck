@@ -27,7 +27,7 @@ export function resampleBuffer(src: AudioBuffer, ctx: BaseAudioContext, targetRa
   return out;
 }
 
-export function encodeWav(buffer: AudioBuffer, bitDepth: WavBitDepth = 16): Blob {
+export function encodeWav(buffer: AudioBuffer, bitDepth: WavBitDepth = 16, dither = bitDepth === 16): Blob {
   const ch = buffer.numberOfChannels;
   const bits = bitDepth === 24 ? 24 : 16;
   const bytesPer = bits / 8;
@@ -54,7 +54,11 @@ export function encodeWav(buffer: AudioBuffer, bitDepth: WavBitDepth = 16): Blob
   const channels = Array.from({ length: ch }, (_, i) => buffer.getChannelData(i));
   for (let i = 0; i < buffer.length; i++) {
     for (let c = 0; c < ch; c++) {
-      const s = Math.max(-1, Math.min(1, channels[c][i]));
+      let s = Math.max(-1, Math.min(1, channels[c][i]));
+      if (dither && bits === 16) {
+        const tpdf = Math.random() + Math.random() - 1;
+        s = Math.max(-1, Math.min(1, s + tpdf / 0x8000));
+      }
       if (bits === 24) {
         let n = Math.round(s * 0x7fffff);
         if (n < 0) n += 0x1000000;

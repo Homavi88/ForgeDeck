@@ -272,3 +272,54 @@ def test_bounce_render_keeps_provenance(client):
 
     missing = client.post(f"/api/projects/{pid}/snapshots/does-not-exist/restore")
     assert missing.status_code == 404
+
+
+def test_renders_list_lane_export_and_bundle(client, wav_file):
+    pid = client.post("/api/projects", json={"name": "Renders"}).json()["id"]
+    with wav_file.open("rb") as fh:
+        up = client.post(
+            f"/api/projects/{pid}/render/upload",
+            data={"source": "lane_export", "details": '{"mixId":"drums"}', "format": "wav"},
+            files={"file": ("mix.wav", fh, "audio/wav")},
+        )
+    assert up.status_code == 200, up.text
+    assert up.json()["source"] == "lane_export"
+    listed = client.get(f"/api/projects/{pid}/renders")
+    assert listed.status_code == 200
+    rows = listed.json()
+    assert rows[0]["id"] == up.json()["id"]
+    assert rows[0]["format"] == "wav"
+    bundle = client.get(f"/api/projects/{pid}/bundle")
+    assert bundle.status_code == 200
+    assert bundle.content[:2] == b"PK"
+
+
+def test_bounce_flac_transcode(client, wav_file):
+    pid = client.post("/api/projects", json={"name": "Flac"}).json()["id"]
+    with wav_file.open("rb") as fh:
+        res = client.post(
+            f"/api/projects/{pid}/render/upload",
+            data={"source": "bounce", "format": "flac"},
+            files={"file": ("mix.wav", fh, "audio/wav")},
+        )
+    assert res.status_code == 200, res.text
+    assert res.json()["format"] == "flac"
+    dl = client.get(f"/api/projects/{pid}/render/{res.json()['id']}/file")
+    assert dl.status_code == 200
+    assert dl.content[:4] == b"fLaC"
+
+
+def test_snapshot_gzip_restore(client):
+    pid = client.post("/api/projects", json={"name": "Fat"}).json()["id"]
+    graph = {
+        "notes": [{"id": f"n{i}", "pitch": 40, "startStep": i, "length": 1, "velocity": 0.8} for i in range(220)],
+    }
+    saved = client.put(f"/api/projects/{pid}", json={"graph": graph, "snapshot_label": "Fat"})
+    assert saved.status_code == 200, saved.text
+    snaps = client.get(f"/api/projects/{pid}/snapshots").json()
+    sid = snaps[0]["id"]
+    restored = client.post(f"/api/projects/{pid}/snapshots/{sid}/restore")
+    assert restored.status_code == 200, restored.text
+    body = restored.json()
+    assert "__fd_gzip__" not in (body.get("graph") or {})
+    assert len(body["graph"]["notes"]) == 220

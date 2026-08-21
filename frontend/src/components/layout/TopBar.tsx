@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
-import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
+import { encodeWav, renderLoudness } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
 import { LanguageSelect, t, useI18n, type MsgKey } from "../../i18n";
 import { KEY_OPTIONS } from "../../lib/musicTheory";
 import { arrangeIdForMix } from "../../lib/mix";
 import { durationBars } from "../../lib/renderSpan";
 import { HistoryMenu } from "./HistoryMenu";
+import { RendersMenu } from "./RendersMenu";
 import { PowerOffButton } from "./PowerOffButton";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
@@ -81,6 +82,10 @@ export function TopBar() {
     toggleLibrary,
     toggleDecksFullscreen,
     toggleSessionRec,
+    countInBars,
+    setCountInBars,
+    midiClockOn,
+    setMidiClockOn,
   } = useStudio();
   useI18n((s) => s.locale);
   const name = project?.name ?? t("studio.untitled");
@@ -169,6 +174,7 @@ export function TopBar() {
             {saving ? t("studio.saving") : t("studio.save")}
           </button>
           <HistoryMenu />
+          <RendersMenu />
           <RecordButton />
           <ExportButton />
         </div>
@@ -191,6 +197,24 @@ export function TopBar() {
         >
           {t("studio.midi")}
         </Chip>
+        <Chip
+          active={midiClockOn}
+          title={t("studio.midiClockTitle")}
+          onClick={() => void setMidiClockOn(!midiClockOn)}
+        >
+          {t("studio.midiClock")}
+        </Chip>
+        <label className="flex items-center gap-1 text-[11px] text-zinc-400 shrink-0">
+          {t("studio.countIn")}
+          <input
+            type="number"
+            min={0}
+            max={8}
+            className="w-10 h-7 bg-ink-800 border border-line rounded px-1 font-mono text-xs text-white"
+            value={countInBars}
+            onChange={(e) => setCountInBars(Number(e.target.value) || 0)}
+          />
+        </label>
         <MicButton />
         <Chip title={t("studio.keysTitle")} onClick={() => useStudio.setState({ keymapOpen: true })}>
           {t("studio.keys")}
@@ -356,53 +380,118 @@ function RecordButton() {
 function ExportButton() {
   const project = useStudio((s) => s.project);
   const busy = useStudio((s) => s.renderBusy);
+  const fmt = useStudio((s) => s.bounceFormat);
+  const normalize = useStudio((s) => s.bounceNormalize);
+  const echoOut = useStudio((s) => s.echoOutBounce);
   useI18n((s) => s.locale);
+
+  const bounce = async () => {
+    if (!project || busy) return;
+    useStudio.setState({ renderBusy: true });
+    useStudio.getState().pushToast({ id: "bounce", kind: "info", text: t("toast.bounce"), ttl: 0 });
+    try {
+      await useStudio.getState().bootAudio();
+      const st = useStudio.getState();
+      const range = st.bounceRange;
+      const measured = await renderLoudness({
+        bitDepth: 24,
+        echoOutLastBars: st.echoOutBounce ? 2 : 0,
+        normalizeLufs: st.bounceNormalize ? -14 : null,
+        ...(range ? { startBar: range.startBar, ...(range.lengthBars > 0 ? { lengthBars: range.lengthBars } : {}) } : {}),
+      });
+      const blob = encodeWav(measured.buffer, 24, false);
+      const job = (await api.projects.uploadRender(
+        project.id,
+        blob,
+        "bounce",
+        {
+          bpm: st.bpm,
+          musical_key: st.musicalKey,
+          bytes: blob.size,
+          sampleRate: 48000,
+          channels: 2,
+          bitDepth: 24,
+          format: st.bounceFormat,
+          startBar: range?.startBar ?? 0,
+          lengthBars: range?.lengthBars || null,
+          lufs: measured.lufs,
+          truePeakDb: measured.truePeakDb,
+          normalized: st.bounceNormalize,
+          echoOut: st.echoOutBounce,
+        },
+        st.bounceFormat,
+      )) as { id?: string };
+      const ext = st.bounceFormat === "mp3" ? "mp3" : st.bounceFormat === "flac" ? "flac" : "wav";
+      let fileBlob = blob;
+      if (ext !== "wav" && job?.id) {
+        fileBlob = await api.projects.downloadRender(project.id, job.id);
+      }
+      const url = URL.createObjectURL(fileBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${project.name || "mix"}-bounce.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      useStudio.getState().dismissToast("bounce");
+      const loud = Number.isFinite(measured.lufs)
+        ? t("toast.bounceLoudness", { lufs: measured.lufs.toFixed(1), tp: measured.truePeakDb.toFixed(1) })
+        : t("toast.bounceReady");
+      useStudio.getState().pushToast({ id: "bounce", kind: "ok", text: loud, ttl: 4000 });
+    } catch (err) {
+      await api.projects.render(project.id, "wav");
+      const msg = err instanceof Error ? t("toast.bounceQueuedErr", { msg: err.message }) : t("toast.bounceQueued");
+      useStudio.setState({ error: msg });
+      useStudio.getState().dismissToast("bounce");
+      useStudio.getState().pushToast({ id: "bounce", kind: "warn", text: msg, ttl: 4500 });
+    } finally {
+      useStudio.setState({ renderBusy: false });
+    }
+  };
+
   return (
-    <button
-      type="button"
-      className="h-8 px-3 rounded-md bg-accent text-black text-xs font-semibold disabled:opacity-50"
-      disabled={busy}
-      onClick={async () => {
-        if (!project || busy) return;
-        useStudio.setState({ renderBusy: true });
-        useStudio.getState().pushToast({ id: "bounce", kind: "info", text: t("toast.bounce"), ttl: 0 });
-        try {
-          await useStudio.getState().bootAudio();
-          const range = useStudio.getState().bounceRange;
-          const blob = await renderOfflineWav({
-            bitDepth: 24,
-            ...(range ? { startBar: range.startBar, ...(range.lengthBars > 0 ? { lengthBars: range.lengthBars } : {}) } : {}),
-          });
-          await api.projects.uploadRender(project.id, blob, "bounce", {
-            bpm: useStudio.getState().bpm,
-            musical_key: useStudio.getState().musicalKey,
-            bytes: blob.size,
-            sampleRate: 48000,
-            channels: 2,
-            bitDepth: 24,
-            startBar: range?.startBar ?? 0,
-            lengthBars: range?.lengthBars || null,
-          });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${project.name || "mix"}-bounce.wav`;
-          a.click();
-          URL.revokeObjectURL(url);
-          useStudio.getState().dismissToast("bounce");
-          useStudio.getState().pushToast({ id: "bounce", kind: "ok", text: t("toast.bounceReady"), ttl: 3500 });
-        } catch (err) {
-          await api.projects.render(project.id, "wav");
-          const msg = err instanceof Error ? t("toast.bounceQueuedErr", { msg: err.message }) : t("toast.bounceQueued");
-          useStudio.setState({ error: msg });
-          useStudio.getState().dismissToast("bounce");
-          useStudio.getState().pushToast({ id: "bounce", kind: "warn", text: msg, ttl: 4500 });
-        } finally {
-          useStudio.setState({ renderBusy: false });
-        }
-      }}
-    >
-      {busy ? t("studio.bouncing") : t("studio.bounce")}
-    </button>
+    <div className="flex items-center gap-1">
+      <select
+        className="h-8 bg-ink-800 border border-line rounded-md px-1 text-[11px] text-zinc-200"
+        value={fmt}
+        title={t("studio.bounceFmt")}
+        onChange={(e) => useStudio.getState().setBounceFormat(e.target.value as "wav" | "flac" | "mp3")}
+      >
+        <option value="wav">WAV</option>
+        <option value="flac">FLAC</option>
+        <option value="mp3">MP3</option>
+      </select>
+      <button
+        type="button"
+        title={t("studio.bounceLufsHint")}
+        onClick={() => useStudio.getState().setBounceNormalize(!normalize)}
+        className={`h-8 px-2 rounded-md text-[10px] font-medium ${normalize ? "bg-ink-600 text-cyan" : "bg-ink-700 text-zinc-400"}`}
+      >
+        LUFS
+      </button>
+      <button
+        type="button"
+        title={t("studio.echoOutBounceHint")}
+        onClick={() => useStudio.getState().setEchoOutBounce(!echoOut)}
+        className={`h-8 px-2 rounded-md text-[10px] font-medium ${echoOut ? "bg-ink-600 text-cyan" : "bg-ink-700 text-zinc-400"}`}
+      >
+        {t("studio.echoOutBounce")}
+      </button>
+      <button
+        type="button"
+        title={t("studio.bundleHint")}
+        onClick={() => void useStudio.getState().downloadBundle()}
+        className="h-8 px-2 rounded-md bg-ink-700 text-[10px] font-medium hover:bg-ink-600"
+      >
+        {t("studio.bundle")}
+      </button>
+      <button
+        type="button"
+        className="h-8 px-3 rounded-md bg-accent text-black text-xs font-semibold disabled:opacity-50"
+        disabled={busy}
+        onClick={() => void bounce()}
+      >
+        {busy ? t("studio.bouncing") : t("studio.bounce")}
+      </button>
+    </div>
   );
 }

@@ -9,6 +9,7 @@ import { t } from "../i18n";
 import { beatOffset, matchGainDb, phaseAlignSeek } from "../lib/djMix";
 import { encodeWav, renderOfflineBuffer } from "../audio-engine/offlineRender";
 import { resampleBuffer } from "../audio-engine/wav";
+import { notesToMidi, midiToNotes } from "../lib/midiSmf";
 import { AUDIO_LANE_COLORS, arrangeIdForMix, CORE_LANES, DEFAULT_INSERT_ORDER, ensureSessionClips, isCoreMixId, laneColor, moveInsertOrder, reorderInsert, type InsertKind } from "../lib/mix";
 import { parseAutoTarget } from "../lib/automation";
 import { applyFreeze, applyUnfreeze, type FrozenLane } from "../lib/freeze";
@@ -137,6 +138,8 @@ interface StudioState {
   stemIso: { A: string | null; B: string | null };
   fxReturns: FxReturnsState;
   sessionRec: boolean;
+  sessionRecStartBar: number;
+  sessionRecOwnRecorder: boolean;
   sessionRecOpen: Record<string, { clip: SessionClip; startBar: number }>;
   peers: Array<{ clientId: string; name: string; deck?: string | null }>;
   roomChat: Array<{ clientId: string; name: string; text: string; ts?: number }>;
@@ -216,6 +219,29 @@ interface StudioState {
   flattenLane: (mixId?: string) => Promise<void>;
   setBounceRange: (range: BounceRange | null) => void;
   ingestAudioBlob: (blob: Blob, filename: string, buffer: AudioBuffer) => Promise<AudioFile>;
+  bounceFormat: "wav" | "flac" | "mp3";
+  bounceNormalize: boolean;
+  echoOutBounce: boolean;
+  countInBars: number;
+  loopOn: boolean;
+  midiClockOn: boolean;
+  tempoMap: Array<{ bar: number; bpm: number }>;
+  beatNudgeMs: { A: number; B: number };
+  exportLane: (mixId?: string, opts?: { keepBusy?: boolean }) => Promise<void>;
+  exportAllLanes: () => Promise<void>;
+  setBounceFormat: (fmt: "wav" | "flac" | "mp3") => void;
+  setBounceNormalize: (on: boolean) => void;
+  setEchoOutBounce: (on: boolean) => void;
+  setFollowAction: (trackId: string, scene: number, followBars: number | undefined) => void;
+  setClipAudio: (id: string, patch: Partial<Pick<TimelineClip, "gain" | "reverse" | "transpose" | "audioOffsetSec" | "crossfadeBars">>) => void;
+  importMidiFile: (file: File) => Promise<void>;
+  exportMidiFile: () => void;
+  setCountInBars: (n: number) => void;
+  setLoopOn: (on: boolean) => void;
+  setMidiClockOn: (on: boolean) => Promise<void>;
+  setTempoPoint: (bar: number, bpm: number) => void;
+  nudgeBeatgrid: (side: "A" | "B", ms: number) => void;
+  downloadBundle: () => Promise<void>;
   pushToast: (t: Omit<Toast, "id"> & { id?: string }) => void;
   dismissToast: (id: string) => void;
   setPfl: (side: "A" | "B", on: boolean) => void;
@@ -422,6 +448,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   stemIso: { A: null, B: null },
   fxReturns: { reverb: 0.85, delay: 0.85 },
   sessionRec: false,
+  sessionRecStartBar: 0,
+  sessionRecOwnRecorder: false,
   sessionRecOpen: {},
   peers: [],
   roomChat: [],
@@ -449,6 +477,14 @@ export const useStudio = create<StudioState>((set, get) => ({
   frozenLanes: {},
   bounceRange: null,
   renderBusy: false,
+  bounceFormat: "wav" as const,
+  bounceNormalize: false,
+  echoOutBounce: false,
+  countInBars: 0,
+  loopOn: false,
+  midiClockOn: false,
+  tempoMap: [],
+  beatNudgeMs: { A: 0, B: 0 },
 
   setMode: (mode) => {
     const eng = getEngine();
@@ -594,6 +630,13 @@ export const useStudio = create<StudioState>((set, get) => ({
     eng.arrangeMode = mode === "arrange";
     eng.timeline.clips = get().clips;
     eng.transport.metronome = get().metronome;
+    eng.transport.tempoMap = get().tempoMap;
+    eng.transport.countInSteps = Math.round((get().countInBars || 0) * 16);
+    eng.transport.loopOn = get().loopOn;
+    if (get().bounceRange && get().loopOn) {
+      eng.transport.loopStartStep = Math.round(get().bounceRange!.startBar * 16);
+      eng.transport.loopEndStep = Math.round((get().bounceRange!.startBar + Math.max(0.125, get().bounceRange!.lengthBars || 8)) * 16);
+    }
     if (eng.transport.playing) {
       eng.transport.stop();
       eng.timeline.reset();
@@ -679,6 +722,16 @@ export const useStudio = create<StudioState>((set, get) => ({
       const br = g.bounceRange as BounceRange | null | undefined;
       next.bounceRange =
         br && typeof br.startBar === "number" && typeof br.lengthBars === "number" ? normalizeSpan(br) : null;
+      next.bounceFormat = g.bounceFormat === "flac" || g.bounceFormat === "mp3" ? g.bounceFormat : "wav";
+      next.bounceNormalize = g.bounceNormalize === true;
+      next.echoOutBounce = g.echoOutBounce === true;
+      next.countInBars = typeof g.countInBars === "number" ? Math.max(0, Math.min(8, g.countInBars as number)) : 0;
+      next.loopOn = g.loopOn === true;
+      next.tempoMap = Array.isArray(g.tempoMap)
+        ? (g.tempoMap as Array<{ bar: number; bpm: number }>).filter((p) => p && typeof p.bar === "number" && p.bpm > 20)
+        : [];
+      const nudge = g.beatNudgeMs as { A?: number; B?: number } | undefined;
+      next.beatNudgeMs = { A: Number(nudge?.A) || 0, B: Number(nudge?.B) || 0 };
       if (project.drum_patterns[0] || drums.steps) {
         next.drumSteps = { ...emptySteps(), ...(project.drum_patterns[0]?.steps || drums.steps || {}) };
         next.drumLength = project.drum_patterns[0]?.length || drums.length || 16;
@@ -779,6 +832,13 @@ export const useStudio = create<StudioState>((set, get) => ({
         layout: { aiPanelOpen: s.aiPanelOpen, libraryOpen: s.libraryOpen },
         frozenLanes: s.frozenLanes,
         bounceRange: s.bounceRange,
+        bounceFormat: s.bounceFormat,
+        bounceNormalize: s.bounceNormalize,
+        echoOutBounce: s.echoOutBounce,
+        countInBars: s.countInBars,
+        loopOn: s.loopOn,
+        tempoMap: s.tempoMap,
+        beatNudgeMs: s.beatNudgeMs,
       };
       const patch = (force: boolean) => ({
         name: s.project!.name,
@@ -946,6 +1006,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!ch) return;
     applyStripState(ch, mixer[id]);
     eng.mixer.setSolo(id, mixer[id].solo);
+    if ("busId" in patch) eng.mixer.routeLane(id, mixer[id].busId || null);
   },
 
   selectMix: (id) => set({ selectedMixId: id }),
@@ -1770,6 +1831,168 @@ export const useStudio = create<StudioState>((set, get) => ({
     get().pushToast({ id: "flatten", kind: "ok", text: t("toast.flattenReady", { name: mixLaneName(get(), id) }), ttl: 2800 });
   },
 
+  setBounceFormat: (fmt) => set({ bounceFormat: fmt }),
+  setBounceNormalize: (on) => set({ bounceNormalize: on }),
+  setEchoOutBounce: (on) => set({ echoOutBounce: on }),
+  setFollowAction: (trackId, scene, followBars) => {
+    const sessionClips = get().sessionClips.map((c) =>
+      c.trackId === trackId && c.scene === scene ? { ...c, followBars } : c,
+    );
+    getEngine().launcher.clips = sessionClips;
+    set({ sessionClips });
+  },
+  setCountInBars: (n) => {
+    const countInBars = Math.max(0, Math.min(8, Math.round(n) || 0));
+    set({ countInBars });
+    getEngine().transport.countInSteps = countInBars * 16;
+  },
+  setLoopOn: (on) => {
+    set({ loopOn: on });
+    const eng = getEngine();
+    eng.transport.loopOn = on;
+    const range = get().bounceRange;
+    if (range) {
+      eng.transport.loopStartStep = Math.round(range.startBar * 16);
+      eng.transport.loopEndStep = Math.round((range.startBar + Math.max(0.125, range.lengthBars || 8)) * 16);
+    }
+  },
+  setTempoPoint: (bar, bpm) => {
+    const next = get().tempoMap.filter((p) => p.bar !== bar);
+    if (bpm > 20) next.push({ bar: Math.max(0, bar), bpm });
+    next.sort((a, b) => a.bar - b.bar);
+    set({ tempoMap: next });
+    getEngine().transport.tempoMap = next;
+  },
+  setMidiClockOn: async (on) => {
+    const eng = getEngine();
+    await eng.init();
+    if (!on) {
+      eng.transport.midiClock = null;
+      set({ midiClockOn: false });
+      return;
+    }
+    const access = await navigator.requestMIDIAccess?.({ sysex: false }).catch(() => null);
+    const dest = access ? [...access.outputs.values()][0] : null;
+    eng.transport.midiClock = dest || null;
+    set({ midiClockOn: !!dest });
+    if (!dest) get().pushToast({ id: "clock", kind: "warn", text: t("toast.midiClockNone"), ttl: 2800 });
+  },
+  nudgeBeatgrid: (side, ms) => {
+    const beatNudgeMs = { ...get().beatNudgeMs, [side]: (get().beatNudgeMs[side] || 0) + ms };
+    set({ beatNudgeMs });
+    const file = get().deckFiles[side];
+    const beats = file?.analysis?.beats;
+    if (!beats?.length) return;
+    const shifted = beats.map((b) => b + beatNudgeMs[side] / 1000);
+    getEngine().decks[side].beats = shifted;
+  },
+  setClipAudio: (id, patch) => {
+    const clips = get().clips.map((c) => {
+      if (c.id !== id) return c;
+      const next = { ...c, ...patch };
+      if (typeof patch.crossfadeBars === "number") {
+        const prev = get().clips.filter((x) => x.trackId === c.trackId && x.startBar + x.lengthBars <= c.startBar + 0.001).sort((a, b) => b.startBar - a.startBar)[0];
+        const xfade = Math.max(0, patch.crossfadeBars);
+        next.fadeInBars = xfade;
+        if (prev) {
+          /* fade-out on previous clip applied below */
+        }
+        next.crossfadeBars = xfade;
+      }
+      return next;
+    });
+    const edited = clips.find((c) => c.id === id);
+    if (edited && (patch.crossfadeBars || 0) > 0) {
+      const prev = clips.filter((x) => x.trackId === edited.trackId && x.id !== id && x.startBar < edited.startBar).sort((a, b) => b.startBar - a.startBar)[0];
+      if (prev) {
+        const overlap = Math.min(edited.crossfadeBars || 0, prev.lengthBars / 2);
+        const i = clips.findIndex((c) => c.id === prev.id);
+        if (i >= 0) clips[i] = { ...prev, fadeOutBars: overlap };
+      }
+    }
+    getEngine().timeline.clips = clips;
+    set({ clips, selectedClipId: id });
+  },
+  importMidiFile: async (file) => {
+    const buf = await file.arrayBuffer();
+    const notes = midiToNotes(buf);
+    if (!notes.length) {
+      get().pushToast({ id: "midi", kind: "warn", text: t("toast.midiEmpty"), ttl: 2500 });
+      return;
+    }
+    get().writeNotes(notes);
+    get().pushToast({ id: "midi", kind: "ok", text: t("toast.midiImported", { n: notes.length }), ttl: 2500 });
+  },
+  exportMidiFile: () => {
+    const bytes = notesToMidi(get().notes);
+    const blob = new Blob([Uint8Array.from(bytes)], { type: "audio/midi" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${get().project?.name || "forgedeck"}.mid`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
+  downloadBundle: async () => {
+    const project = get().project;
+    if (!project) return;
+    const blob = await api.projects.bundle(project.id);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${project.name || "forgedeck"}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
+  exportLane: async (mixId, opts) => {
+    const s = get();
+    const id = mixId || s.selectedMixId;
+    if (!s.project) return;
+    if (s.renderBusy && !opts?.keepBusy) return;
+    if (!opts?.keepBusy) set({ renderBusy: true });
+    get().pushToast({ id: "lane-x", kind: "info", text: t("toast.laneExport"), ttl: 0 });
+    try {
+      await get().bootAudio();
+      const buffer = await renderOfflineBuffer({ soloLane: id, bitDepth: 24 });
+      const blob = encodeWav(buffer, 24, false);
+      await api.projects.uploadRender(
+        s.project.id,
+        blob,
+        "lane_export",
+        {
+          mixId: id,
+          bpm: s.bpm,
+          bitDepth: 24,
+        },
+        "wav",
+      );
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${mixLaneName(s, id)}-lane.wav`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      get().dismissToast("lane-x");
+      get().pushToast({ id: "lane-x", kind: "ok", text: t("toast.laneExportReady", { name: mixLaneName(s, id) }), ttl: 2800 });
+    } catch (err) {
+      get().dismissToast("lane-x");
+      get().pushToast({
+        id: "lane-x",
+        kind: "err",
+        text: err instanceof Error ? err.message : t("toast.laneExportFail"),
+        ttl: 4000,
+      });
+    } finally {
+      if (!opts?.keepBusy) set({ renderBusy: false });
+    }
+  },
+  exportAllLanes: async () => {
+    if (get().renderBusy) return;
+    set({ renderBusy: true });
+    try {
+      for (const id of Object.keys(get().mixer)) await get().exportLane(id, { keepBusy: true });
+    } finally {
+      set({ renderBusy: false });
+    }
+  },
+
   dropStemOnPad: async (padId, audioFileId, stem) => {
     await get().bootAudio();
     const buf = await getEngine().prefetch(audioFileId, stem);
@@ -1800,17 +2023,46 @@ export const useStudio = create<StudioState>((set, get) => ({
     for (const rec of Object.values(s.sessionRecOpen)) {
       extra.push(sessionToTimeline(rec.clip, rec.startBar, Math.max(1, bar - rec.startBar)));
     }
-    if (!extra.length) {
-      set({ sessionRec: false, sessionRecOpen: {} });
+    const buffer = s.sessionRecOwnRecorder ? getEngine().stopRecording() : null;
+    set({ sessionRec: false, sessionRecOpen: {}, sessionRecOwnRecorder: false });
+    if (extra.length) {
+      const clips = [...get().clips, ...extra];
+      getEngine().timeline.clips = clips;
+      set({ clips });
+    }
+    if (buffer && buffer.duration > 0.2) {
+      const blob = encodeWav(buffer, 16);
+      const project = get().project;
+      if (project) {
+        void api.projects
+          .uploadRender(project.id, blob, "session_rec", {
+            duration: buffer.duration,
+            startBar: s.sessionRecStartBar,
+            mixId: s.selectedMixId,
+            sampleRate: buffer.sampleRate,
+          })
+          .catch(() => undefined);
+      }
+      void get()
+        .ingestAudioBlob(blob, `${project?.name || "session"}-take.wav`, buffer)
+        .then((file) => {
+          const bars = durationBars(buffer.duration, get().bpm);
+          get().placeLoopOnArrange(arrangeIdForMix(get().selectedMixId), s.sessionRecStartBar, file, null, {
+            lengthBars: bars,
+            name: t("arrange.sessionTake"),
+          });
+        })
+        .catch(() => undefined);
+    }
+    const n = extra.length + (buffer && buffer.duration > 0.2 ? 1 : 0);
+    if (!n) {
+      get().pushToast({ id: "session-rec", kind: "warn", text: t("toast.sessionEmpty"), ttl: 2000 });
       return;
     }
-    const clips = [...s.clips, ...extra];
-    getEngine().timeline.clips = clips;
-    set({ clips, sessionRec: false, sessionRecOpen: {} });
     get().pushToast({
       id: "session-rec",
       kind: "ok",
-      text: t("toast.sessionCaptured", { n: extra.length }),
+      text: t("toast.sessionCaptured", { n }),
       ttl: 2800,
     });
   },
@@ -1828,7 +2080,9 @@ export const useStudio = create<StudioState>((set, get) => ({
     for (const [trackId, clip] of Object.entries(eng.launcher.active)) {
       if (clip && !clip.empty) open[trackId] = { clip, startBar: bar };
     }
-    set({ sessionRec: true, sessionRecOpen: open });
+    const own = !eng.recorder.recording;
+    if (own) eng.startRecording();
+    set({ sessionRec: true, sessionRecOpen: open, sessionRecStartBar: bar, sessionRecOwnRecorder: own });
     if (s.mode !== "session") get().setMode("session");
     if (!s.playing) void get().togglePlay();
     get().pushToast({ id: "session-rec", kind: "info", text: t("toast.sessionRecOn"), ttl: 2200 });
@@ -2031,6 +2285,9 @@ function hydrateEngine(s: StudioState): void {
   eng.mixer.setReturnLevel("delay", s.fxReturns.delay);
   eng.projectKey = s.musicalKey;
   eng.arrangeMode = s.mode === "arrange";
+  eng.transport.tempoMap = s.tempoMap;
+  eng.transport.loopOn = s.loopOn;
+  eng.transport.countInSteps = Math.round((s.countInBars || 0) * 16);
   for (const lane of s.automation) eng.automation.setLane(lane.target, lane.points);
   for (const id of Object.keys(s.mixer)) {
     if (!eng.mixer.channels[id]) eng.mixer.addLane(id);
@@ -2038,6 +2295,7 @@ function hydrateEngine(s: StudioState): void {
     if (!st) continue;
     applyStripState(eng.mixer.channels[id], st);
     eng.mixer.setSolo(id, st.solo);
+    if (st.busId) eng.mixer.routeLane(id, st.busId);
   }
 }
 

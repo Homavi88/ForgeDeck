@@ -10,6 +10,7 @@ import { scheduleAutomationLanes } from "./applyAutomation";
 import { encodeWav, resampleBuffer, type WavBitDepth } from "./wav";
 import { mixerIdForTrack } from "../lib/mix";
 import { laneIsFrozen } from "../lib/freeze";
+import { measureLoudness, normalizeLoudness } from "../lib/loudness";
 import { MAX_RENDER_SEC, laneRenderSpan, mixRenderSpan, normalizeSpan, type RenderSpan } from "../lib/renderSpan";
 import type { MidiNote, SynthParams, TimelineClip } from "../types";
 import { useStudio } from "../store/useStudio";
@@ -25,11 +26,22 @@ export type OfflineRenderOpts = {
   bitDepth?: WavBitDepth;
   /** Offline context rate; default 48000. */
   sampleRate?: number;
+  /** Last N bars: starve insert and raise delay/reverb (echo-out in the bounce). */
+  echoOutLastBars?: number;
+  /** Apply after render, before encode. */
+  normalizeLufs?: number | null;
 };
 
 export async function renderOfflineWav(opts: OfflineRenderOpts = {}): Promise<Blob> {
   const buffer = await renderOfflineBuffer(opts);
-  return encodeWav(buffer, opts.bitDepth ?? 24);
+  if (opts.normalizeLufs != null) normalizeLoudness(buffer, opts.normalizeLufs);
+  return encodeWav(buffer, opts.bitDepth ?? 24, (opts.bitDepth ?? 24) === 16);
+}
+
+export async function renderLoudness(opts: OfflineRenderOpts = {}) {
+  const buffer = await renderOfflineBuffer(opts);
+  if (opts.normalizeLufs != null) return { buffer, ...normalizeLoudness(buffer, opts.normalizeLufs) };
+  return { buffer, ...measureLoudness(buffer) };
 }
 
 export async function renderOfflineBuffer(opts: OfflineRenderOpts = {}): Promise<AudioBuffer> {
@@ -194,6 +206,18 @@ export async function renderOfflineBuffer(opts: OfflineRenderOpts = {}): Promise
     },
   );
 
+  if (!solo && opts.echoOutLastBars && opts.echoOutLastBars > 0) {
+    const when = Math.max(0, windowSec - opts.echoOutLastBars * barSec);
+    for (const id of ["A", "B"] as const) {
+      mixer.channels[id]?.scheduleEchoOut(when);
+    }
+  }
+  if (!solo) {
+    for (const [id, st] of Object.entries(s.mixer)) {
+      if (st?.busId) mixer.routeLane(id, st.busId);
+    }
+  }
+
   return offline.startRendering();
 }
 
@@ -337,6 +361,10 @@ async function scheduleTimelineAudio(
         sourceKey: clip.sourceKey,
         projectKey,
         keyFollow: !!clip.keyFollow,
+        transpose: clip.transpose,
+        gain: clip.gain,
+        reverse: !!clip.reverse,
+        audioOffsetSec: clip.audioOffsetSec,
       },
       false,
       {

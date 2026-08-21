@@ -101,9 +101,22 @@ export function laneColor(id: string, extra: MixLane[] = []): string {
   return hit?.color || "#7aa2ff";
 }
 
-export const SESSION_SCENES = 8;
+export const SESSION_SCENES = 12;
 
-const SESSION_SCENE_NAMES = ["Intro", "Groove", "Drop", "Break", "Drop 2", "Fill", "Outro", "Loop"];
+export const SESSION_SCENE_NAMES = [
+  "Intro",
+  "Groove",
+  "Drop",
+  "Break",
+  "Drop 2",
+  "Fill",
+  "Outro",
+  "Loop",
+  "Bridge",
+  "Build",
+  "Peak",
+  "End",
+];
 
 export function sessionLanes(prodLanes: MixLane[]): MixLane[] {
   return [...CORE_LANES, ...prodLanes];
@@ -123,7 +136,7 @@ export function emptySessionSlot(trackId: string, scene: number, color: string):
   };
 }
 
-/** Keep Session slots in lockstep with Arrange/mixer lanes (8 scenes × each track). */
+/** Keep Session slots in lockstep with Arrange/mixer lanes (12 scenes × each track). */
 export function ensureSessionClips(clips: SessionClip[], prodLanes: MixLane[]): SessionClip[] {
   const lanes = sessionLanes(prodLanes);
   const trackIds = new Set(lanes.map((l) => arrangeIdForMix(l.id)));

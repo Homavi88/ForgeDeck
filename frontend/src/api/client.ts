@@ -95,9 +95,16 @@ export const api = {
         fetch(`${API}/api/projects/${id}/snapshots/${snapshotId}/restore`, withAuth({ method: "POST" })),
       ),
     render: (id: string, format = "wav") => parse(j(`/api/projects/${id}/render`, "POST", { format })),
-    uploadRender: async (id: string, blob: Blob) => {
+    uploadRender: async (
+      id: string,
+      blob: Blob,
+      source: "bounce" | "live_rec" | "session_rec" = "bounce",
+      details: Record<string, unknown> = {},
+    ) => {
       const body = new FormData();
       body.append("file", blob, "mix.wav");
+      body.append("source", source);
+      body.append("details", JSON.stringify(details));
       return parse(fetch(`${API}/api/projects/${id}/render/upload`, withAuth({ method: "POST", body })));
     },
     addTrack: (id: string, name: string, kind = "audio") => parse(j(`/api/projects/${id}/tracks`, "POST", { name, kind })),

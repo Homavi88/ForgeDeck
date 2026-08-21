@@ -1,7 +1,8 @@
 from copy import deepcopy
+import json
 import secrets
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -380,7 +381,7 @@ def render_project(
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
-    job = RenderJob(project_id=project.id, format=payload.format, status="queued")
+    job = RenderJob(project_id=project.id, format=payload.format, source="server_render", status="queued")
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -411,14 +412,31 @@ def render_project(
 @router.post("/{project_id}/render/upload", response_model=RenderJobOut)
 def upload_offline_render(
     file: UploadFile = File(...),
+    source: str = Form("bounce"),
+    details: str = Form("{}"),
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
-    """Accept a WAV produced by the browser OfflineAudioContext mixdown."""
+    """Accept a browser-produced WAV with its recording/bounce provenance."""
     from app.config import get_settings
 
+    if source not in {"bounce", "live_rec", "session_rec"}:
+        raise HTTPException(422, "Unsupported render source")
+    try:
+        parsed_details = json.loads(details) if details else {}
+    except json.JSONDecodeError as exc:
+        raise HTTPException(422, "Render details must be JSON") from exc
+    if not isinstance(parsed_details, dict):
+        raise HTTPException(422, "Render details must be an object")
     settings = get_settings()
-    job = RenderJob(project_id=project.id, format="wav", status="rendering", progress=0.5)
+    job = RenderJob(
+        project_id=project.id,
+        format="wav",
+        source=source,
+        details=parsed_details,
+        status="rendering",
+        progress=0.5,
+    )
     db.add(job)
     db.commit()
     db.refresh(job)

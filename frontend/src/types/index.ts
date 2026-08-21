@@ -82,6 +82,10 @@ export interface TimelineClip {
   sourceKey?: string | null;
   /** Transpose warped audio to project musical_key (Rubber Band). */
   keyFollow?: boolean;
+  /** Linear gain fade-in at clip start (arrangement bars). Audio clips only. */
+  fadeInBars?: number;
+  /** Linear gain fade-out at clip end (arrangement bars). Audio clips only. */
+  fadeOutBars?: number;
 }
 
 export interface DrumSteps {

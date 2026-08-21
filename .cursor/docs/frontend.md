@@ -22,7 +22,7 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
-Graph extras: `prodLanes` (user audio tracks), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert. `Mixer.addLane(id)` кормит master (не xfader). Arrange UI: `ProductionMixer` + `InsertRack`.
+Graph extras: `prodLanes` (user audio tracks), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert, `arrangeZoom` / `arrangeSnap`. Clip JSON: `fadeInBars` / `fadeOutBars`, fractional `startBar`. `Mixer.addLane(id)` кормит master (не xfader). Arrange UI: `ProductionMixer` + `InsertRack`.
 
 Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
 
@@ -48,14 +48,14 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
 - `session` — `SessionPanel` (8 сцен, drop петли, Session rec / Capture)
-- `arrange` — `TimelinePanel` (warp-клипы, waveform, trim handles, drop петли/стемов, **+ Audio track**) + `ProductionMixer` / `InsertRack`
+- `arrange` — `TimelinePanel` (warp-клипы, waveform, trim/fade, snap/zoom, drag на другую дорожку, drop петли/стемов, **+ Audio track**) + `ProductionMixer` / `InsertRack`
 - `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; `StylePackSelect` drums-only)
 - `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; `StylePackSelect` synth-only)
 - `sampler` — `SamplerPanel` (стемы на пады)
 
 `AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы (горизонтальный скролл, `whitespace-nowrap`), Play / BPM / Key / Click, Save / Rec / Bounce; (2) Session rec, undo/redo, MIDI / mic / Keys, тогглы AI / Library / Decks (подсветка = включено, без «Hide …»), язык EN/RU, Share, Выключить. Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.
 
-DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Микс-хелперы (offset, gain match): `lib/djMix.ts`. Camelot-соседи и next-crate: `frontend/src/lib/camelot.ts`. Clip warp math: `lib/clipWarp.ts`. Гаммы/аккорды/arp/strum piano roll: `lib/musicTheory.ts` + `lib/pianoRoll.ts`. MIDI-паттерны и ghost: `graph.midiPatterns` / `activeMidiPatternId` / `ghostNotes` в `useStudio`. Drag трека/стема: `lib/trackDrag.ts`. Graph extras: `fxReturns`, clip `keyFollow` / `sourceBpm` / `stem`.
+DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Микс-хелперы (offset, gain match): `lib/djMix.ts`. Camelot-соседи и next-crate: `frontend/src/lib/camelot.ts`. Clip warp math: `lib/clipWarp.ts`. Clip edit (snap/dup/fade): `lib/clipEdit.ts`. Гаммы/аккорды/arp/strum piano roll: `lib/musicTheory.ts` + `lib/pianoRoll.ts`. MIDI-паттерны и ghost: `graph.midiPatterns` / `activeMidiPatternId` / `ghostNotes` в `useStudio`. Drag трека/стема: `lib/trackDrag.ts`. Graph extras: `fxReturns`, clip `keyFollow` / `sourceBpm` / `stem` / `fadeInBars` / `fadeOutBars`.
 
 ## Коллаб
 
@@ -63,7 +63,7 @@ DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`
 
 ## Клавиатура
 
-См. таблицу в [studio.md](studio.md). Space / Ctrl+S / undo работают во всех режимах; CDJ-клавиши — только DJ.
+См. таблицу в [studio.md](studio.md). Space / Ctrl+S / undo работают во всех режимах; CDJ-клавиши — только DJ; Arrange clip keys (Del / Ctrl+D/C/V) — только `mode === "arrange"`; piano-roll keys — только Synth.
 
 MIDI по умолчанию — карта **Pioneer-ish** (`midiMap.ts` `DEFAULT_MIDI` + backend seed `Pioneer-ish`).
 

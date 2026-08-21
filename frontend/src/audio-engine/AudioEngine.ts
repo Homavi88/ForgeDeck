@@ -101,13 +101,13 @@ export class AudioEngine {
   }
 
   private syncGating(step: number): void {
-    const bar = Math.floor(step / 16);
+    const playBar = step / 16;
     if (this.arrangeMode) {
       const inDrums = this.timeline.clips.some(
-        (c) => c.trackId === "drums" && bar >= c.startBar && bar < c.startBar + c.lengthBars,
+        (c) => c.trackId === "drums" && playBar >= c.startBar && playBar < c.startBar + c.lengthBars,
       );
       const inSynth = this.timeline.clips.some(
-        (c) => c.trackId === "synth" && bar >= c.startBar && bar < c.startBar + c.lengthBars,
+        (c) => c.trackId === "synth" && playBar >= c.startBar && playBar < c.startBar + c.lengthBars,
       );
       this.drums.enabled = inDrums;
       this.piano.enabled = inSynth;
@@ -162,7 +162,14 @@ export class AudioEngine {
       buf = await this.prefetch(audioId, stem);
     }
     const barSec = this.transport.secondsPerStep * 16;
-    const lengthBars = Math.max(1, clip.lengthBars || 4);
+    const lengthBars = Math.max(0.125, clip.lengthBars || 4);
+    const fade =
+      !loop && "fadeInBars" in clip
+        ? {
+            fadeInSec: Math.max(0, (clip as TimelineClip).fadeInBars || 0) * barSec,
+            fadeOutSec: Math.max(0, (clip as TimelineClip).fadeOutBars || 0) * barSec,
+          }
+        : undefined;
     const voice = await scheduleWarpedClip(
       this.ctx,
       buf,
@@ -177,6 +184,7 @@ export class AudioEngine {
         keyFollow: !!clip.keyFollow,
       },
       loop,
+      fade,
     );
     this.clipVoices.push(voice);
   }

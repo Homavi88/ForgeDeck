@@ -14,9 +14,15 @@ export type ClipWarpParams = {
   keyFollow?: boolean | null;
 };
 
+export type ClipFade = {
+  fadeInSec?: number;
+  fadeOutSec?: number;
+};
+
 export type WarpedVoice = {
   source: AudioBufferSourceNode;
   rb: RubberBandWorklet | null;
+  fade: GainNode | null;
   stop: (when?: number) => void;
 };
 
@@ -55,6 +61,30 @@ export async function connectWarpedSource(
   return null;
 }
 
+function scheduleFade(gain: GainNode, when: number, durationSec: number, fade: ClipFade | undefined, loop: boolean): void {
+  const g = gain.gain;
+  const dur = Math.max(0.02, durationSec);
+  let fadeIn = Math.max(0, fade?.fadeInSec || 0);
+  let fadeOut = loop ? 0 : Math.max(0, fade?.fadeOutSec || 0);
+  if (fadeIn + fadeOut > dur) {
+    const s = dur / (fadeIn + fadeOut);
+    fadeIn *= s;
+    fadeOut *= s;
+  }
+  g.cancelScheduledValues(when);
+  if (fadeIn > 0.001) {
+    g.setValueAtTime(0.0001, when);
+    g.linearRampToValueAtTime(1, when + fadeIn);
+  } else {
+    g.setValueAtTime(1, when);
+  }
+  if (fadeOut > 0.001) {
+    const outStart = when + dur - fadeOut;
+    g.setValueAtTime(1, Math.max(when + fadeIn, outStart));
+    g.linearRampToValueAtTime(0.0001, when + dur);
+  }
+}
+
 export async function scheduleWarpedClip(
   ctx: BaseAudioContext,
   buffer: AudioBuffer,
@@ -63,13 +93,17 @@ export async function scheduleWarpedClip(
   durationSec: number,
   params: ClipWarpParams,
   loop: boolean,
+  fade?: ClipFade,
 ): Promise<WarpedVoice> {
   const src = ctx.createBufferSource();
   src.buffer = buffer;
   const rate = clipWarpRate(params);
   const semis = clipWarpSemitones(params);
   if (loop) src.loop = true;
-  const rb = await connectWarpedSource(ctx, src, dest, rate, semis);
+  const fadeGain = ctx.createGain();
+  fadeGain.connect(dest);
+  scheduleFade(fadeGain, when, durationSec, fade, loop);
+  const rb = await connectWarpedSource(ctx, src, fadeGain, rate, semis);
   const play = Math.max(0.02, durationSec);
   src.start(when);
   if (!loop && Number.isFinite(when + play)) {
@@ -82,6 +116,7 @@ export async function scheduleWarpedClip(
   return {
     source: src,
     rb,
+    fade: fadeGain,
     stop: (at?: number) => {
       try {
         src.stop(at);
@@ -91,6 +126,11 @@ export async function scheduleWarpedClip(
       try {
         rb?.disconnect();
         rb?.close();
+      } catch {
+        /* ignore */
+      }
+      try {
+        fadeGain.disconnect();
       } catch {
         /* ignore */
       }

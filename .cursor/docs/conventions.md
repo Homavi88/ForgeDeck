@@ -11,6 +11,7 @@
 | Подпись в UI (EN/RU) | `frontend/src/i18n/en.ts` + `ru.ts`, в компоненте `t("…")` и `useI18n((s) => s.locale)` |
 | Piano roll / гамма / штамп аккордов | `components/synth/PianoRollPanel.tsx`, теория `lib/musicTheory.ts`, операции `lib/pianoRoll.ts`, playback `audio-engine/PianoRoll.ts` |
 | Clip warp (BPM/key) | `lib/clipWarp.ts`, `audio-engine/clipPlayback.ts`, Rubber Band как на деке |
+| Arrange clip edit (snap/dup/fade/zoom) | `lib/clipEdit.ts`, `TimelinePanel.tsx`, `useStudio` clip helpers; fade в `clipPlayback.ts` |
 | FX send / return | `ChannelStrip.sendRev/sendDly`, `Mixer.returnRev/returnDly` |
 | Channel Rack (drums graph/fill) | `components/drums/DrumMachinePanel.tsx` |
 | Electronic style pack | `backend/app/services/style_packs.py` + `GET /api/presets/styles`; apply в `useStudio.applyStylePack`; UI `components/presets/StylePackSelect.tsx` + Settings cards |

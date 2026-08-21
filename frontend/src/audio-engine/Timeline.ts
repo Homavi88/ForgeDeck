@@ -3,7 +3,8 @@ import type { Transport } from "./Transport";
 
 /**
  * Arrangement playback: maps clip start bars onto the transport clock.
- * Clip audio is scheduled when the playhead enters the clip.
+ * Clip audio is scheduled when the playhead reaches the clip's start step
+ * (fractional bars allowed — beat / 8th snap).
  */
 export class TimelineEngine {
   clips: TimelineClip[] = [];
@@ -15,16 +16,21 @@ export class TimelineEngine {
     this.playClip = fn;
   }
 
+  reset(): void {
+    this.fired.clear();
+  }
+
   attach(transport: Transport): void {
     transport.onTick((step, time) => {
-      const bar = Math.floor(step / 16);
+      if (step === 0) this.fired.clear();
       for (const clip of this.clips) {
-        const key = `${clip.id}:${bar}`;
-        if (bar === clip.startBar && !this.fired.has(key)) {
-          this.fired.add(key);
+        const startStep = Math.max(0, Math.round(clip.startBar * 16));
+        if (step === startStep && !this.fired.has(clip.id)) {
+          this.fired.add(clip.id);
           this.playClip?.(clip, time);
         }
       }
+      const bar = Math.floor(step / 16);
       if (bar >= this.bars) this.fired.clear();
     });
   }

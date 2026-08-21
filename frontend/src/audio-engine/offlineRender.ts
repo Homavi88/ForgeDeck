@@ -235,6 +235,10 @@ async function scheduleTimelineAudio(
         keyFollow: !!clip.keyFollow,
       },
       false,
+      {
+        fadeInSec: Math.max(0, clip.fadeInBars || 0) * barSec,
+        fadeOutSec: Math.max(0, clip.fadeOutBars || 0) * barSec,
+      },
     );
   }
 }

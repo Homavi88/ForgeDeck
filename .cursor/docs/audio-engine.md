@@ -46,7 +46,9 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 
 Цикл, hotcue, beat jump, slip, loop roll, scratch platter — в том же классе. Stem rack создаёт отдельные `Deck` на тот же channel input и глушит оригинал. ISO солоит один стем.
 
-Клипы Session/Arrange: `clipPlayback.ts` — `playbackRate = projectBpm / sourceBpm`; Rubber Band `setPitch` держит исходную тональность (как key lock) и при **Key follow** добавляет semitone delta к `musical_key`. Если WASM нет — только playbackRate. WSOLA для клипов не используется.
+Клипы Session/Arrange: `clipPlayback.ts` — `playbackRate = projectBpm / sourceBpm`; Rubber Band `setPitch` держит исходную тональность (как key lock) и при **Key follow** добавляет semitone delta к `musical_key`. Если WASM нет — только playbackRate. WSOLA для клипов не используется. Arrange **fade in/out** — `GainNode` перед каналом (linearRamp); bounce использует те же секунды (`fadeInBars`/`fadeOutBars` × barSec). Session loops fades не ставят.
+
+`TimelineEngine` стартует клип на `round(startBar * 16)` 16th-step, не только на целом такте. Gating drums/synth в arrange сравнивает playhead `step/16` с интервалом клипа (дроби ок). `reset()` при Stop, чтобы клипы снова стреляли с начала.
 
 Прогрев WASM: `AudioEngine.init()` → `warmupRubberBand`.
 
@@ -73,8 +75,8 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 | `Synth` + `PianoRoll` | OSC/ADSR/filter/LFO; `loopSteps` = длина паттерна; note-off не режет ноту, стартующую на том же шаге |
 | `Sampler` | slice на пады; стемы грузятся тем же prefetch |
 | `ClipLauncher` | session scenes; audio слоты loop + warp |
-| `TimelineEngine` | arrange clips; audio warp 1:1 с bounce |
-| `clipPlayback.ts` | shared Rubber Band / playbackRate warp |
+| `TimelineEngine` | arrange clips; fire at fractional start step; audio warp + fade 1:1 с bounce |
+| `clipPlayback.ts` | shared Rubber Band / playbackRate warp + optional clip GainNode fade |
 | `AutomationEngine` | filter/EQ/volume lanes |
 | `LiveRecorder` | MediaRecorder с master |
 | `midiMap.ts` | Pioneer-ish CC map по умолчанию, learn, localStorage |

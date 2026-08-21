@@ -8,7 +8,7 @@
 
 **Session** — clip launcher, 8 сцен (drums / synth / audio). Петлю из library можно бросить на слот — она играет в BPM проекта (warp). **Session rec** (TopBar) пишет запущенные сцены на Arrange; **Capture to arrange** снимает текущие клипы на плейхед.
 
-**Arrange** — клипы на таймлайне (волна из analysis, ручки trim по краям), **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
+**Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, snap bar/beat/1/8, zoom). Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
 
 **Drums** — 16 падов, 16/32/64 шага, paint по сетке (как Channel Rack), graph editor velocity, fill 1/4·1/8·all·offbeat, сдвиг << >>, humanize, swing, save pattern/kit, **Load style drums** (оригинальный шаблон жанра, только сетка), edit lock в коллабе. Shift-клик по имени пада — mute. Клик по паду выбирает ряд для graph editor.
 
@@ -103,6 +103,22 @@ Pitch range на деке: ±8 / ±16 / ±100. Zoom и key lock запомина
 | + / × у Pattern | Новый пустой паттерн / удалить текущий (Ctrl/Cmd+Z) |
 
 A S D F G H J K по-прежнему играют белые клавиши синтеза, если нет Ctrl/Cmd/Alt.
+
+## Горячие клавиши (режим Arrange)
+
+| Клавиша | Действие |
+| --- | --- |
+| Клик | Выбрать клип |
+| Drag | Сдвиг по сетке; на другую дорожку — смена track |
+| Alt-drag | Копия на целевую дорожку / позицию |
+| Double-click | Разрезать по playhead (snap) |
+| Края / треугольники | Trim / fade in-out |
+| Del / Backspace | Удалить выбранный |
+| Ctrl/Cmd+D | Дублировать сразу после исходного |
+| Ctrl/Cmd+C / V | Копировать / вставить на playhead выбранной дорожки |
+| ← / → | Сдвиг на один snap |
+
+Не в INPUT. В Synth те же Ctrl+D/C/V относятся к нотам piano roll.
 
 ## Demo
 

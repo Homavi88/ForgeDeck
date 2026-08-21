@@ -101,3 +101,35 @@ def test_persist_extra_mixer_lane(client):
     assert "t-audio01" in names
     again = client.put(f"/api/projects/{pid}", json={"graph": graph})
     assert again.status_code == 200, again.text
+
+
+def test_persist_arrange_clip_edits(client):
+    pid = client.post("/api/projects", json={"name": "Clips"}).json()["id"]
+    graph = {
+        "arrangeZoom": 2,
+        "arrangeSnap": 0.25,
+        "timeline": {
+            "clips": [
+                {
+                    "id": "c-fade",
+                    "trackId": "synth",
+                    "name": "Bass",
+                    "startBar": 0.25,
+                    "lengthBars": 4,
+                    "color": "#3dfff3",
+                    "kind": "audio",
+                    "fadeInBars": 0.25,
+                    "fadeOutBars": 0.5,
+                }
+            ]
+        },
+    }
+    res = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert res.status_code == 200, res.text
+    saved = client.get(f"/api/projects/{pid}").json()["graph"]
+    assert saved["arrangeZoom"] == 2
+    assert saved["arrangeSnap"] == 0.25
+    clip = saved["timeline"]["clips"][0]
+    assert clip["startBar"] == 0.25
+    assert clip["fadeInBars"] == 0.25
+    assert clip["fadeOutBars"] == 0.5

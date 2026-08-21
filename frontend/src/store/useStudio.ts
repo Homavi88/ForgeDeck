@@ -6,7 +6,7 @@ import { applyStripState } from "../audio-engine/stripState";
 import type { XfaderCurve } from "../audio-engine/utils";
 import { t } from "../i18n";
 import { beatOffset, matchGainDb, phaseAlignSeek } from "../lib/djMix";
-import { AUDIO_LANE_COLORS, isCoreMixId, laneColor } from "../lib/mix";
+import { AUDIO_LANE_COLORS, arrangeIdForMix, isCoreMixId, laneColor } from "../lib/mix";
 import type {
   AIAction,
   AudioFile,
@@ -27,6 +27,18 @@ import type {
   SynthParams,
   TimelineClip,
 } from "../types";
+import {
+  clampFades,
+  cloneClipTo,
+  duplicateClip,
+  minClipLength,
+  normalizeSnap,
+  normalizeZoom,
+  snapBar,
+  splitClipAt,
+  type ArrangeSnap,
+  type ArrangeZoom,
+} from "../lib/clipEdit";
 import { loopLengthBars } from "../lib/clipWarp";
 
 type Snapshot = {
@@ -86,6 +98,10 @@ interface StudioState {
   mixer: Record<string, MixerStripState>;
   prodLanes: MixLane[];
   selectedMixId: string;
+  selectedClipId: string | null;
+  arrangeZoom: ArrangeZoom;
+  arrangeSnap: ArrangeSnap;
+  clipClipboard: TimelineClip | null;
   drumSteps: DrumSteps;
   drumLength: number;
   drumSwing: number;
@@ -196,6 +212,20 @@ interface StudioState {
   noteSessionLaunch: (trackId: string, clip: SessionClip | null) => void;
   toggleClipKeyFollow: (id: string, where: "timeline" | "session") => void;
   setFxReturns: (patch: Partial<FxReturnsState>) => void;
+  writeClips: (clips: TimelineClip[], opts?: { undo?: boolean; selectedClipId?: string | null }) => void;
+  selectClip: (id: string | null) => void;
+  setArrangeZoom: (z: ArrangeZoom) => void;
+  setArrangeSnap: (s: ArrangeSnap) => void;
+  duplicateSelectedClip: () => void;
+  copySelectedClip: () => void;
+  pasteClip: () => void;
+  deleteSelectedClip: () => void;
+  moveClip: (id: string, startBar: number, trackId?: string) => void;
+  trimClip: (id: string, startBar: number, lengthBars: number) => void;
+  copyClipToTrack: (id: string, startBar: number, trackId: string) => void;
+  splitClipAtPlayhead: (id: string) => void;
+  setClipFades: (id: string, fadeInBars: number, fadeOutBars: number) => void;
+  nudgeSelectedClip: (deltaBars: number) => void;
 }
 
 const channelState = (): MixerStripState => ({
@@ -304,6 +334,10 @@ export const useStudio = create<StudioState>((set, get) => ({
   mixer: { A: channelState(), B: channelState(), drums: channelState(), synth: channelState() },
   prodLanes: [],
   selectedMixId: "A",
+  selectedClipId: null,
+  arrangeZoom: 1,
+  arrangeSnap: 0.25,
+  clipClipboard: null,
   drumSteps: emptySteps(),
   drumLength: 16,
   drumSwing: 0.08,
@@ -496,6 +530,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     eng.transport.metronome = get().metronome;
     if (eng.transport.playing) {
       eng.transport.stop();
+      eng.timeline.reset();
       eng.stopClips();
       eng.synth.allOff();
       if (get().sessionRec) get().flushSessionRec();
@@ -567,6 +602,9 @@ export const useStudio = create<StudioState>((set, get) => ({
         }
       }
       next.selectedMixId = typeof g.selectedMixId === "string" ? g.selectedMixId : "A";
+      next.arrangeZoom = normalizeZoom(g.arrangeZoom);
+      next.arrangeSnap = normalizeSnap(g.arrangeSnap);
+      next.selectedClipId = null;
       if (project.drum_patterns[0] || drums.steps) {
         next.drumSteps = { ...emptySteps(), ...(project.drum_patterns[0]?.steps || drums.steps || {}) };
         next.drumLength = project.drum_patterns[0]?.length || drums.length || 16;
@@ -644,6 +682,8 @@ export const useStudio = create<StudioState>((set, get) => ({
           mixer: s.mixer,
           prodLanes: s.prodLanes,
           selectedMixId: s.selectedMixId,
+          arrangeZoom: s.arrangeZoom,
+          arrangeSnap: s.arrangeSnap,
           crossfader: s.crossfader,
           xfaderCurve: s.xfaderCurve,
           notes: s.notes,
@@ -1374,7 +1414,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       id: crypto.randomUUID(),
       trackId,
       name: stem ? `${stem} · ${file.original_filename}` : file.original_filename,
-      startBar: Math.max(0, startBar),
+      startBar: snapBar(startBar, get().arrangeSnap),
       lengthBars: loopLengthBars(src?.duration, src?.bpm),
       color: laneColor(trackId, get().prodLanes),
       kind: "audio",
@@ -1386,7 +1426,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     };
     const clips = [...get().clips, clip];
     getEngine().timeline.clips = clips;
-    set({ clips });
+    set({ clips, selectedClipId: clip.id });
     void get().bootAudio().then(() => {
       void getEngine().prefetch(file.id, stem);
     });
@@ -1490,6 +1530,125 @@ export const useStudio = create<StudioState>((set, get) => ({
     const sessionClips = get().sessionClips.map((c) => (c.id === id ? { ...c, keyFollow: !c.keyFollow } : c));
     getEngine().launcher.clips = sessionClips;
     set({ sessionClips });
+  },
+
+  writeClips: (clips, opts) => {
+    if (opts?.undo) get().pushUndo();
+    getEngine().timeline.clips = clips;
+    const patch: Partial<StudioState> = { clips };
+    if (opts && "selectedClipId" in opts) patch.selectedClipId = opts.selectedClipId ?? null;
+    set(patch);
+  },
+
+  selectClip: (id) => set({ selectedClipId: id }),
+
+  setArrangeZoom: (z) => set({ arrangeZoom: normalizeZoom(z) }),
+
+  setArrangeSnap: (s) => set({ arrangeSnap: normalizeSnap(s) }),
+
+  duplicateSelectedClip: () => {
+    const { clips, selectedClipId } = get();
+    const src = clips.find((c) => c.id === selectedClipId);
+    if (!src) return;
+    const next = duplicateClip(src);
+    get().writeClips([...clips, next], { undo: true, selectedClipId: next.id });
+  },
+
+  copySelectedClip: () => {
+    const { clips, selectedClipId } = get();
+    const src = clips.find((c) => c.id === selectedClipId);
+    if (!src) return;
+    set({ clipClipboard: { ...src } });
+  },
+
+  pasteClip: () => {
+    const s = get();
+    if (!s.clipClipboard) return;
+    const playBar = snapBar(s.currentStep / 16, s.arrangeSnap);
+    const trackId = arrangeIdForMix(s.selectedMixId);
+    const next = cloneClipTo(s.clipClipboard, playBar, trackId);
+    next.color = laneColor(trackId, s.prodLanes);
+    get().writeClips([...s.clips, next], { undo: true, selectedClipId: next.id });
+  },
+
+  deleteSelectedClip: () => {
+    const { clips, selectedClipId } = get();
+    if (!selectedClipId || !clips.some((c) => c.id === selectedClipId)) return;
+    get().writeClips(
+      clips.filter((c) => c.id !== selectedClipId),
+      { undo: true, selectedClipId: null },
+    );
+  },
+
+  moveClip: (id, startBar, trackId) => {
+    const { clips, arrangeSnap, prodLanes } = get();
+    const snap = arrangeSnap;
+    const next = clips.map((c) => {
+      if (c.id !== id) return c;
+      const patch: TimelineClip = { ...c, startBar: snapBar(startBar, snap) };
+      if (trackId && trackId !== c.trackId) {
+        patch.trackId = trackId;
+        patch.color = laneColor(trackId, prodLanes);
+      }
+      return patch;
+    });
+    getEngine().timeline.clips = next;
+    set({ clips: next, selectedClipId: id });
+  },
+
+  trimClip: (id, startBar, lengthBars) => {
+    const snap = get().arrangeSnap;
+    const minLen = minClipLength(snap);
+    const next = get().clips.map((c) => {
+      if (c.id !== id) return c;
+      const start = snapBar(Math.max(0, startBar), snap);
+      const rawEnd = Math.max(start + minLen, startBar + lengthBars);
+      const end = snapBar(rawEnd, snap);
+      const length = Math.max(minLen, end - start);
+      const fades = clampFades(length, c.fadeInBars, c.fadeOutBars);
+      return { ...c, startBar: start, lengthBars: length, ...fades };
+    });
+    getEngine().timeline.clips = next;
+    set({ clips: next, selectedClipId: id });
+  },
+
+  copyClipToTrack: (id, startBar, trackId) => {
+    const { clips, arrangeSnap, prodLanes } = get();
+    const src = clips.find((c) => c.id === id);
+    if (!src) return;
+    const next = cloneClipTo(src, snapBar(startBar, arrangeSnap), trackId);
+    next.color = laneColor(trackId, prodLanes);
+    get().writeClips([...clips, next], { undo: true, selectedClipId: next.id });
+  },
+
+  splitClipAtPlayhead: (id) => {
+    const s = get();
+    const at = snapBar(s.currentStep / 16, s.arrangeSnap);
+    const src = s.clips.find((c) => c.id === id);
+    if (!src) return;
+    const parts = splitClipAt(src, at);
+    if (!parts) return;
+    get().writeClips(
+      s.clips.flatMap((c) => (c.id === id ? parts : [c])),
+      { undo: true, selectedClipId: parts[0].id },
+    );
+  },
+
+  setClipFades: (id, fadeInBars, fadeOutBars) => {
+    const next = get().clips.map((c) => {
+      if (c.id !== id) return c;
+      return { ...c, ...clampFades(c.lengthBars, fadeInBars, fadeOutBars) };
+    });
+    getEngine().timeline.clips = next;
+    set({ clips: next, selectedClipId: id });
+  },
+
+  nudgeSelectedClip: (deltaBars) => {
+    const { clips, selectedClipId } = get();
+    const src = clips.find((c) => c.id === selectedClipId);
+    if (!src) return;
+    get().pushUndo();
+    get().moveClip(src.id, src.startBar + deltaBars);
   },
 }));
 

@@ -10,7 +10,7 @@
 | Кнопка на деке / mixer | `components/dj/*`, стейт в `useStudio.ts` |
 | Подпись в UI (EN/RU) | `frontend/src/i18n/en.ts` + `ru.ts`, в компоненте `t("…")` и `useI18n((s) => s.locale)` |
 | Piano roll / гамма / штамп аккордов | `components/synth/PianoRollPanel.tsx`, теория `lib/musicTheory.ts`, операции `lib/pianoRoll.ts`, playback `audio-engine/PianoRoll.ts` |
-| Clip warp (BPM/key) | `lib/clipWarp.ts`, `audio-engine/clipPlayback.ts`, Rubber Band как на деке |
+| Clip warp (BPM/key + markers) | `lib/clipWarp.ts`, `audio-engine/clipPlayback.ts`, Rubber Band как на деке; Arrange diamonds in `TimelinePanel` |
 | Arrange clip edit (snap/dup/fade/zoom) | `lib/clipEdit.ts`, `TimelinePanel.tsx`, `useStudio` clip helpers; fade в `clipPlayback.ts` |
 | Freeze / flatten / bounce range / lane export / LUFS | `lib/freeze.ts`, `lib/renderSpan.ts`, `lib/loudness.ts`, `audio-engine/wav.ts` + `offlineRender.ts`; store `frozenLanes` / `bounceRange` |
 | SMF MIDI | `lib/midiSmf.ts` + piano roll import/export |

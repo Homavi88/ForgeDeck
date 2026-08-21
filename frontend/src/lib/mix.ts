@@ -118,6 +118,22 @@ export const SESSION_SCENE_NAMES = [
   "End",
 ];
 
+/** Tint for scene launch buttons (same order as SESSION_SCENE_NAMES). */
+export const SESSION_SCENE_COLORS = [
+  "#5b8def",
+  "#3dff7a",
+  "#ff6a00",
+  "#b07cff",
+  "#ffd23f",
+  "#ff6ad5",
+  "#7aa2ff",
+  "#3dffc5",
+  "#c8ff3d",
+  "#ff9a3d",
+  "#ff4d6d",
+  "#94a3b8",
+];
+
 export function sessionLanes(prodLanes: MixLane[]): MixLane[] {
   return [...CORE_LANES, ...prodLanes];
 }

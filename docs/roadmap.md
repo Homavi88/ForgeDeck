@@ -23,17 +23,17 @@ DJ must-have с клавиатурой, library search, drag на деку, PFL,
 
 - ~~**Локаторы / loop range**~~ Bounce from/bars + Arrange **Loop range** on Transport.
 - ~~**Tempo map**~~ points `{bar, bpm}` (`Tempo @ from` writes current BPM at Bounce-from). Meter changes are not in.
-- **Warp-маркеры** на аудио (транзиенты) — clip **offset** is a stand-in, not a marker list.
+- ~~**Warp-маркеры** на аудио (транзиенты)~~ Arrange **Warp** seeds from analysis onsets (else beats); drag diamonds (`destBar`). Reverse and Session loops stay uniform BPM. Rubber Band still per segment — not a marker editor on reverse.
 - ~~**Clip gain / reverse / transpose**~~ + **crossfade** onto the previous clip on that track.
-- ~~**Automation стрипа**~~ volume / filter / EQ-low / **pan / send rev / send dly**. Wet/bypass per insert still not drawn. Filter LP↔HP on bounce is still approximate.
+- ~~**Automation стрипа**~~ volume / filter / EQ-low / **pan / send rev / send dly** / **delay wet / reverb wet**. Bypass per insert still not drawn. Filter LP↔HP on bounce is still approximate.
 - **Несколько инструментов** — второй synth, второй drum rack, sampler как Arrange-инструмент. Сейчас один synth + один 16-pad kit на весь проект.
 - ~~**MIDI import/export**~~ Standard MIDI File on the piano roll.
-- ~~**Count-in / pre-roll**~~ TopBar bars (0–8) + metronome; not cue-only click.
+- ~~**Count-in / pre-roll**~~ TopBar bars (0–8) + metronome; **Cue** checkbox routes the click to headphones (`cueBus`).
 - ~~**Группы / шины**~~ extra `prodLanes` can route into another extra lane (`busId`). A/B stay on the xfader.
 
 ### Session
 
-- ~~Больше 8 сцен, имена, follow actions~~ 12 scenes, stock names, follow-bars → next scene.
+- ~~Больше 8 сцен, имена, follow actions~~ 12 scenes, stock names + **colors**, follow-bars → next scene.
 - ~~Session rec как audio takes~~ master take on the selected Arrange lane **plus** launcher clips → Arrange.
 
 ### DJ → продакшен

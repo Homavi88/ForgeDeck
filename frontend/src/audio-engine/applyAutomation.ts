@@ -56,6 +56,22 @@ export function writeAutomationValue(mixer: Mixer, target: string, value: number
     const v = Math.max(0, Math.min(1, value));
     if (timed) ch.sendDly.gain.setValueAtTime(v, when);
     else ch.setSendDly(v);
+    return;
+  }
+  if (parsed.kind === "delayWet") {
+    const v = Math.max(0, Math.min(1, value));
+    if (timed) ch.fx.delay.wet.gain.setValueAtTime(v, when);
+    else ch.fx.delay.wet.gain.value = v;
+    return;
+  }
+  if (parsed.kind === "reverbWet") {
+    const v = Math.max(0, Math.min(1, value));
+    if (timed) {
+      ch.fx.reverb.wet.gain.setValueAtTime(v, when);
+      ch.fx.reverb.tapeWet.gain.setValueAtTime(v * 0.22, when);
+    } else {
+      ch.fx.reverb.setWet(v);
+    }
   }
 }
 
@@ -117,5 +133,15 @@ function rampKind(
   }
   if (kind === "sendDly") {
     ch.sendDly.gain.linearRampToValueAtTime(Math.max(0, Math.min(1, value)), when);
+    return;
+  }
+  if (kind === "delayWet") {
+    ch.fx.delay.wet.gain.linearRampToValueAtTime(Math.max(0, Math.min(1, value)), when);
+    return;
+  }
+  if (kind === "reverbWet") {
+    const v = Math.max(0, Math.min(1, value));
+    ch.fx.reverb.wet.gain.linearRampToValueAtTime(v, when);
+    ch.fx.reverb.tapeWet.gain.linearRampToValueAtTime(v * 0.22, when);
   }
 }

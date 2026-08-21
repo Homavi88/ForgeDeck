@@ -365,6 +365,8 @@ async function scheduleTimelineAudio(
         gain: clip.gain,
         reverse: !!clip.reverse,
         audioOffsetSec: clip.audioOffsetSec,
+        warpMarkers: clip.warpMarkers,
+        lengthBars: clip.lengthBars,
       },
       false,
       {

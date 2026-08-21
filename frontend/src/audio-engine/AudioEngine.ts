@@ -72,6 +72,7 @@ export class AudioEngine {
     this.ctx = new AudioContext();
     this.transport = new Transport(this.ctx);
     this.mixer = new Mixer(this.ctx, this.ctx.destination);
+    this.transport.clickDest = this.mixer.cueBus;
     this.decks = {
       A: new Deck(this.ctx, this.mixer.channels.A.input),
       B: new Deck(this.ctx, this.mixer.channels.B.input),
@@ -216,6 +217,8 @@ export class AudioEngine {
         gain: "gain" in clip ? tl.gain : 1,
         reverse: "reverse" in clip ? !!tl.reverse : false,
         audioOffsetSec: "audioOffsetSec" in clip ? tl.audioOffsetSec : 0,
+        warpMarkers: "warpMarkers" in clip ? tl.warpMarkers : undefined,
+        lengthBars,
       },
       loop,
       fade,

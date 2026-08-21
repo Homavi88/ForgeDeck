@@ -45,7 +45,9 @@ export function AutomationLane({
     if (kind === "eqLow") return t("arrange.autoEqLow");
     if (kind === "pan") return t("arrange.autoPan");
     if (kind === "sendRev") return t("arrange.autoSendRev");
-    return t("arrange.autoSendDly");
+    if (kind === "sendDly") return t("arrange.autoSendDly");
+    if (kind === "delayWet") return t("arrange.autoDelayWet");
+    return t("arrange.autoReverbWet");
   };
 
   const mixName = (mixId: string) => {

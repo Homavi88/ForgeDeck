@@ -98,6 +98,8 @@ export interface TimelineClip {
   audioOffsetSec?: number;
   /** Overlap fade with the previous clip on the same track (bars). */
   crossfadeBars?: number;
+  /** Piecewise warp markers (source seconds ↔ clip-local bars). Empty = uniform BPM warp. */
+  warpMarkers?: import("../lib/clipWarp").WarpMarker[];
 }
 
 export interface DrumSteps {

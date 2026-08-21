@@ -64,8 +64,8 @@
 - [x] Rec places the take on the selected Arrange lane
 - [x] Bounce range (Arrange from/bars) + 24-bit / 48 kHz WAV (no dither)
 - [x] Per-lane / batch insert-rack export; Renders browser; Bounce WAV/FLAC/MP3 + LUFS/true peak + TPDF on 16-bit
-- [x] Arrange loop range, clip gain/reverse/transpose/offset/crossfade, pan/send automation, SMF MIDI I/O, count-in
-- [x] 12 session scenes + names + follow actions; session rec audio take
+- [x] Arrange loop range, clip gain/reverse/transpose/offset/crossfade, pan/send/insert-wet automation, SMF MIDI I/O, count-in, cue-only click
+- [x] 12 session scenes + names + colors + follow actions; session rec audio take
 - [x] Deck hotcues 1–8, beatgrid nudge, bounce echo-out, MIDI clock (not Ableton Link)
 - [x] Extra-lane buses, collab prodLanes/automation, gzip History snapshots, project zip bundle
 - [x] Production auth (`APP_ENV=production`), password change, JWT ≤24 h in prod, CI pytest + npm build
@@ -76,6 +76,6 @@
 - [x] Bounce 1:1 — same ChannelStrip + analog/convolution plugins as the live desk (not bit-identical sample-for-sample vs a hardware CDJ)
 - [ ] Ableton Link (browser has no official Link; MIDI clock is JS timing only)
 - [ ] Second synth / second drum rack / VST-AU host
-- [ ] Transient warp markers (clip offset is the stand-in, not a marker list)
+- [x] Transient warp markers on Arrange audio clips (seed from onsets/beats; reverse/session loop stay uniform BPM)
 - [ ] NSIS code signing / auto-update (needs a cert; SmartScreen will warn without it)
 

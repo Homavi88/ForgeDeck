@@ -20,6 +20,9 @@ export class Transport {
   countInSteps = 0;
   tempoMap: Array<{ bar: number; bpm: number }> = [];
   midiClock: MIDIOutput | null = null;
+  /** Headphones cue bus; used when `clickCueOnly` so the click is not on the master. */
+  clickDest: AudioNode | null = null;
+  clickCueOnly = false;
   private nextNoteTime = 0;
   private timer: number | null = null;
   private listeners = new Set<TickHandler>();
@@ -95,7 +98,8 @@ export class Transport {
     osc.frequency.value = downbeat ? 1200 : 800;
     g.gain.setValueAtTime(0.15, time);
     g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-    osc.connect(g).connect(this.ctx.destination);
+    const dest = this.clickCueOnly && this.clickDest ? this.clickDest : this.ctx.destination;
+    osc.connect(g).connect(dest);
     osc.start(time);
     osc.stop(time + 0.06);
     this.click = osc;

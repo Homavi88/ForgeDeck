@@ -67,6 +67,7 @@ export function TopBar() {
     togglePlay,
     playing,
     metronome,
+    clickCueOnly,
     save,
     saving,
     setMode,
@@ -163,6 +164,17 @@ export function TopBar() {
             }}
           />
           {t("studio.click")}
+        </label>
+        <label className="flex items-center gap-1.5 text-[11px] text-zinc-400 shrink-0" title={t("studio.clickCueTitle")}>
+          <input
+            type="checkbox"
+            checked={clickCueOnly}
+            onChange={(e) => {
+              useStudio.setState({ clickCueOnly: e.target.checked });
+              getEngine().transport.clickCueOnly = e.target.checked;
+            }}
+          />
+          {t("studio.clickCue")}
         </label>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">

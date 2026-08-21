@@ -22,7 +22,7 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
-Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session), `selectedMixId`, mixer keys beyond A/B/drums/synth (`busId` routes extra lanes into another extra lane), `bypass` per insert, `insertOrder` (serial ChannelStrip devices), `arrangeZoom` / `arrangeSnap`, `frozenLanes` (pre-freeze clips per mixer id), `bounceRange` (`startBar` / `lengthBars`, omitted = full mix), `bounceFormat` / `bounceNormalize` / `echoOutBounce`, `tempoMap`, `loopOn`, `countInBars`. Clip JSON: `fadeInBars` / `fadeOutBars`, `gain` / `reverse` / `transpose` / `audioOffsetSec` / `crossfadeBars`, `frozen`, fractional `startBar`. Session graph `session[]` slots are filled to **12** scenes × every lane via `ensureSessionClips` (`followBars` optional). `Mixer.addLane(id)` кормит master (не xfader). Arrange/Session UI: `ProductionMixer` + `InsertRack` (reorder = live graph). Freeze/Flatten/Unfreeze live in the Arrange toolbar and Console. **Renders** menu lists Bounce/Rec/exports.
+Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session), `selectedMixId`, mixer keys beyond A/B/drums/synth (`busId` routes extra lanes into another extra lane), `bypass` per insert, `insertOrder` (serial ChannelStrip devices), `arrangeZoom` / `arrangeSnap`, `frozenLanes` (pre-freeze clips per mixer id), `bounceRange` (`startBar` / `lengthBars`, omitted = full mix), `bounceFormat` / `bounceNormalize` / `echoOutBounce`, `tempoMap`, `loopOn`, `countInBars`. Clip JSON: `fadeInBars` / `fadeOutBars`, `gain` / `reverse` / `transpose` / `audioOffsetSec` / `crossfadeBars`, `warpMarkers` (`{srcSec, destBar}`), `frozen`, fractional `startBar`. Session graph `session[]` slots are filled to **12** scenes × every lane via `ensureSessionClips` (`followBars` optional). `Mixer.addLane(id)` кормит master (не xfader). Arrange/Session UI: `ProductionMixer` + `InsertRack` (reorder = live graph). Freeze/Flatten/Unfreeze live in the Arrange toolbar and Console. **Renders** menu lists Bounce/Rec/exports.
 
 Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
 
@@ -47,13 +47,13 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 `StudioPage` переключает `mode`:
 
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
-- `session` — `SessionPanel` (**12** сцен, имена, follow-bars, drop петли, Session rec / Capture + audio take, **+ Audio track**, `ProductionMixer`)
-- `arrange` — `TimelinePanel` (warp-клипы, waveform, trim/fade/gain/reverse/transpose/offset/xfade, snap/zoom, loop range, tempo map point, drag на другую дорожку, drop петли/стемов, **Freeze/Flatten**, **bounce from/bars**, **export lane/all**, **рисование automation** включая pan/sends) + `ProductionMixer` / `InsertRack`
+- `session` — `SessionPanel` (**12** сцен, имена + цвета, follow-bars, drop петли, Session rec / Capture + audio take, **+ Audio track**, `ProductionMixer`)
+- `arrange` — `TimelinePanel` (warp-клипы + **warp markers**, waveform, trim/fade/gain/reverse/transpose/offset/xfade, snap/zoom, loop range, tempo map point, drag на другую дорожку, drop петли/стемов, **Freeze/Flatten**, **bounce from/bars**, **export lane/all**, **рисование automation** включая pan/sends/insert wet) + `ProductionMixer` / `InsertRack`
 - `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum, **SMF import/export**; `StylePackSelect` synth-only)
 - `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; `StylePackSelect` drums-only)
 - `sampler` — `SamplerPanel` (стемы на пады)
 
-`AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы, Play / BPM / Key / Click, Save / **History** / **Renders** / Rec / Bounce (format, LUFS, echo-out, zip); (2) Session rec, undo/redo, MIDI / **MIDI clock** / **count-in** / mic / Keys, тогглы AI / Library / Decks, язык EN/RU, Share, Выключить.
+`AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы, Play / BPM / Key / Click / **Cue** (click → cue bus), Save / **History** / **Renders** / Rec / Bounce (format, LUFS, echo-out, zip); (2) Session rec, undo/redo, MIDI / **MIDI clock** / **count-in** / mic / Keys, тогглы AI / Library / Decks, язык EN/RU, Share, Выключить.
 
 DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`, не в INPUT). Микс-хелперы (offset, gain match): `lib/djMix.ts`. Camelot-соседи и next-crate: `frontend/src/lib/camelot.ts`. Clip warp math: `lib/clipWarp.ts`. Clip edit (snap/dup/fade): `lib/clipEdit.ts`. Automation targets/draw: `lib/automation.ts` + `audio-engine/applyAutomation.ts`. Гаммы/аккорды/arp/strum piano roll: `lib/musicTheory.ts` + `lib/pianoRoll.ts`. MIDI-паттерны и ghost: `graph.midiPatterns` / `activeMidiPatternId` / `ghostNotes` в `useStudio`. Drag трека/стема: `lib/trackDrag.ts`. Graph extras: `fxReturns`, clip `keyFollow` / `sourceBpm` / `stem` / `fadeInBars` / `fadeOutBars`.
 

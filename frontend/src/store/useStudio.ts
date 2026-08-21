@@ -101,6 +101,7 @@ interface StudioState {
   bpm: number;
   musicalKey: string;
   metronome: boolean;
+  clickCueOnly: boolean;
   playing: boolean;
   masterLevel: number;
   levels: Record<string, number>;
@@ -233,7 +234,7 @@ interface StudioState {
   setBounceNormalize: (on: boolean) => void;
   setEchoOutBounce: (on: boolean) => void;
   setFollowAction: (trackId: string, scene: number, followBars: number | undefined) => void;
-  setClipAudio: (id: string, patch: Partial<Pick<TimelineClip, "gain" | "reverse" | "transpose" | "audioOffsetSec" | "crossfadeBars">>) => void;
+  setClipAudio: (id: string, patch: Partial<Pick<TimelineClip, "gain" | "reverse" | "transpose" | "audioOffsetSec" | "crossfadeBars" | "warpMarkers">>) => void;
   importMidiFile: (file: File) => Promise<void>;
   exportMidiFile: () => void;
   setCountInBars: (n: number) => void;
@@ -407,6 +408,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   bpm: 120,
   musicalKey: "C minor",
   metronome: false,
+  clickCueOnly: false,
   playing: false,
   masterLevel: 0,
   levels: { A: 0, B: 0, drums: 0, synth: 0 },
@@ -621,6 +623,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         if (b.buffer) b.play();
         if (!a.buffer && !b.buffer) {
           eng.transport.metronome = get().metronome;
+          eng.transport.clickCueOnly = get().clickCueOnly;
           eng.transport.start();
         }
         set({ playing: true });
@@ -630,6 +633,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     eng.arrangeMode = mode === "arrange";
     eng.timeline.clips = get().clips;
     eng.transport.metronome = get().metronome;
+    eng.transport.clickCueOnly = get().clickCueOnly;
     eng.transport.tempoMap = get().tempoMap;
     eng.transport.countInSteps = Math.round((get().countInBars || 0) * 16);
     eng.transport.loopOn = get().loopOn;
@@ -2286,6 +2290,7 @@ function hydrateEngine(s: StudioState): void {
   eng.projectKey = s.musicalKey;
   eng.arrangeMode = s.mode === "arrange";
   eng.transport.tempoMap = s.tempoMap;
+  eng.transport.clickCueOnly = s.clickCueOnly;
   eng.transport.loopOn = s.loopOn;
   eng.transport.countInSteps = Math.round((s.countInBars || 0) * 16);
   for (const lane of s.automation) eng.automation.setLane(lane.target, lane.points);

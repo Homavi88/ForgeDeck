@@ -154,7 +154,7 @@ export default function StudioPage() {
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        void useStudio.getState().save();
+        void useStudio.getState().save({ label: "Manual save" });
         return;
       }
       if (handleDjHotkey(e)) return;

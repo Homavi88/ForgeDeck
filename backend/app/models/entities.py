@@ -45,6 +45,7 @@ class Project(Base, TimestampMixin):
     musical_key: Mapped[str] = mapped_column(String(16), default="C minor")
     # Full frontend snapshot (decks, mixer, clips, patterns, etc.)
     graph: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    graph_revision: Mapped[int] = mapped_column(Integer, default=0)
     share_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
 
     user: Mapped[User] = relationship(back_populates="projects")
@@ -69,6 +70,23 @@ class Project(Base, TimestampMixin):
     render_jobs: Mapped[list[RenderJob]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    snapshots: Mapped[list[ProjectSnapshot]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+
+
+class ProjectSnapshot(Base, TimestampMixin):
+    """Durable restore point for the canonical frontend project graph."""
+
+    __tablename__ = "project_snapshots"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    label: Mapped[str] = mapped_column(String(255), default="Autosave")
+    graph: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    project: Mapped[Project] = relationship(back_populates="snapshots")
 
 
 class AudioFile(Base, TimestampMixin):
@@ -328,6 +346,8 @@ class RenderJob(Base, TimestampMixin):
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
     status: Mapped[str] = mapped_column(String(32), default="queued")
     format: Mapped[str] = mapped_column(String(16), default="wav")
+    source: Mapped[str] = mapped_column(String(32), default="server_render")
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     output_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     progress: Mapped[float] = mapped_column(Float, default=0.0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

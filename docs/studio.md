@@ -18,7 +18,7 @@
 
 В TopBar рядом с BPM — **тональность** проекта (`musical_key`). Она кормит подсветку гаммы на piano roll, AI bass/melody/chords и clip **Key follow**. **Session rec** пишет clip launcher на Arrange.
 
-Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек — тогглы во **второй** строке TopBar (`AI` / `Library` / `Decks`, активные подсвечены). Первая строка: режимы (не обрезаются), Play, BPM, тональность, Save / Rec / Bounce. Язык **EN/RU** там же; выбор в `fd_locale`. **Выключить** спрашивает подтверждение, закрывает терминалы лаунчера и гасит API+UI.
+Справа **AI Producer** + вкладка Room. Панель AI, library и fullscreen дек — тогглы во **второй** строке TopBar (`AI` / `Library` / `Decks`, активные подсвечены). Первая строка: режимы (не обрезаются), Play, BPM, тональность, Save / **History** / Rec / Bounce. **History** — точки восстановления graph на сервере (autosave, ручной Save, Pin). Restore сначала пишет «Before restore». Язык **EN/RU** там же; выбор в `fd_locale`. **Выключить** спрашивает подтверждение, закрывает терминалы лаунчера и гасит API+UI.
 
 ## Library
 
@@ -32,9 +32,10 @@ Shift+click Play / Cue / PFL / hotcue / loop / key lock на деке — MIDI l
 
 ## Экспорт и шаринг
 
-- **Bounce** — offline WAV через полный mixer graph, upload в проект, скачивание; тост «Rendering…» / «Bounce ready»
-- **Rec** — live с master (+ mic, если включён); HUD: время, peak, размер
+- **Bounce** — offline WAV через полный mixer graph, upload в проект (`source=bounce` + bpm/key), скачивание; тост «Rendering…» / «Bounce ready»
+- **Rec** — live с master (+ mic, если включён); HUD: время, peak, размер; upload `source=live_rec` с duration/peak/sampleRate
 - **Share** — `POST /api/projects/{id}/share` → `/share/:token` (нужен bounce или rec)
+- **History** — Restore points на сервере (не undo в RAM). Последние 30.
 
 Тосты также: autosave «Saved», анализ после upload, прогресс Split stems, загрузка electronic style pack.
 

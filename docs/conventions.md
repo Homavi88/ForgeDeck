@@ -22,6 +22,7 @@
 | DJ mix math (offset, gain match) | `frontend/src/lib/djMix.ts` |
 | PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor`; cue popup `AudioEngine.openCueWindow` (same stream) |
 | Сохранить новое поле проекта | graph в `useStudio.save`, типы в `types/index.ts`, при необходимости `project_graph.py` |
+| Точка восстановления / revision | `ProjectSnapshot`, `graph_revision`, `PUT expected_revision`; UI `HistoryMenu.tsx` |
 | REST endpoint | `backend/app/api/*.py`, схема в `schemas.py`, owner check через `require_*` |
 | Выключить приложение | `PowerOffButton` + `app/services/shutdown.py` + `POST /api/shutdown` (localhost) |
 | Stem split | только `app/services/stems.py` (API и Celery его зовут) |

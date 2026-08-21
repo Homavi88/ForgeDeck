@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api } from "../api/client";
+import { api, ApiError, conflictRevision } from "../api/client";
 import { getEngine } from "../audio-engine/AudioEngine";
 import { emptySteps } from "../audio-engine/DrumMachine";
 import { applyStripState } from "../audio-engine/stripState";
@@ -63,6 +63,9 @@ export type PitchRange = 8 | 16 | 100;
 export type TrackView = { zoom?: number; keyLock?: boolean; pitchRange?: PitchRange };
 
 const LAYOUT_KEY = "fd_layout";
+
+type SaveOpts = { label?: string; quiet?: boolean; force?: boolean };
+let saveChain: Promise<void> = Promise.resolve();
 
 function loadLayout(): { aiPanelOpen: boolean; libraryOpen: boolean } {
   try {
@@ -139,7 +142,9 @@ interface StudioState {
   future: Snapshot[];
   loadProject: (id: string) => Promise<void>;
   refreshLibrary: () => Promise<void>;
-  save: () => Promise<void>;
+  save: (opts?: { label?: string; quiet?: boolean; force?: boolean }) => Promise<void>;
+  restoreSnapshot: (snapshotId: string) => Promise<void>;
+  createNamedSnapshot: (label: string) => Promise<void>;
   setMode: (m: StudioMode) => void;
   setBpm: (n: number) => void;
   setMusicalKey: (key: string) => void;
@@ -572,7 +577,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         B?: { audioFileId?: string; keyLock?: boolean };
       }) || {};
       const next: Partial<StudioState> = {
-        project,
+        project: { ...project, graph_revision: project.graph_revision ?? 0 },
         library,
         bpm: project.bpm,
         musicalKey: project.musical_key || "C minor",
@@ -681,56 +686,126 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ library });
   },
 
-  save: async () => {
-    const s = get();
-    if (!s.project) return;
-    set({ saving: true });
-    try {
-      await api.projects.save(s.project.id, {
-        name: s.project.name,
+  save: (opts) => {
+    const run = async () => {
+      const s = get();
+      if (!s.project) return;
+      set({ saving: true });
+      const label = opts?.label || "Autosave";
+      const graph = {
+        version: 2,
+        mode: s.mode,
+        synth: s.synth,
+        drums: { steps: s.drumSteps, length: s.drumLength, swing: s.drumSwing },
+        timeline: { clips: s.clips },
+        mixer: s.mixer,
+        prodLanes: s.prodLanes,
+        selectedMixId: s.selectedMixId,
+        arrangeZoom: s.arrangeZoom,
+        arrangeSnap: s.arrangeSnap,
+        selectedAutoTarget: s.selectedAutoTarget,
+        crossfader: s.crossfader,
+        xfaderCurve: s.xfaderCurve,
+        notes: s.notes,
+        midiPatterns: s.midiPatterns,
+        activeMidiPatternId: s.activeMidiPatternId,
+        ghostNotes: s.ghostNotes,
+        automation: s.automation,
+        session: s.sessionClips,
+        sampler: s.sampler,
+        sidechain: s.sidechain,
+        autoAdvance: s.autoAdvance,
+        fxReturns: s.fxReturns,
+        queue: s.queue.map((f) => f.id),
+        queueIndex: s.queueIndex,
+        decks: {
+          A: { audioFileId: s.deckFiles.A?.id ?? null, keyLock: s.keyLock.A },
+          B: { audioFileId: s.deckFiles.B?.id ?? null, keyLock: s.keyLock.B },
+        },
+        trackView: s.trackView,
+        pitchRange: s.pitchRange,
+        layout: { aiPanelOpen: s.aiPanelOpen, libraryOpen: s.libraryOpen },
+      };
+      const patch = (force: boolean) => ({
+        name: s.project!.name,
         bpm: s.bpm,
         musical_key: s.musicalKey,
-        graph: {
-          version: 2,
-          mode: s.mode,
-          synth: s.synth,
-          drums: { steps: s.drumSteps, length: s.drumLength, swing: s.drumSwing },
-          timeline: { clips: s.clips },
-          mixer: s.mixer,
-          prodLanes: s.prodLanes,
-          selectedMixId: s.selectedMixId,
-          arrangeZoom: s.arrangeZoom,
-          arrangeSnap: s.arrangeSnap,
-          selectedAutoTarget: s.selectedAutoTarget,
-          crossfader: s.crossfader,
-          xfaderCurve: s.xfaderCurve,
-          notes: s.notes,
-          midiPatterns: s.midiPatterns,
-          activeMidiPatternId: s.activeMidiPatternId,
-          ghostNotes: s.ghostNotes,
-          automation: s.automation,
-          session: s.sessionClips,
-          sampler: s.sampler,
-          sidechain: s.sidechain,
-          autoAdvance: s.autoAdvance,
-          fxReturns: s.fxReturns,
-          queue: s.queue.map((f) => f.id),
-          queueIndex: s.queueIndex,
-          decks: {
-            A: { audioFileId: s.deckFiles.A?.id ?? null, keyLock: s.keyLock.A },
-            B: { audioFileId: s.deckFiles.B?.id ?? null, keyLock: s.keyLock.B },
-          },
-          trackView: s.trackView,
-          pitchRange: s.pitchRange,
-          layout: { aiPanelOpen: s.aiPanelOpen, libraryOpen: s.libraryOpen },
-        },
+        ...(force ? {} : { expected_revision: s.project!.graph_revision ?? 0 }),
+        snapshot_label: label,
+        graph,
       });
-      set({ saving: false, lastSavedAt: Date.now() });
-      get().pushToast({ id: "save", kind: "ok", text: t("toast.saved"), ttl: 1400 });
-    } catch (err) {
-      set({ saving: false, error: err instanceof Error ? err.message : t("toast.saveFailed") });
-      get().pushToast({ id: "save", kind: "err", text: err instanceof Error ? err.message : t("toast.saveFailed"), ttl: 4000 });
+      try {
+        let saved: { graph_revision: number };
+        try {
+          saved = await api.projects.save(s.project.id, patch(Boolean(opts?.force)));
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 409 && label !== "Autosave" && !opts?.force) {
+            saved = await api.projects.save(s.project.id, patch(true));
+          } else {
+            throw err;
+          }
+        }
+        const latest = get().project;
+        set({
+          saving: false,
+          lastSavedAt: Date.now(),
+          project: latest
+            ? { ...latest, graph_revision: saved.graph_revision ?? (latest.graph_revision ?? 0) + 1 }
+            : latest,
+        });
+        if (!opts?.quiet) {
+          get().pushToast({ id: "save", kind: "ok", text: t("toast.saved"), ttl: 1400 });
+        }
+      } catch (err) {
+        const remoteRev = conflictRevision(err);
+        const latest = get().project;
+        if (err instanceof ApiError && err.status === 409) {
+          set({
+            saving: false,
+            project: latest ? { ...latest, graph_revision: remoteRev ?? latest.graph_revision } : latest,
+          });
+          if (!opts?.quiet) {
+            get().pushToast({ id: "save", kind: "warn", text: t("toast.revisionConflict"), ttl: 4500 });
+          }
+        } else {
+          set({ saving: false, error: err instanceof Error ? err.message : t("toast.saveFailed") });
+          get().pushToast({
+            id: "save",
+            kind: "err",
+            text: err instanceof Error ? err.message : t("toast.saveFailed"),
+            ttl: 4000,
+          });
+        }
+      }
+    };
+    const next = saveChain.then(run, run);
+    saveChain = next.catch(() => undefined);
+    return next;
+  },
+
+  restoreSnapshot: async (snapshotId) => {
+    const s = get();
+    if (!s.project) return;
+    if (!window.confirm(t("studio.restoreConfirm"))) return;
+    await get().save({ label: "Before restore", quiet: true, force: true });
+    const pid = get().project?.id;
+    if (!pid) return;
+    await api.projects.restoreSnapshot(pid, snapshotId);
+    await get().loadProject(pid);
+    get().pushToast({ id: "history", kind: "ok", text: t("toast.restored"), ttl: 2500 });
+  },
+
+  createNamedSnapshot: async (label) => {
+    const s = get();
+    if (!s.project) return;
+    const name = label.trim() || t("studio.restorePoint");
+    const before = s.project.graph_revision ?? 0;
+    await get().save({ label: name, quiet: true });
+    const after = get().project?.graph_revision ?? before;
+    if (after === before) {
+      await api.projects.createSnapshot(s.project.id, name);
     }
+    get().pushToast({ id: "history", kind: "ok", text: t("toast.snapshotCreated"), ttl: 1800 });
   },
 
   loadToDeck: async (side, file, opts) => {

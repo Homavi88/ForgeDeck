@@ -215,6 +215,7 @@ export interface ProjectDetail {
   bpm: number;
   time_signature: string;
   musical_key: string;
+  graph_revision: number;
   share_token?: string | null;
   graph: Record<string, unknown>;
   tracks: Array<{
@@ -253,6 +254,14 @@ export interface ProjectDetail {
     length_bars: number;
     structure: Array<{ name: string; bars: number; energy: number }>;
   }>;
+}
+
+export interface ProjectSnapshot {
+  id: string;
+  project_id: string;
+  revision: number;
+  label: string;
+  created_at?: string | null;
 }
 
 export interface AIAction {

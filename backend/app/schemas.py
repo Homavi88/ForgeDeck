@@ -30,6 +30,8 @@ class ProjectUpdate(BaseModel):
     time_signature: str | None = None
     musical_key: str | None = None
     graph: dict[str, Any] | None = None
+    expected_revision: int | None = Field(default=None, ge=0)
+    snapshot_label: str | None = Field(default=None, max_length=255)
 
 
 class ProjectOut(ORMModel):
@@ -41,6 +43,7 @@ class ProjectOut(ORMModel):
     time_signature: str
     musical_key: str
     graph: dict[str, Any]
+    graph_revision: int
     share_token: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -53,6 +56,20 @@ class ProjectDetail(ProjectOut):
     drum_patterns: list[dict[str, Any]] = []
     synth_presets: list[dict[str, Any]] = []
     arrangements: list[dict[str, Any]] = []
+
+
+class ProjectSnapshotCreate(BaseModel):
+    label: str = Field(default="Manual restore point", min_length=1, max_length=255)
+
+
+class ProjectSnapshotOut(ORMModel):
+    """List/create payload — graph stays on disk until restore."""
+
+    id: str
+    project_id: str
+    revision: int
+    label: str
+    created_at: datetime | None = None
 
 
 class AudioFileOut(ORMModel):
@@ -175,6 +192,8 @@ class RenderJobOut(ORMModel):
     project_id: str
     status: str
     format: str
+    source: str
+    details: dict[str, Any]
     output_path: str | None
     progress: float
     error_message: str | None

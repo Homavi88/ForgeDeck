@@ -59,6 +59,7 @@
 - [x] Insert rack reorder is the live/bounce ChannelStrip graph (`insertOrder`)
 - [x] MIDI learn 1:1 from the deck (hotcue / loop / PFL / play / cue, `channel:note`)
 - [x] Headphones cue window on the same bus; output list without getUserMedia
+- [x] Project history: graph revisions, restore points (list / pin / restore), Rec/Bounce provenance
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

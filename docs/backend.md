@@ -18,15 +18,16 @@
 ## Модели (коротко)
 
 - `User` → `Project`, `AudioFile`
-- `Project.graph` — JSON студии; `share_token` для публичной страницы
+- `Project.graph` — JSON студии; `graph_revision` — монотонный счётчик PUT; `share_token` для публичной страницы
+- `ProjectSnapshot` — до 30 точек восстановления graph (autosave / ручные / restore). Список **без** graph; restore копирует JSON обратно.
 - `AudioFile.analysis` — JSON: bpm, key, camelot, waveform, beats, stems, `stems_engine`, **energy 1–10**, **mix_in / mix_out** (phrase heuristic)
-- `Deck`, `MixerChannel`, `DrumPattern`, `SynthPreset`, `Clip`, `Arrangement`, `CuePoint`, `LoopRegion`, `RenderJob`, `AIConversation`
+- `Deck`, `MixerChannel`, `DrumPattern`, `SynthPreset`, `Clip`, `Arrangement`, `CuePoint`, `LoopRegion`, `RenderJob` (`source` + `details` provenance), `AIConversation`
 
 ## REST (практическое)
 
 Auth: `POST /api/auth/register`, `/login`, `GET /api/auth/me`.
 
-Projects: CRUD, `PUT` сохраняет graph (`persist_graph` обновляет **один** DrumPattern `Main` / SynthPreset `Current` / mixer channel по имени — **создаёт** канал для extra `prodLanes` ключей — и удаляет дубли), duplicate, share, export JSON, tracks, patterns (**upsert** по имени), synth-presets (upsert по имени), decks, arrangements, render (+ upload WAV с клиента).
+Projects: CRUD, `PUT` сохраняет graph (`persist_graph` **flush**, commit делает роутер). `expected_revision` на PUT → **409** `{code, graph_revision}`, если graph уже новее (autosave не затирает чужое окно). Изменение graph поднимает `graph_revision` и пишет `ProjectSnapshot` (`snapshot_label` или `Autosave`), лимит 30. `GET/POST /projects/{id}/snapshots`, `POST .../snapshots/{sid}/restore` (гидрация persist_graph + снимок `Restored: …`). Duplicate, share, export JSON, tracks, patterns (**upsert** по имени), synth-presets (upsert по имени), decks, arrangements, render + upload WAV (`source`: `bounce` | `live_rec` | `session_rec` | `server_render`, `details` JSON).
 
 Audio: `POST /upload` (квота), list, `GET /compatible` (**до** `/{id}`), analysis, cues, loops, `POST /{id}/stems`, stream stem.
 

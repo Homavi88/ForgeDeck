@@ -5,6 +5,7 @@ import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
 import { LanguageSelect, t, useI18n, type MsgKey } from "../../i18n";
 import { KEY_OPTIONS } from "../../lib/musicTheory";
+import { HistoryMenu } from "./HistoryMenu";
 import { PowerOffButton } from "./PowerOffButton";
 import { useStudio } from "../../store/useStudio";
 import type { StudioMode } from "../../types";
@@ -160,11 +161,12 @@ export function TopBar() {
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           <button
             type="button"
-            onClick={() => void save()}
+            onClick={() => void save({ label: "Manual save" })}
             className="h-8 px-3 rounded-md bg-ink-700 text-xs font-medium hover:bg-ink-600"
           >
             {saving ? t("studio.saving") : t("studio.save")}
           </button>
+          <HistoryMenu />
           <RecordButton />
           <ExportButton />
         </div>
@@ -300,11 +302,22 @@ function RecordButton() {
             setOn(true);
             return;
           }
+          const stats = eng.recorder.stats;
           const buffer = eng.stopRecording();
           setOn(false);
           if (!buffer) return;
           const blob = encodeWav(buffer);
-          if (project) await api.projects.uploadRender(project.id, blob).catch(() => undefined);
+          if (project) {
+            await api.projects
+              .uploadRender(project.id, blob, "live_rec", {
+                duration: stats.elapsed,
+                peak: stats.peak,
+                bytes: stats.bytes,
+                sampleRate: buffer.sampleRate,
+                channels: buffer.numberOfChannels,
+              })
+              .catch(() => undefined);
+          }
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
@@ -334,7 +347,13 @@ function ExportButton() {
         try {
           await useStudio.getState().bootAudio();
           const blob = await renderOfflineWav();
-          await api.projects.uploadRender(project.id, blob);
+          await api.projects.uploadRender(project.id, blob, "bounce", {
+            bpm: useStudio.getState().bpm,
+            musical_key: useStudio.getState().musicalKey,
+            bytes: blob.size,
+            sampleRate: getEngine().ctx.sampleRate,
+            channels: 2,
+          });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;

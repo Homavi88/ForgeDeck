@@ -30,6 +30,7 @@ def keep_named(db: Session, model: type[T], project_id: str, name: str) -> T | N
 
 
 def persist_graph(db: Session, project: Project, graph: dict[str, Any]) -> None:
+    """Copy drums/synth/mixer out of the JSON graph. Caller must commit."""
     drums = graph.get("drums") or {}
     if drums.get("steps"):
         pattern = keep_named(db, DrumPattern, project.id, "Main")
@@ -82,4 +83,4 @@ def persist_graph(db: Session, project: Project, graph: dict[str, Any]) -> None:
             channel.filter_knob = float(state["filter"])
 
     db.add(project)
-    db.commit()
+    db.flush()

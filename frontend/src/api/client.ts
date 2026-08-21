@@ -3,6 +3,24 @@ import { t } from "../i18n";
 const API = import.meta.env.VITE_API_URL || "";
 const TOKEN_KEY = "pf_token";
 
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+
+  constructor(status: number, message: string, body?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+export function conflictRevision(err: unknown): number | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const detail = (err.body as { detail?: { graph_revision?: unknown } } | null)?.detail;
+  return typeof detail?.graph_revision === "number" ? detail.graph_revision : null;
+}
+
 export function getToken(): string {
   return localStorage.getItem(TOKEN_KEY) || "";
 }
@@ -22,14 +40,16 @@ function withAuth(init: RequestInit = {}): RequestInit {
 async function parse<T>(res: Response | Promise<Response>): Promise<T> {
   res = await res;
   if (!res.ok) {
-    let detail = res.statusText;
+    let body: unknown;
+    let detail: unknown = res.statusText;
     try {
-      const body = await res.json();
-      detail = body.detail || JSON.stringify(body);
+      body = await res.json();
+      detail = (body as { detail?: unknown }).detail ?? body;
     } catch {
       /* ignore */
     }
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    const message = typeof detail === "string" ? detail : JSON.stringify(detail);
+    throw new ApiError(res.status, message, body);
   }
   return res.json() as Promise<T>;
 }
@@ -82,13 +102,29 @@ export const api = {
     list: () => parse<Array<{ id: string; name: string; bpm: number; updated_at: string }>>(fetch(`${API}/api/projects`, withAuth())),
     get: (id: string) => parse<import("../types").ProjectDetail>(fetch(`${API}/api/projects/${id}`, withAuth())),
     create: (name: string, bpm = 120) => parse<import("../types").ProjectDetail>(j("/api/projects", "POST", { name, bpm })),
-    save: (id: string, patch: Record<string, unknown>) => parse(j(`/api/projects/${id}`, "PUT", patch)),
+    save: (id: string, patch: Record<string, unknown>) =>
+      parse<{ graph_revision: number }>(j(`/api/projects/${id}`, "PUT", patch)),
     remove: (id: string) => fetch(`${API}/api/projects/${id}`, withAuth({ method: "DELETE" })).then((r) => r.json()),
     duplicate: (id: string) => parse<import("../types").ProjectDetail>(fetch(`${API}/api/projects/${id}/duplicate`, withAuth({ method: "POST" }))),
+    snapshots: (id: string) =>
+      parse<import("../types").ProjectSnapshot[]>(fetch(`${API}/api/projects/${id}/snapshots`, withAuth())),
+    createSnapshot: (id: string, label: string) =>
+      parse<import("../types").ProjectSnapshot>(j(`/api/projects/${id}/snapshots`, "POST", { label })),
+    restoreSnapshot: (id: string, snapshotId: string) =>
+      parse<import("../types").ProjectDetail>(
+        fetch(`${API}/api/projects/${id}/snapshots/${snapshotId}/restore`, withAuth({ method: "POST" })),
+      ),
     render: (id: string, format = "wav") => parse(j(`/api/projects/${id}/render`, "POST", { format })),
-    uploadRender: async (id: string, blob: Blob) => {
+    uploadRender: async (
+      id: string,
+      blob: Blob,
+      source: "bounce" | "live_rec" | "session_rec" = "bounce",
+      details: Record<string, unknown> = {},
+    ) => {
       const body = new FormData();
       body.append("file", blob, "mix.wav");
+      body.append("source", source);
+      body.append("details", JSON.stringify(details));
       return parse(fetch(`${API}/api/projects/${id}/render/upload`, withAuth({ method: "POST", body })));
     },
     addTrack: (id: string, name: string, kind = "audio") => parse(j(`/api/projects/${id}/tracks`, "POST", { name, kind })),

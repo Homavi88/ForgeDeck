@@ -1,7 +1,8 @@
 from copy import deepcopy
+import json
 import secrets
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,6 +13,7 @@ from app.models import (
     DrumPattern,
     MixerChannel,
     Project,
+    ProjectSnapshot,
     RenderJob,
     SynthPreset,
     Track,
@@ -24,6 +26,8 @@ from app.schemas import (
     ProjectCreate,
     ProjectDetail,
     ProjectOut,
+    ProjectSnapshotCreate,
+    ProjectSnapshotOut,
     ProjectUpdate,
     RenderJobOut,
     RenderRequest,
@@ -34,6 +38,28 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+SNAPSHOT_LIMIT = 30
+
+
+def _record_snapshot(db: Session, project: Project, label: str) -> ProjectSnapshot:
+    snapshot = ProjectSnapshot(
+        project_id=project.id,
+        revision=project.graph_revision,
+        label=label,
+        graph=deepcopy(project.graph or {}),
+    )
+    db.add(snapshot)
+    db.flush()
+    stale = (
+        db.query(ProjectSnapshot)
+        .filter(ProjectSnapshot.project_id == project.id)
+        .order_by(ProjectSnapshot.created_at.desc(), ProjectSnapshot.id.desc())
+        .offset(SNAPSHOT_LIMIT)
+        .all()
+    )
+    for old_snapshot in stale:
+        db.delete(old_snapshot)
+    return snapshot
 
 
 def _serialize_project(project: Project) -> dict:
@@ -151,21 +177,76 @@ def get_project(project: Project = Depends(require_project)):
     return _serialize_project(project)
 
 
+@router.get("/{project_id}/snapshots", response_model=list[ProjectSnapshotOut])
+def list_snapshots(project: Project = Depends(require_project), db: Session = Depends(get_db)):
+    return (
+        db.query(ProjectSnapshot)
+        .filter(ProjectSnapshot.project_id == project.id)
+        .order_by(ProjectSnapshot.created_at.desc(), ProjectSnapshot.id.desc())
+        .limit(SNAPSHOT_LIMIT)
+        .all()
+    )
+
+
+@router.post("/{project_id}/snapshots", response_model=ProjectSnapshotOut)
+def create_snapshot(
+    payload: ProjectSnapshotCreate,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
+    snapshot = _record_snapshot(db, project, payload.label)
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
+
+
+@router.post("/{project_id}/snapshots/{snapshot_id}/restore", response_model=ProjectDetail)
+def restore_snapshot(
+    snapshot_id: str,
+    project: Project = Depends(require_project),
+    db: Session = Depends(get_db),
+):
+    snapshot = (
+        db.query(ProjectSnapshot)
+        .filter(ProjectSnapshot.id == snapshot_id, ProjectSnapshot.project_id == project.id)
+        .one_or_none()
+    )
+    if snapshot is None:
+        raise HTTPException(404, "Snapshot not found")
+    project.graph = deepcopy(snapshot.graph)
+    project.graph_revision += 1
+    from app.services.project_graph import persist_graph
+
+    persist_graph(db, project, project.graph)
+    _record_snapshot(db, project, f"Restored: {snapshot.label}")
+    db.commit()
+    db.refresh(project)
+    return _serialize_project(project)
+
+
 @router.put("/{project_id}", response_model=ProjectOut)
 def update_project(
     payload: ProjectUpdate,
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
-    data = payload.model_dump(exclude_unset=True)
+    if payload.expected_revision is not None and payload.expected_revision != project.graph_revision:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "revision_conflict", "graph_revision": project.graph_revision},
+        )
+    data = payload.model_dump(exclude_unset=True, exclude={"expected_revision", "snapshot_label"})
+    graph_changed = payload.graph is not None and payload.graph != project.graph
     for key, value in data.items():
         setattr(project, key, value)
-    db.add(project)
-    db.commit()
-    if payload.graph is not None:
+    if graph_changed:
+        project.graph_revision += 1
         from app.services.project_graph import persist_graph
 
         persist_graph(db, project, payload.graph)
+        _record_snapshot(db, project, payload.snapshot_label or "Autosave")
+    db.add(project)
+    db.commit()
     db.refresh(project)
     return project
 
@@ -300,7 +381,7 @@ def render_project(
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
-    job = RenderJob(project_id=project.id, format=payload.format, status="queued")
+    job = RenderJob(project_id=project.id, format=payload.format, source="server_render", status="queued")
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -331,14 +412,31 @@ def render_project(
 @router.post("/{project_id}/render/upload", response_model=RenderJobOut)
 def upload_offline_render(
     file: UploadFile = File(...),
+    source: str = Form("bounce"),
+    details: str = Form("{}"),
     project: Project = Depends(require_project),
     db: Session = Depends(get_db),
 ):
-    """Accept a WAV produced by the browser OfflineAudioContext mixdown."""
+    """Accept a browser-produced WAV with its recording/bounce provenance."""
     from app.config import get_settings
 
+    if source not in {"bounce", "live_rec", "session_rec"}:
+        raise HTTPException(422, "Unsupported render source")
+    try:
+        parsed_details = json.loads(details) if details else {}
+    except json.JSONDecodeError as exc:
+        raise HTTPException(422, "Render details must be JSON") from exc
+    if not isinstance(parsed_details, dict):
+        raise HTTPException(422, "Render details must be an object")
     settings = get_settings()
-    job = RenderJob(project_id=project.id, format="wav", status="rendering", progress=0.5)
+    job = RenderJob(
+        project_id=project.id,
+        format="wav",
+        source=source,
+        details=parsed_details,
+        status="rendering",
+        progress=0.5,
+    )
     db.add(job)
     db.commit()
     db.refresh(job)

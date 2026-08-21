@@ -80,7 +80,7 @@ Vite на `buildStart` копирует `rubberband-web` worklet в `public/work
 
 Двойной клик может получить PATH без инструментов, которые настроены только в пользовательском shell. `bat/_node.bat` ищет Node в обычной установке, nvm, fnm, Volta, Scoop и Chocolatey, добавляя найденную папку в PATH текущего окна.
 
-Если Node действительно не установлен, `setup.bat` сначала запускает `winget install --id OpenJS.NodeJS.LTS --exact --source winget` (чтобы не опрашивать `msstore` с проблемным сертификатом), затем `choco install nodejs-lts -y` при наличии Chocolatey. Если оба не помогли, скрипт получает актуальную LTS-версию из `nodejs.org/dist/index.json`, скачивает соответствующий MSI, проверяет Authenticode signature и запускает installer. После установки helper повторно ищет `%ProgramFiles%\nodejs`, поэтому перезапуск Windows или нового cmd не требуется. Только если PowerShell/сеть/installer недоступны, скрипт показывает ручную команду и ссылку на LTS installer.
+Если Node действительно не установлен, `setup.bat` сначала запускает `winget install --id OpenJS.NodeJS.LTS --exact --source winget` (чтобы не опрашивать `msstore` с проблемным сертификатом), затем `choco install nodejs-lts -y` при наличии Chocolatey. Если оба не помогли, `bat/install-node-portable.ps1` получает актуальную LTS-версию из `nodejs.org/dist/index.json`, скачивает ZIP, сверяет SHA-256 с `SHASUMS256.txt` и распаковывает его в `%LOCALAPPDATA%\ForgeDeck\node\current`. Это per-user install без UAC/admin-пароля. После установки helper повторно ищет portable Node в PATH, поэтому перезапуск Windows или нового cmd не требуется. Только если PowerShell/сеть недоступны, скрипт показывает ручную команду и ссылку на LTS installer.
 
 ## PYTHONPATH
 

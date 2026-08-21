@@ -10,14 +10,7 @@ export function HeadphonesMonitor() {
     if (!el) return;
     const eng = getEngine();
     eng.attachHeadphonesEl(el);
-    const wire = () => {
-      const dest = eng.mixer.headphoneDest;
-      if (!dest) return;
-      if (el.srcObject !== dest.stream) el.srcObject = dest.stream;
-      void el.play().catch(() => undefined);
-    };
-    wire();
-    const id = window.setInterval(wire, 2000);
+    const id = window.setInterval(() => eng.keepHeadphonesAlive(), 2000);
     return () => window.clearInterval(id);
   }, []);
 

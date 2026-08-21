@@ -178,3 +178,14 @@ def test_persist_automation_points(client):
     lane = saved["automation"][0]
     assert lane["target"] == "deck_a.volume"
     assert lane["points"][1]["value"] == 0.2
+
+
+def test_persist_insert_order(client):
+    pid = client.post("/api/projects", json={"name": "Inserts"}).json()["id"]
+    order = ["delay", "eq", "filter", "compressor", "distortion", "bitcrush", "flanger", "reverb"]
+    graph = {"mixer": {"A": {"insertOrder": order, "volume": 0.7}}}
+    res = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert res.status_code == 200, res.text
+    saved = client.get(f"/api/projects/{pid}").json()["graph"]
+    assert saved["mixer"]["A"]["insertOrder"] == order
+    assert saved["mixer"]["A"]["volume"] == 0.7

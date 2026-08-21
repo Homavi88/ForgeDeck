@@ -25,3 +25,6 @@ def test_effects_exclude_midi_maps(client):
     midi = client.get("/api/presets/midi")
     assert midi.status_code == 200
     assert midi.json()[0]["name"] == "Pioneer-ish"
+    notes = midi.json()[0]["bindings"]["notes"]
+    assert notes["1:0"] == "A.hotcue.1"
+    assert notes["2:11"] == "B.play"

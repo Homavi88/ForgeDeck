@@ -1,7 +1,22 @@
+import {
+  DEFAULT_INSERT_ORDER,
+  FX_INSERT_KINDS,
+  isFxInsertKind,
+  normalizeInsertOrder,
+  type InsertKind,
+} from "../lib/mix";
 import { EQ3 } from "./EQ3";
 import { EffectChain } from "./EffectChain";
 import { Filter } from "./Filter";
 import { dbToGain } from "./utils";
+
+function disconnectOut(node: AudioNode): void {
+  try {
+    node.disconnect();
+  } catch {
+    /* already disconnected */
+  }
+}
 
 export class ChannelStrip {
   input: GainNode;
@@ -19,7 +34,9 @@ export class ChannelStrip {
   pflOut: GainNode;
   /** Gain into the FX chain. Echo-out ramps this to 0 so delay/reverb can ring out. */
   fxSend: GainNode;
-  /** Aux send into mixer return reverb (post-EQ, pre-insert FX). */
+  /** Last wired insert order (EQ / filter / FX). */
+  insertOrder: InsertKind[] = [...DEFAULT_INSERT_ORDER];
+  /** Aux send into mixer return reverb (taps Filter output, or trim). */
   sendRev: GainNode;
   /** Aux send into mixer return delay. */
   sendDly: GainNode;
@@ -49,15 +66,7 @@ export class ChannelStrip {
     this.output = ctx.createGain();
     this.volume.gain.value = 0.85;
 
-    this.input
-      .connect(this.trim)
-      .connect(this.eq.input);
-    this.eq.output.connect(this.filter.input);
-    this.filter.output.connect(this.fxSend);
-    this.filter.output.connect(this.sendRev);
-    this.filter.output.connect(this.sendDly);
-    this.fxSend.connect(this.fx.input);
-    this.fx.output.connect(this.duck);
+    this.input.connect(this.trim);
     this.duck.connect(this.mute);
     this.duck.connect(this.pflOut);
     this.mute
@@ -65,6 +74,54 @@ export class ChannelStrip {
       .connect(this.panner)
       .connect(this.analyser)
       .connect(this.output);
+    this.wireInserts(DEFAULT_INSERT_ORDER);
+  }
+
+  /**
+   * Rebuild trim → inserts → duck. `fxSend` sits immediately before the first FX
+   * device so echo-out still starves delay/reverb (not EQ/Filter). Aux sends tap
+   * the Filter device's output (wherever Filter sits), else trim.
+   */
+  wireInserts(order?: readonly string[] | null): void {
+    const kinds = normalizeInsertOrder(order);
+    this.insertOrder = kinds;
+
+    disconnectOut(this.trim);
+    disconnectOut(this.eq.output);
+    disconnectOut(this.filter.output);
+    disconnectOut(this.fxSend);
+    for (const kind of FX_INSERT_KINDS) disconnectOut(this.fx.port(kind).output);
+    disconnectOut(this.fx.input);
+    disconnectOut(this.fx.output);
+
+    type Port = { input: AudioNode; output: AudioNode };
+    const ports: Port[] = [{ input: this.trim, output: this.trim }];
+    let fxSendPlaced = false;
+    const placeFxSend = () => {
+      if (fxSendPlaced) return;
+      ports.push({ input: this.fxSend, output: this.fxSend });
+      fxSendPlaced = true;
+    };
+    for (const kind of kinds) {
+      if (kind === "eq") ports.push({ input: this.eq.input, output: this.eq.output });
+      else if (kind === "filter") ports.push({ input: this.filter.input, output: this.filter.output });
+      else if (isFxInsertKind(kind)) {
+        placeFxSend();
+        ports.push(this.fx.port(kind));
+      }
+    }
+    if (!fxSendPlaced) placeFxSend();
+
+    for (let i = 0; i < ports.length - 1; i++) {
+      ports[i].output.connect(ports[i + 1].input);
+    }
+    ports[ports.length - 1].output.connect(this.fx.input);
+    this.fx.input.connect(this.fx.output);
+    this.fx.output.connect(this.duck);
+
+    const sendTap = kinds.includes("filter") ? this.filter.output : this.trim;
+    sendTap.connect(this.sendRev);
+    sendTap.connect(this.sendDly);
   }
 
   setPfl(on: boolean): void {

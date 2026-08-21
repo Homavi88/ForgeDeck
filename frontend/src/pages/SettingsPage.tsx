@@ -126,6 +126,7 @@ export default function SettingsPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm uppercase tracking-widest text-zinc-500">{t("settings.midi")}</h2>
+          <p className="text-xs text-zinc-500">{t("settings.midiHint")}</p>
           <div className="flex flex-wrap gap-2 items-center">
             <button
               className="px-3 py-1.5 rounded bg-accent text-black text-xs uppercase tracking-wider font-semibold"
@@ -150,12 +151,13 @@ export default function SettingsPage() {
               className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider"
               onClick={() => {
                 setMidiMsg(t("settings.learnHint", { target: learnTarget }));
-                getEngine().armMidiLearn((kind, number) => {
+                getEngine().armMidiLearn((kind, number, channel) => {
                   const next = structuredClone(bindings);
-                  if (kind === "cc") next.cc[String(number)] = learnTarget;
-                  else next.notes[String(number)] = learnTarget;
+                  const key = `${channel}:${number}`;
+                  if (kind === "cc") next.cc[key] = learnTarget;
+                  else next.notes[key] = learnTarget;
                   applyBindings(next);
-                  setMidiMsg(t("settings.learned", { kind, number, target: learnTarget }));
+                  setMidiMsg(t("settings.learned", { kind, number, channel, target: learnTarget }));
                 });
               }}
             >
@@ -187,6 +189,36 @@ export default function SettingsPage() {
                       onChange={(e) => {
                         const next = structuredClone(bindings);
                         next.cc[cc] = e.target.value;
+                        applyBindings(next);
+                      }}
+                    >
+                      {MIDI_TARGETS.map((opt) => (
+                        <option key={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <table className="w-full text-xs">
+            <thead className="text-zinc-500 uppercase tracking-wider">
+              <tr>
+                <th className="text-left py-1">{t("settings.notes")}</th>
+                <th className="text-left">{t("settings.target")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(bindings.notes).map(([note, target]) => (
+                <tr key={note} className="border-t border-line">
+                  <td className="py-1 font-mono">{note}</td>
+                  <td>
+                    <select
+                      className="bg-ink-800 border border-line rounded px-1 py-0.5"
+                      value={target}
+                      onChange={(e) => {
+                        const next = structuredClone(bindings);
+                        next.notes[note] = e.target.value;
                         applyBindings(next);
                       }}
                     >

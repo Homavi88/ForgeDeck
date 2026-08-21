@@ -22,7 +22,7 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
-Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert, `arrangeZoom` / `arrangeSnap`. Clip JSON: `fadeInBars` / `fadeOutBars`, fractional `startBar`. Session graph `session[]` slots are filled to 8 scenes × every lane via `ensureSessionClips`. `Mixer.addLane(id)` кормит master (не xfader). Arrange/Session UI: `ProductionMixer` + `InsertRack`.
+Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert, `insertOrder` (serial ChannelStrip devices), `arrangeZoom` / `arrangeSnap`. Clip JSON: `fadeInBars` / `fadeOutBars`, fractional `startBar`. Session graph `session[]` slots are filled to 8 scenes × every lane via `ensureSessionClips`. `Mixer.addLane(id)` кормит master (не xfader). Arrange/Session UI: `ProductionMixer` + `InsertRack` (reorder = live graph).
 
 Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
 
@@ -65,7 +65,7 @@ DJ-клавиши: `frontend/src/lib/djHotkeys.ts` (только `mode === "dj"`
 
 См. таблицу в [studio.md](studio.md). Space / Ctrl+S / undo работают во всех режимах; CDJ-клавиши — только DJ; Arrange clip keys (Del / Ctrl+D/C/V) — только `mode === "arrange"`; piano-roll keys — только Synth.
 
-MIDI по умолчанию — карта **Pioneer-ish** (`midiMap.ts` `DEFAULT_MIDI` + backend seed `Pioneer-ish`).
+MIDI по умолчанию — карта **Pioneer-ish** (`midiMap.ts` `DEFAULT_MIDI` + backend seed `Pioneer-ish`): CC плюс notes `channel:note` (ch1=A, ch2=B hotcue/play/cue/loop/PFL). Learn в Settings или Shift+click на деке. Старые карты без канала (`"36"`) всё ещё читаются.
 
 ## Сборка
 

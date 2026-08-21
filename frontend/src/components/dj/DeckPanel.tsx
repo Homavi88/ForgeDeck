@@ -88,9 +88,13 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
           </div>
           <button
             className={`text-[9px] uppercase px-2 py-0.5 rounded ${pfl ? "bg-mint text-black" : "bg-ink-700 text-zinc-400"}`}
-            title={t("deck.pflTitle")}
+            title={`${t("deck.pflTitle")} · ${t("deck.midiLearnHint")}`}
             onClick={(e) => {
               e.stopPropagation();
+              if (e.shiftKey) {
+                void useStudio.getState().armDeckMidiLearn(`${side}.pfl`);
+                return;
+              }
               useStudio.getState().setPfl(side, !pfl);
             }}
           >
@@ -129,20 +133,34 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         <span className="text-zinc-500">-{fmt(remain)}</span>
       </div>
       <div className="flex flex-wrap gap-1">
-        <Btn onClick={() => deck().toggle()}>{t("deck.play")}</Btn>
-        <Btn onClick={() => deck().cuePress()}>{t("deck.cue")}</Btn>
+        <Btn title={t("deck.midiLearnHint")} onClick={(e) => midiOr(e, `${side}.play`, () => deck().toggle())}>
+          {t("deck.play")}
+        </Btn>
+        <Btn title={t("deck.midiLearnHint")} onClick={(e) => midiOr(e, `${side}.cue`, () => deck().cuePress())}>
+          {t("deck.cue")}
+        </Btn>
         <Btn onClick={() => deck().setCueHere()}>{t("deck.setCue")}</Btn>
         {[1, 2, 3, 4].map((n) => (
-          <Btn key={n} onClick={() => deck().jumpHotcue(n)}>
+          <Btn
+            key={n}
+            title={t("deck.midiLearnHint")}
+            onClick={(e) => midiOr(e, `${side}.hotcue.${n}`, () => deck().jumpHotcue(n))}
+          >
             H{n}
           </Btn>
         ))}
         {[1, 2, 4, 8, 16].map((bars) => (
-          <Btn key={bars} onClick={() => deck().loopBars(bars, analysis?.bpm || bpmMaster)}>
+          <Btn
+            key={bars}
+            title={t("deck.midiLearnHint")}
+            onClick={(e) => midiOr(e, `${side}.loop.${bars}`, () => deck().loopBars(bars, analysis?.bpm || bpmMaster))}
+          >
             {bars}
           </Btn>
         ))}
-        <Btn onClick={() => deck().clearLoop()}>{t("deck.loopOff")}</Btn>
+        <Btn title={t("deck.midiLearnHint")} onClick={(e) => midiOr(e, `${side}.loop.off`, () => deck().clearLoop())}>
+          {t("deck.loopOff")}
+        </Btn>
         <Btn onClick={() => deck().markLoopIn()}>{t("deck.in")}</Btn>
         <Btn onClick={() => deck().markLoopOut()}>{t("deck.out")}</Btn>
         <Btn onClick={() => deck().beatJump(-4, analysis?.bpm || bpmMaster)}>-4</Btn>
@@ -173,10 +191,15 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
         <Btn onClick={() => useStudio.getState().echoOut(side)}>{t("deck.echoOut")}</Btn>
       </div>
       <div className="flex flex-wrap gap-3 text-[10px] uppercase text-zinc-500">
-        <label className="flex items-center gap-1">
+        <label className="flex items-center gap-1" title={t("deck.midiLearnHint")}>
           <input
             type="checkbox"
             checked={locked}
+            onClick={(e) => {
+              if (!e.shiftKey) return;
+              e.preventDefault();
+              void useStudio.getState().armDeckMidiLearn(`${side}.keylock`);
+            }}
             onChange={(e) => useStudio.getState().setKeyLock(side, e.target.checked)}
           />
           {t("deck.keyLock")}
@@ -328,21 +351,34 @@ function StemRack({
   );
 }
 
+function midiOr(e: React.MouseEvent, target: string, action: () => void): void {
+  if (e.shiftKey) {
+    e.preventDefault();
+    e.stopPropagation();
+    void useStudio.getState().armDeckMidiLearn(target);
+    return;
+  }
+  action();
+}
+
 function Btn({
   children,
+  title,
   onClick,
   onMouseDown,
   onMouseUp,
   onMouseLeave,
 }: {
   children: React.ReactNode;
-  onClick?: () => void;
+  title?: string;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onMouseDown?: () => void;
   onMouseUp?: () => void;
   onMouseLeave?: () => void;
 }) {
   return (
     <button
+      title={title}
       onClick={onClick}
       onMouseDown={onMouseDown}
       onMouseUp={onMouseUp}

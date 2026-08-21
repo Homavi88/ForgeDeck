@@ -300,11 +300,22 @@ function RecordButton() {
             setOn(true);
             return;
           }
+          const stats = eng.recorder.stats;
           const buffer = eng.stopRecording();
           setOn(false);
           if (!buffer) return;
           const blob = encodeWav(buffer);
-          if (project) await api.projects.uploadRender(project.id, blob).catch(() => undefined);
+          if (project) {
+            await api.projects
+              .uploadRender(project.id, blob, "live_rec", {
+                duration: stats.elapsed,
+                peak: stats.peak,
+                bytes: stats.bytes,
+                sampleRate: buffer.sampleRate,
+                channels: buffer.numberOfChannels,
+              })
+              .catch(() => undefined);
+          }
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;

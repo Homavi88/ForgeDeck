@@ -346,6 +346,8 @@ class RenderJob(Base, TimestampMixin):
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
     status: Mapped[str] = mapped_column(String(32), default="queued")
     format: Mapped[str] = mapped_column(String(16), default="wav")
+    source: Mapped[str] = mapped_column(String(32), default="server_render")
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     output_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     progress: Mapped[float] = mapped_column(Float, default=0.0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

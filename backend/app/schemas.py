@@ -191,6 +191,8 @@ class RenderJobOut(ORMModel):
     project_id: str
     status: str
     format: str
+    source: str
+    details: dict[str, Any]
     output_path: str | None
     progress: float
     error_message: str | None

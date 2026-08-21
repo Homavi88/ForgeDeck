@@ -234,3 +234,20 @@ def test_project_snapshots_and_revision_conflicts(client):
     assert restored.status_code == 200, restored.text
     assert restored.json()["graph"]["bpm"] == 122
     assert restored.json()["graph_revision"] == 3
+
+
+def test_live_recording_render_keeps_provenance(client):
+    pid = client.post("/api/projects", json={"name": "Recorded set"}).json()["id"]
+    uploaded = client.post(
+        f"/api/projects/{pid}/render/upload",
+        data={
+            "source": "live_rec",
+            "details": '{"duration": 12.5, "peak": 0.88, "sampleRate": 48000, "channels": 2}',
+        },
+        files={"file": ("live.wav", b"RIFF-test", "audio/wav")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    body = uploaded.json()
+    assert body["source"] == "live_rec"
+    assert body["details"]["duration"] == 12.5
+    assert body["details"]["sampleRate"] == 48000

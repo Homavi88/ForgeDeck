@@ -80,7 +80,7 @@ Vite на `buildStart` копирует `rubberband-web` worklet в `public/work
 
 Двойной клик может получить PATH без инструментов, которые настроены только в пользовательском shell. `bat/_node.bat` ищет Node в обычной установке, nvm, fnm, Volta, Scoop и Chocolatey, добавляя найденную папку в PATH текущего окна.
 
-Если Node действительно не установлен, `setup.bat` сначала запускает `winget install OpenJS.NodeJS.LTS`, затем `choco install nodejs-lts -y` при наличии Chocolatey. После установки helper повторно ищет `%ProgramFiles%\nodejs`, поэтому перезапуск Windows или нового cmd не требуется. Если оба менеджера недоступны, скрипт показывает ручную команду и ссылку на LTS installer.
+Если Node действительно не установлен, `setup.bat` сначала запускает `winget install --id OpenJS.NodeJS.LTS --exact --source winget` (чтобы не опрашивать `msstore` с проблемным сертификатом), затем `choco install nodejs-lts -y` при наличии Chocolatey. После установки helper повторно ищет `%ProgramFiles%\nodejs`, поэтому перезапуск Windows или нового cmd не требуется. Если оба менеджера недоступны, скрипт показывает ручную команду и ссылку на LTS installer.
 
 ## PYTHONPATH
 

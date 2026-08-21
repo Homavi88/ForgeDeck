@@ -15,7 +15,9 @@ if not defined NODE_EXE (
   where winget >nul 2>&1
   if not errorlevel 1 (
     echo [Node] Установка через Windows Package Manager ^(winget^)...
-    winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
+    REM Avoid a broken Microsoft Store certificate; Node LTS is published in
+    REM the community winget source, so do not query msstore at all.
+    winget install --id OpenJS.NodeJS.LTS --exact --source winget --accept-package-agreements --accept-source-agreements
     call "%~dp0_node.bat"
   )
 )
@@ -31,7 +33,7 @@ if not defined NODE_EXE (
   echo.
   echo [Ошибка] Не найден Node.js LTS.
   echo Поставь его с https://nodejs.org/ ^(выбери LTS^) или выполни:
-  echo   winget install OpenJS.NodeJS.LTS
+  echo   winget install --id OpenJS.NodeJS.LTS --exact --source winget
   echo Затем запусти setup.bat снова.
   echo.
   if not defined PF_NOPAUSE pause

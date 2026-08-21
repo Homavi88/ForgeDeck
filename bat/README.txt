@@ -27,6 +27,6 @@ Docker (если установлен Docker Desktop): start-docker.bat
 
 Если Node.js всё ещё не найден:
   1) проверь, что Windows Package Manager доступен: winget --version
-  2) запусти: winget install OpenJS.NodeJS.LTS
+  2) запусти: winget install --id OpenJS.NodeJS.LTS --exact --source winget
   3) закрой окно и снова запусти setup.bat
   Или установи LTS вручную: https://nodejs.org/

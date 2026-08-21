@@ -8,7 +8,7 @@
 
 **Session** — clip launcher, 8 сцен на **тех же дорожках, что Arrange** (drums / synth / Deck A/B + `prodLanes`). **+ Audio track** добавляет ряд здесь и канал в Console. Петлю из library можно бросить на слот — она играет в BPM проекта (warp). Сцена запускает **все** ряды на следующем такте. **Session rec** (TopBar) пишет запущенные сцены на Arrange; **Capture to arrange** снимает текущие клипы на плейхед. Внизу та же **Console**, что в Arrange.
 
-**Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, snap bar/beat/1/8, zoom). Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
+**Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, snap bar/beat/1/8, zoom). Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. Под клипами **Automation**: рисуешь volume / filter / EQ low по сетке (Alt снимает точки). AI Apply по-прежнему пишет `deck_a.filter.cutoff` и т.д. **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
 
 **Drums** — 16 падов, 16/32/64 шага, paint по сетке (как Channel Rack), graph editor velocity, fill 1/4·1/8·all·offbeat, сдвиг << >>, humanize, swing, save pattern/kit, **Load style drums** (оригинальный шаблон жанра, только сетка), edit lock в коллабе. Shift-клик по имени пада — mute. Клик по паду выбирает ряд для graph editor.
 
@@ -113,6 +113,7 @@ A S D F G H J K по-прежнему играют белые клавиши с�
 | Alt-drag | Копия на целевую дорожку / позицию |
 | Double-click | Разрезать по playhead (snap) |
 | Края / треугольники | Trim / fade in-out |
+| Automation lane | Рисовать volume/filter/EQ · Alt снимает точки |
 | Del / Backspace | Удалить выбранный |
 | Ctrl/Cmd+D | Дублировать сразу после исходного |
 | Ctrl/Cmd+C / V | Копировать / вставить на playhead выбранной дорожки |

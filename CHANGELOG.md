@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Arrange automation: draw volume / filter / EQ-low on the timeline (snap + zoom). Same points drive live mixer writes and bounce ramps. Extra `prodLanes` have their own targets. Filter LP/HP type is not an AudioParam — a zero-cross on bounce is approximate.
 - Session view uses the same tracks as Arrange (`prodLanes`): extra audio rows, scene launch across every lane, Session rec / Capture write those clips onto the timeline. Console sits under the launcher. Not a second independent track list.
 - Arrange clips: snap (bar / beat / 8th), timeline zoom, duplicate (Ctrl/Cmd+D), copy/paste, drag onto other tracks (Alt = copy), fade-in/out as a real GainNode envelope on live playback and bounce. Fractional clip starts fire on the transport (beat-snapped clips actually play).
 - Production console on Arrange: extra audio tracks, per-channel insert rack (EQ/filter/comp/drive/crush/flange/delay/reverb with bypass), clip waveforms + trim handles. Not VST/AU — built-in Web Audio devices. DJ mixer in DJ mode is unchanged.

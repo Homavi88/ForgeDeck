@@ -7,6 +7,7 @@ import type { XfaderCurve } from "../audio-engine/utils";
 import { t } from "../i18n";
 import { beatOffset, matchGainDb, phaseAlignSeek } from "../lib/djMix";
 import { AUDIO_LANE_COLORS, arrangeIdForMix, ensureSessionClips, isCoreMixId, laneColor } from "../lib/mix";
+import { parseAutoTarget } from "../lib/automation";
 import type {
   AIAction,
   AudioFile,
@@ -102,6 +103,7 @@ interface StudioState {
   arrangeZoom: ArrangeZoom;
   arrangeSnap: ArrangeSnap;
   clipClipboard: TimelineClip | null;
+  selectedAutoTarget: string;
   drumSteps: DrumSteps;
   drumLength: number;
   drumSwing: number;
@@ -226,6 +228,9 @@ interface StudioState {
   splitClipAtPlayhead: (id: string) => void;
   setClipFades: (id: string, fadeInBars: number, fadeOutBars: number) => void;
   nudgeSelectedClip: (deltaBars: number) => void;
+  setSelectedAutoTarget: (target: string) => void;
+  writeAutomation: (target: string, points: AutomationLaneState["points"], opts?: { undo?: boolean }) => void;
+  clearAutomation: (target: string) => void;
 }
 
 const channelState = (): MixerStripState => ({
@@ -338,6 +343,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   arrangeZoom: 1,
   arrangeSnap: 0.25,
   clipClipboard: null,
+  selectedAutoTarget: "deck_a.volume",
   drumSteps: emptySteps(),
   drumLength: 16,
   drumSwing: 0.08,
@@ -606,6 +612,8 @@ export const useStudio = create<StudioState>((set, get) => ({
       next.arrangeSnap = normalizeSnap(g.arrangeSnap);
       next.selectedClipId = null;
       next.sessionClips = ensureSessionClips(next.sessionClips || get().sessionClips, next.prodLanes || []);
+      next.selectedAutoTarget =
+        typeof g.selectedAutoTarget === "string" && g.selectedAutoTarget ? g.selectedAutoTarget : "deck_a.volume";
       if (project.drum_patterns[0] || drums.steps) {
         next.drumSteps = { ...emptySteps(), ...(project.drum_patterns[0]?.steps || drums.steps || {}) };
         next.drumLength = project.drum_patterns[0]?.length || drums.length || 16;
@@ -685,6 +693,7 @@ export const useStudio = create<StudioState>((set, get) => ({
           selectedMixId: s.selectedMixId,
           arrangeZoom: s.arrangeZoom,
           arrangeSnap: s.arrangeSnap,
+          selectedAutoTarget: s.selectedAutoTarget,
           crossfader: s.crossfader,
           xfaderCurve: s.xfaderCurve,
           notes: s.notes,
@@ -836,13 +845,18 @@ export const useStudio = create<StudioState>((set, get) => ({
     const sessionClips = get().sessionClips.filter((c) => c.trackId !== id);
     const prodLanes = get().prodLanes.filter((l) => l.id !== id);
     const selectedMixId = get().selectedMixId === id ? "drums" : get().selectedMixId;
-    set({ mixer: rest, clips, sessionClips, prodLanes, selectedMixId });
+    const automation = get().automation.filter((a) => parseAutoTarget(a.target)?.mixId !== id);
+    const selectedAutoTarget =
+      parseAutoTarget(get().selectedAutoTarget)?.mixId === id ? "deck_a.volume" : get().selectedAutoTarget;
+    set({ mixer: rest, clips, sessionClips, prodLanes, selectedMixId, automation, selectedAutoTarget });
     const eng = getEngine();
     if (eng.ready) {
       eng.mixer.removeLane(id);
       eng.timeline.clips = clips;
       eng.launcher.clips = sessionClips;
       eng.stopSessionTrack(id);
+      eng.automation.lanes.clear();
+      for (const lane of automation) eng.automation.setLane(lane.target, lane.points);
     }
   },
 
@@ -1657,6 +1671,24 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!src) return;
     get().pushUndo();
     get().moveClip(src.id, src.startBar + deltaBars);
+  },
+
+  setSelectedAutoTarget: (target) => set({ selectedAutoTarget: target }),
+
+  writeAutomation: (target, points, opts) => {
+    if (opts?.undo) get().pushUndo();
+    const automation = [...get().automation.filter((a) => a.target !== target)];
+    if (points.length) automation.push({ target, points });
+    const eng = getEngine();
+    if (eng.ready) {
+      if (points.length) eng.automation.setLane(target, points);
+      else eng.automation.lanes.delete(target);
+    }
+    set({ automation, selectedAutoTarget: target });
+  },
+
+  clearAutomation: (target) => {
+    get().writeAutomation(target, [], { undo: true });
   },
 }));
 

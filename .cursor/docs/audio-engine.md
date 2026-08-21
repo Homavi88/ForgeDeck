@@ -50,6 +50,8 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 
 `TimelineEngine` стартует клип на `round(startBar * 16)` 16th-step, не только на целом такте. Gating drums/synth в arrange сравнивает playhead `step/16` с интервалом клипа (дроби ок). `reset()` при Stop, чтобы клипы снова стреляли с начала.
 
+`AutomationEngine` хранит точки `{time,value}` (time в секундах). Live: каждый 16th пишет volume/filter/EQ на **любой** канал микшера (`writeAutomationValue`). Bounce: `scheduleAutomationLanes` ставит `setValueAtTime` / `linearRampToValueAtTime` на те же AudioParam. Filter **type** (LP/HP) не AudioParam — при пересечении нуля bounce приблизительный. Arrange: мышью рисуешь кривую (`AutomationLane`).
+
 Прогрев WASM: `AudioEngine.init()` → `warmupRubberBand`.
 
 ## Bounce 1:1
@@ -62,7 +64,8 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 4. Drums + `duckFromKick` как в live
 5. Synth + timeline clips (**warped** через тот же `scheduleWarpedClip`, включая stem-клипы)
 6. Return reverb/delay как в live mixer
-7. WAV через `encodeWav`
+7. Automation ramps (`scheduleAutomationLanes`) на volume / filter freq / EQ low
+8. WAV через `encodeWav`
 
 Не собирать урезанный EQ+delay «для экспорта» — это снова разъедет live и bounce.
 
@@ -77,7 +80,7 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 | `ClipLauncher` | session scenes; audio слоты loop + warp; ряды = CORE + `prodLanes` (те же trackId, что Arrange) |
 | `TimelineEngine` | arrange clips; fire at fractional start step; audio warp + fade 1:1 с bounce |
 | `clipPlayback.ts` | shared Rubber Band / playbackRate warp + optional clip GainNode fade |
-| `AutomationEngine` | filter/EQ/volume lanes |
+| `AutomationEngine` | filter/EQ/volume lanes; live tick + bounce ramps |
 | `LiveRecorder` | MediaRecorder с master |
 | `midiMap.ts` | Pioneer-ish CC map по умолчанию, learn, localStorage |
 

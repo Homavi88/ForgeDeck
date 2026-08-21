@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ProductionMixer } from "../mix/ProductionMixer";
+import { AutomationLane } from "./AutomationLane";
 import { t, useI18n } from "../../i18n";
 import { ARRANGE_SNAPS, ARRANGE_ZOOMS, BAR_PX, snapBar } from "../../lib/clipEdit";
 import { CORE_LANES, arrangeIdForMix, mixerIdForTrack } from "../../lib/mix";
@@ -247,25 +248,8 @@ export function TimelinePanel() {
         <div className="absolute top-4 bottom-0 w-0.5 bg-white pointer-events-none" style={{ left: 96 + playhead }} />
       </div>
       <p className="text-xs text-zinc-500">{t("arrange.hint")}</p>
-      <AutomationLanes />
+      <AutomationLane barPx={barPx} snap={arrangeSnap} bars={bars} bpm={bpm} />
       <ProductionMixer />
-    </div>
-  );
-}
-
-function AutomationLanes() {
-  const automation = useStudio((s) => s.automation);
-  useI18n((s) => s.locale);
-  if (!automation.length) {
-    return <p className="text-xs text-zinc-600">{t("arrange.autoEmpty")}</p>;
-  }
-  return (
-    <div className="space-y-2">
-      {automation.map((lane) => (
-        <div key={lane.target} className="text-xs font-mono text-zinc-400">
-          {lane.target}: {lane.points.map((p) => `${p.time.toFixed(1)}s→${p.value}`).join("  ")}
-        </div>
-      ))}
     </div>
   );
 }

@@ -30,7 +30,7 @@ Realtime-звук только в браузере (Web Audio). Python хран�
 2. **`bat\start.bat`** поднимает API и UI в двух окнах и открывает http://127.0.0.1:5173
 3. Остановка: кнопка **Выключить** в приложении, закрыть окна или **`bat\stop.bat`**
 
-Нужны Python 3 (галочка Add to PATH) и Node.js LTS. Docker — отдельно: `bat\start-docker.bat`.
+Нужен Python 3 (галочка Add to PATH). `bat\setup.bat` ищет Node.js LTS в обычных установках и version managers (nvm/fnm/Volta/Scoop), а если его нет — пробует поставить через `winget` или Chocolatey. Docker — отдельно: `bat\start-docker.bat`.
 
 ## Быстрый старт на macOS
 

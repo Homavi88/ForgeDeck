@@ -3,7 +3,8 @@ ForgeDeck — запуск на Windows
 
 Нужно один раз:
   Python 3.11+  (галочка "Add python.exe to PATH")
-  Node.js LTS   (https://nodejs.org/)
+  Node.js LTS   (setup.bat ищет обычные установки, nvm/fnm/Volta/Scoop
+                 и при отсутствии пробует поставить LTS через winget или Chocolatey)
 
 Двойной клик по файлам в этой папке:
 
@@ -23,3 +24,9 @@ API:      http://127.0.0.1:8000/docs
   "ForgeDeck API" / "ForgeDeck UI" / "ForgeDeck launcher", либо stop.bat
 
 Docker (если установлен Docker Desktop): start-docker.bat
+
+Если Node.js всё ещё не найден:
+  1) проверь, что Windows Package Manager доступен: winget --version
+  2) запусти: winget install OpenJS.NodeJS.LTS
+  3) закрой окно и снова запусти setup.bat
+  Или установи LTS вручную: https://nodejs.org/

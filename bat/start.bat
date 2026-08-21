@@ -8,6 +8,13 @@ set "PF_NOPAUSE=1"
 echo === ForgeDeck: запуск ===
 echo.
 
+call "%~dp0_node.bat"
+if not defined NODE_EXE (
+  echo Node.js не найден — запускаю setup.bat, он попробует поставить Node LTS...
+  call "%~dp0setup.bat"
+  if errorlevel 1 exit /b 1
+  call "%~dp0_node.bat"
+)
 if not exist "%PY%" (
   echo Первый запуск — создаю окружение...
   call "%~dp0setup.bat"

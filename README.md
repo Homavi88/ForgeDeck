@@ -2,9 +2,9 @@
 
 # ForgeDeck
 
-**Web DJ / DAW** — две деки как у CDJ, продакшен как в Ableton, всё в браузере.
+**Web DJ / DAW** — две деки как у CDJ, продакшен в браузере.
 
-Драм-машина · синтез · таймлайн · Rubber Band key lock · GPU stems · AI Producer
+Драм-машина · синтез · Session / Arrange · Rubber Band key lock · stems · AI Producer
 
 Realtime-звук только в браузере (Web Audio). Python хранит проекты, анализ, AI и export.
 
@@ -92,15 +92,21 @@ docker compose up --build
 
 ## Режимы UI
 
-- **DJ** — деки, vinyl platter/scratch, overview+zoom waveform, crate/queue (energy + mix-in/out, next-track highlight), cue/hot cues, loop in/out, loop roll, Rubber Band key lock, beat jump, quantize, sync, instant doubles, crossfader curve, EQ kills, gain match, beat offset / Q-sync, echo out, EQ/filter/FX-пресеты, pan/mute/solo, **FX send/return**, sidechain, stem rack (ISO, drag stem), mic/line-in
-- **Session** — clip launcher на 8 сцен, drop петли (warp to BPM), Session rec / Capture to arrange
-- **Arrange** — клипы играют drums/synth/audio (warped), automation lanes, mixer
+- **DJ** — деки, vinyl platter/scratch, overview+zoom waveform, crate/queue (energy + mix-in/out, next-track highlight), cue/hot cues, loop in/out, loop roll, Rubber Band key lock, beat jump, quantize, sync, instant doubles, crossfader curve, EQ kills, gain match, beat offset / Q-sync, echo out, EQ/filter/FX-пресеты, pan/mute/solo, **FX send/return**, sidechain, stem rack (ISO, drag stem), mic/line-in, **PFL / cue mix / split cue**, отдельное cue-окно и выбор выходного устройства без запроса микрофона
+- **Session** — clip launcher на 8 сцен; те же drums / synth / Deck A/B и добавляемые audio-дорожки, что в Arrange; drop петли (warp to BPM), Session rec / Capture to arrange
+- **Arrange** — клипы drums/synth/audio (warp), snap bar/beat/1/8, zoom, duplicate/copy/paste, drag между дорожками, fade in/out, automation lanes и production console
 - **Drums** — 16 падов, sequencer 16/32/64, paint + velocity graph, swing, save pattern/kit, edit lock, drop стема на пад
 - **Synth** — OSC/ADSR/filter/LFO, FL-style piano roll (stamp, scale, arp/strum, ghost patterns), Web MIDI + learn map
 - **Sampler** — trim/reverse/loop/pitch, slice to pads, stems на пады
 - **AI Producer** — preview → Apply/Reject; вкладка Room — presence, чат, локи
 - **Share** — публичная страница `/share/:token` после Bounce/Rec
-- **Settings** — FX presets, MIDI map (Pioneer/Akai-style CC)
+- **Settings** — FX/MIDI presets, electronic style packs; Pioneer-ish CC + `channel:note` map. Shift+click Play / Cue / PFL / hotcue / loop / key lock на деке — MIDI learn 1:1
+
+## Что уже сделано
+
+- **Реальный порядок инсертов** на каждом mixer-канале: EQ3 / Filter / Comp / Drive / Crush / Flange / Delay / Reverb можно перетаскивать или двигать стрелками. Этот порядок применяется и live, и в browser-side Bounce; это встроенные Web Audio устройства, не VST/AU.
+- **MIDI с деки 1:1**: hotcue, loop, PFL, Play, Cue и key lock привязываются по MIDI-каналу и ноте. Карта по умолчанию Pioneer-ish в стиле DDJ-400 (ch1 = Deck A, ch2 = Deck B), не официальный дамп контроллера.
+- **Наушники без permission dance**: cue-окно играет ту же headphone-шину, не второй аудиодвижок. При поддержке браузера выбор выхода идёт через `selectAudioOutput()`; запасной список устройств не вызывает `getUserMedia`.
 
 ## AI tools
 

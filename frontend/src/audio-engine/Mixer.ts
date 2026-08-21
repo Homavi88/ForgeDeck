@@ -141,6 +141,23 @@ export class Mixer {
     delete this.channels[id];
   }
 
+  /** Route a prod lane into another strip (group/bus). A/B stay on the xfader. */
+  routeLane(id: string, busId: string | null): void {
+    if (id === "A" || id === "B") return;
+    const ch = this.channels[id];
+    if (!ch) return;
+    try {
+      ch.output.disconnect();
+    } catch {
+      /* already disconnected */
+    }
+    if (busId && busId !== id && this.channels[busId]) {
+      ch.output.connect(this.channels[busId].input);
+      return;
+    }
+    ch.output.connect(this.master.input);
+  }
+
   clipInput(trackId: string): AudioNode {
     const id = mixerIdForTrack(trackId);
     return this.channels[id]?.input ?? this.channels.A.input;

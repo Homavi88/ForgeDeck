@@ -188,6 +188,17 @@ export class ChannelStrip {
     this.echoOutActive = false;
   }
 
+  /** Bounce: raise delay/reverb wet and starve the insert at `when`. */
+  scheduleEchoOut(when: number, delayWet = 0.7, reverbWet = 0.45): void {
+    const t = Math.max(0, when);
+    this.fx.delay.wet.gain.setValueAtTime(this.fx.delay.wet.gain.value, t);
+    this.fx.delay.wet.gain.linearRampToValueAtTime(delayWet, t + 0.08);
+    this.fx.reverb.wet.gain.setValueAtTime(this.fx.reverb.wet.gain.value, t);
+    this.fx.reverb.wet.gain.linearRampToValueAtTime(reverbWet, t + 0.08);
+    this.fxSend.gain.setValueAtTime(Math.max(0.0001, this.fxSend.gain.value), t);
+    this.fxSend.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  }
+
   get level(): number {
     const data = new Uint8Array(this.analyser.fftSize);
     this.analyser.getByteTimeDomainData(data);

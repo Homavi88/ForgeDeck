@@ -43,7 +43,7 @@ def create_token(user_id: str, email: str) -> str:
             {
                 "sub": user_id,
                 "email": email,
-                "exp": int(time.time()) + settings.jwt_expire_hours * 3600,
+                "exp": int(time.time()) + settings.jwt_ttl_hours * 3600,
             }
         ).encode()
     )

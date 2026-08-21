@@ -116,9 +116,9 @@ def user_from_token(db: Session, raw_token: str | None) -> User:
             user = db.get(User, data["sub"])
             if user:
                 return user
-        if settings.require_auth:
+        if settings.auth_required:
             raise HTTPException(401, "Invalid or expired token")
-    if settings.require_auth:
+    if settings.auth_required:
         raise HTTPException(401, "Not authenticated")
     return get_or_create_demo_user(db)
 

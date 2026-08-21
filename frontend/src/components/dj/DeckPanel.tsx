@@ -140,7 +140,7 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
           {t("deck.cue")}
         </Btn>
         <Btn onClick={() => deck().setCueHere()}>{t("deck.setCue")}</Btn>
-        {[1, 2, 3, 4].map((n) => (
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
           <Btn
             key={n}
             title={t("deck.midiLearnHint")}
@@ -149,6 +149,12 @@ export function DeckPanel({ side }: { side: "A" | "B" }) {
             H{n}
           </Btn>
         ))}
+        <Btn onClick={() => useStudio.getState().nudgeBeatgrid(side, -10)} title={t("deck.gridNudge")}>
+          {t("deck.gridLeft")}
+        </Btn>
+        <Btn onClick={() => useStudio.getState().nudgeBeatgrid(side, 10)} title={t("deck.gridNudge")}>
+          {t("deck.gridRight")}
+        </Btn>
         {[1, 2, 4, 8, 16].map((bars) => (
           <Btn
             key={bars}

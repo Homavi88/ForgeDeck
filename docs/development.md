@@ -47,7 +47,9 @@ Postgres + Redis + backend `:8000` + Celery worker + frontend `:5173` (nginx). C
 | Переменная | Зачем |
 | --- | --- |
 | `SECRET_KEY` | JWT; setup-скрипты меняют placeholder |
-| `REQUIRE_AUTH` | `false` = demo user без логина |
+| `REQUIRE_AUTH` | `false` = demo user без логина (игнорируется если `APP_ENV=production`) |
+| `APP_ENV` | `production` / `prod` включает auth и режет JWT до 24 ч |
+| `JWT_EXPIRE_HOURS` | TTL токена; в prod cap 24 |
 | `USE_CELERY` | иначе анализ в thread |
 | `STEMS_DEVICE` | `auto` / `cuda` / `mps` / `cpu` |
 | `AI_PROVIDER` | `mock` / `openai` / `anthropic` |
@@ -64,7 +66,9 @@ cd frontend && npm run build          # tsc --noEmit && vite build
 cd frontend && npx playwright test    # нужен dev/preview; см. playwright.config.ts
 ```
 
-Backend тесты: auth, projects, audio, analysis, stems (GPU путь мокается), share/quota, ownership, AI, demo loop, shutdown (мок `schedule_shutdown`), style packs (`GET /api/presets/styles`), extra mixer lane persist.
+Backend тесты: auth (включая смену пароля), projects (bundle, renders list, FLAC upload, packed snapshots), audio, analysis, stems (GPU путь мокается), share/quota, ownership, AI, demo loop, shutdown (мок `schedule_shutdown`), style packs (`GET /api/presets/styles`), extra mixer lane persist, `snapshot_codec`, production auth defaults.
+
+CI: `.github/workflows/ci.yml` гоняет pytest и `npm run build` на PR/push в `main`. Windows installer — отдельный workflow.
 
 Vite на `buildStart` копирует `rubberband-web` worklet в `public/worklets/rubberband-processor.js` (файл в `.gitignore`).
 

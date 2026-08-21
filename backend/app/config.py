@@ -67,6 +67,20 @@ class Settings(BaseSettings):
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
 
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.lower() in {"production", "prod"}
+
+    @property
+    def auth_required(self) -> bool:
+        return True if self.is_production else self.require_auth
+
+    @property
+    def jwt_ttl_hours(self) -> int:
+        if self.is_production:
+            return min(max(1, self.jwt_expire_hours), 24)
+        return max(1, self.jwt_expire_hours)
+
 
 @lru_cache
 def get_settings() -> Settings:

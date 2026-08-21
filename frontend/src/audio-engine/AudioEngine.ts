@@ -72,6 +72,7 @@ export class AudioEngine {
     this.ctx = new AudioContext();
     this.transport = new Transport(this.ctx);
     this.mixer = new Mixer(this.ctx, this.ctx.destination);
+    this.transport.clickDest = this.mixer.cueBus;
     this.decks = {
       A: new Deck(this.ctx, this.mixer.channels.A.input),
       B: new Deck(this.ctx, this.mixer.channels.B.input),
@@ -111,10 +112,10 @@ export class AudioEngine {
       this.applyAutomation(seconds);
       if (step % 16 === 0) {
         const bar = Math.floor(step / 16);
-        const pending = this.launcher.pendingScene;
-        this.launcher.onBar(bar);
-        if (pending != null && this.launcher.pendingScene == null) {
-          for (const track of this.launcher.trackIds()) {
+        const launched = this.launcher.onBar(bar);
+        if (launched.length) {
+          const tracks = new Set(launched.map((c) => c.trackId));
+          for (const track of tracks) {
             const clip = this.launcher.active[track] ?? null;
             void this.startSessionClip(track, clip);
             this.onSessionLaunch?.(track, clip);
@@ -131,10 +132,20 @@ export class AudioEngine {
     const playBar = step / 16;
     if (this.arrangeMode) {
       const inDrums = this.timeline.clips.some(
-        (c) => c.trackId === "drums" && playBar >= c.startBar && playBar < c.startBar + c.lengthBars,
+        (c) =>
+          c.trackId === "drums" &&
+          !c.frozen &&
+          c.kind !== "audio" &&
+          playBar >= c.startBar &&
+          playBar < c.startBar + c.lengthBars,
       );
       const inSynth = this.timeline.clips.some(
-        (c) => c.trackId === "synth" && playBar >= c.startBar && playBar < c.startBar + c.lengthBars,
+        (c) =>
+          c.trackId === "synth" &&
+          !c.frozen &&
+          c.kind !== "audio" &&
+          playBar >= c.startBar &&
+          playBar < c.startBar + c.lengthBars,
       );
       this.drums.enabled = inDrums;
       this.piano.enabled = inSynth;
@@ -156,6 +167,7 @@ export class AudioEngine {
   playTimelineClip(clip: TimelineClip, when: number): void {
     if (clip.kind === "audio" && clip.audioFileId) {
       void this.playWarpedAudio(clip, when, false);
+      return;
     }
     if (clip.kind === "drums" || clip.trackId === "drums") this.drums.enabled = true;
     if (clip.kind === "midi" || clip.trackId === "synth") this.piano.enabled = true;
@@ -188,6 +200,7 @@ export class AudioEngine {
             fadeOutSec: Math.max(0, (clip as TimelineClip).fadeOutBars || 0) * barSec,
           }
         : undefined;
+    const tl = clip as TimelineClip;
     const voice = await scheduleWarpedClip(
       this.ctx,
       buf,
@@ -200,6 +213,12 @@ export class AudioEngine {
         sourceKey: clip.sourceKey,
         projectKey: this.projectKey,
         keyFollow: !!clip.keyFollow,
+        transpose: "transpose" in clip ? tl.transpose : 0,
+        gain: "gain" in clip ? tl.gain : 1,
+        reverse: "reverse" in clip ? !!tl.reverse : false,
+        audioOffsetSec: "audioOffsetSec" in clip ? tl.audioOffsetSec : 0,
+        warpMarkers: "warpMarkers" in clip ? tl.warpMarkers : undefined,
+        lengthBars,
       },
       loop,
       fade,

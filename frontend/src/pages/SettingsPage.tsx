@@ -7,6 +7,57 @@ import { t, useI18n } from "../i18n";
 import { useStudio } from "../store/useStudio";
 import type { StylePack } from "../types";
 
+function PasswordSection() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  useI18n((s) => s.locale);
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm uppercase tracking-widest text-zinc-500">{t("settings.password")}</h2>
+      <p className="text-xs text-zinc-500">{t("settings.passwordHint")}</p>
+      <form
+        className="flex flex-wrap gap-2 items-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void api.auth
+            .changePassword(current, next)
+            .then(() => {
+              setCurrent("");
+              setNext("");
+              setMsg(t("settings.passwordOk"));
+            })
+            .catch((err) => setMsg(err instanceof Error ? err.message : t("settings.passwordFail")));
+        }}
+      >
+        <label className="text-xs text-zinc-400">
+          {t("settings.currentPassword")}
+          <input
+            type="password"
+            className="block mt-1 bg-ink-800 border border-line rounded px-2 py-1 text-sm"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+        </label>
+        <label className="text-xs text-zinc-400">
+          {t("settings.newPassword")}
+          <input
+            type="password"
+            className="block mt-1 bg-ink-800 border border-line rounded px-2 py-1 text-sm"
+            value={next}
+            minLength={4}
+            onChange={(e) => setNext(e.target.value)}
+          />
+        </label>
+        <button type="submit" className="px-3 py-1.5 rounded bg-ink-700 text-xs uppercase tracking-wider">
+          {t("settings.changePassword")}
+        </button>
+      </form>
+      {msg && <p className="text-xs text-mint">{msg}</p>}
+    </section>
+  );
+}
+
 type FxPreset = { id: string; name: string; effect_type: string; params: Record<string, number> };
 type MidiPreset = { id: string; name: string; bindings: MidiBindings };
 
@@ -50,6 +101,8 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
           <p className="text-zinc-400 text-sm mt-2">{t("settings.intro")}</p>
         </div>
+
+        <PasswordSection />
 
         <section className="space-y-3">
           <h2 className="text-sm uppercase tracking-widest text-zinc-500">{t("settings.styles")}</h2>

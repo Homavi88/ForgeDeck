@@ -3,7 +3,8 @@ import { getEngine } from "../audio-engine/AudioEngine";
 import { getToken } from "../api/client";
 import { currentUser } from "./auth";
 import { useStudio } from "../store/useStudio";
-import type { MixerStripState, MidiNote, MidiPattern, SessionClip, StudioMode, SynthParams, TimelineClip, DrumSteps } from "../types";
+import type { AutomationLaneState, MixerStripState, MixLane, MidiNote, MidiPattern, SessionClip, StudioMode, SynthParams, TimelineClip, DrumSteps } from "../types";
+import type { FrozenLane } from "../lib/freeze";
 
 const WS = import.meta.env.VITE_WS_URL || "";
 
@@ -30,6 +31,9 @@ type CollabSnapshot = {
   sessionClips?: SessionClip[];
   synth: SynthParams;
   fxReturns?: { reverb: number; delay: number };
+  prodLanes?: MixLane[];
+  automation?: AutomationLaneState[];
+  frozenLanes?: Record<string, FrozenLane>;
 };
 
 export type RoomPeer = { clientId: string; name: string; deck?: string | null };
@@ -80,6 +84,9 @@ export function useProjectSync(projectId: string | undefined): void {
   const sessionClips = useStudio((s) => s.sessionClips);
   const synth = useStudio((s) => s.synth);
   const fxReturns = useStudio((s) => s.fxReturns);
+  const prodLanes = useStudio((s) => s.prodLanes);
+  const automation = useStudio((s) => s.automation);
+  const frozenLanes = useStudio((s) => s.frozenLanes);
 
   useEffect(() => {
     if (!projectId) return;
@@ -125,6 +132,9 @@ export function useProjectSync(projectId: string | undefined): void {
           sessionClips: s.sessionClips,
           synth: s.synth,
           fxReturns: s.fxReturns,
+          prodLanes: s.prodLanes,
+          automation: s.automation,
+          frozenLanes: s.frozenLanes,
         }),
       );
     };
@@ -194,6 +204,9 @@ export function useProjectSync(projectId: string | undefined): void {
         sessionClips,
         synth,
         fxReturns,
+        prodLanes,
+        automation,
+        frozenLanes,
       };
       ws.send(JSON.stringify(snap));
     }, 120);
@@ -220,6 +233,9 @@ export function useProjectSync(projectId: string | undefined): void {
     sessionClips,
     synth,
     fxReturns,
+    prodLanes,
+    automation,
+    frozenLanes,
   ]);
 
   useEffect(() => {
@@ -286,6 +302,18 @@ async function applySnapshot(p: CollabSnapshot): Promise<void> {
   }
   if (p.fxReturns) {
     studio.setFxReturns(p.fxReturns);
+  }
+  if (p.prodLanes) {
+    useStudio.setState({ prodLanes: p.prodLanes });
+  }
+  if (p.automation) {
+    const engAuto = getEngine();
+    engAuto.automation.lanes.clear();
+    for (const lane of p.automation) engAuto.automation.setLane(lane.target, lane.points);
+    useStudio.setState({ automation: p.automation });
+  }
+  if (p.frozenLanes) {
+    useStudio.setState({ frozenLanes: p.frozenLanes });
   }
   if (p.synth) {
     eng.synth.setParams(p.synth);

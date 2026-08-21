@@ -4,6 +4,7 @@ import { AutomationLane } from "./AutomationLane";
 import { t, useI18n } from "../../i18n";
 import { ARRANGE_SNAPS, ARRANGE_ZOOMS, BAR_PX, snapBar } from "../../lib/clipEdit";
 import { CORE_LANES, arrangeIdForMix, mixerIdForTrack } from "../../lib/mix";
+import { moveWarpMarker, seedWarpFromOnsets } from "../../lib/clipWarp";
 import { peekStemDrag, peekTrackDrag, readStemDrag, readTrackDragId } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
 import type { TimelineClip } from "../../types";
@@ -31,6 +32,10 @@ export function TimelinePanel() {
     selectedClipId,
     arrangeZoom,
     arrangeSnap,
+    frozenLanes,
+    bounceRange,
+    renderBusy,
+    loopOn,
   } = useStudio();
   useI18n((s) => s.locale);
   const barPx = BAR_PX * arrangeZoom;
@@ -152,6 +157,65 @@ export function TimelinePanel() {
           >
             {t("arrange.paste")}
           </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy || !!frozenLanes[selectedMixId]}
+            title={t("arrange.freezeHint")}
+            onClick={() => void useStudio.getState().freezeLane()}
+          >
+            {renderBusy ? t("arrange.freezing") : t("arrange.freeze")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={!frozenLanes[selectedMixId]}
+            onClick={() => useStudio.getState().unfreezeLane()}
+          >
+            {t("arrange.unfreeze")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy}
+            title={t("arrange.flattenHint")}
+            onClick={() => void useStudio.getState().flattenLane()}
+          >
+            {t("arrange.flatten")}
+          </button>
+          <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+            {t("arrange.bounceFrom")}
+            <input
+              type="number"
+              min={1}
+              step={1}
+              className="w-12 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+              value={bounceRange ? bounceRange.startBar + 1 : ""}
+              placeholder="1"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  useStudio.getState().setBounceRange(bounceRange?.lengthBars ? { startBar: 0, lengthBars: bounceRange.lengthBars } : null);
+                  return;
+                }
+                const startBar = Math.max(0, Number(raw) - 1);
+                useStudio.getState().setBounceRange({ startBar, lengthBars: bounceRange?.lengthBars || 0 });
+              }}
+            />
+          </label>
+          <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+            {t("arrange.bounceLen")}
+            <input
+              type="number"
+              min={0}
+              step={1}
+              className="w-12 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+              value={bounceRange?.lengthBars ? bounceRange.lengthBars : ""}
+              placeholder={t("arrange.bounceAuto")}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const lengthBars = raw === "" ? 0 : Number(raw);
+                useStudio.getState().setBounceRange({ startBar: bounceRange?.startBar || 0, lengthBars });
+              }}
+            />
+          </label>
           {selected && selected.kind === "audio" && (
             <>
               <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
@@ -182,6 +246,131 @@ export function TimelinePanel() {
               </label>
             </>
           )}
+          {selected && selected.kind === "audio" && (
+            <>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.gain")}
+                <input
+                  type="number"
+                  min={0}
+                  max={4}
+                  step={0.05}
+                  className="w-14 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={Number((selected.gain ?? 1).toFixed(2))}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { gain: Number(e.target.value) })}
+                />
+              </label>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.transpose")}
+                <input
+                  type="number"
+                  min={-24}
+                  max={24}
+                  step={1}
+                  className="w-12 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={selected.transpose || 0}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { transpose: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.offset")}
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="w-14 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={Number((selected.audioOffsetSec || 0).toFixed(3))}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { audioOffsetSec: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                {t("arrange.xfade")}
+                <input
+                  type="number"
+                  min={0}
+                  step={arrangeSnap}
+                  className="w-14 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+                  value={Number((selected.crossfadeBars || 0).toFixed(3))}
+                  onChange={(e) => useStudio.getState().setClipAudio(selected.id, { crossfadeBars: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <button
+                className={`text-xs border border-line rounded px-2 py-0.5 ${selected.reverse ? "bg-accent text-black" : "bg-ink-800"}`}
+                onClick={() => useStudio.getState().setClipAudio(selected.id, { reverse: !selected.reverse })}
+              >
+                {t("arrange.reverse")}
+              </button>
+              <button
+                className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+                disabled={!!selected.reverse}
+                title={t("arrange.warpHint")}
+                onClick={() => {
+                  const file = library.find((f) => f.id === selected.audioFileId);
+                  const duration = file?.duration || 0;
+                  const srcBpm = selected.sourceBpm || file?.analysis?.bpm || 120;
+                  if (duration < 0.05) {
+                    useStudio.getState().pushToast({ id: "warp", kind: "warn", text: t("arrange.warpNoFile"), ttl: 2800 });
+                    return;
+                  }
+                  const markers = seedWarpFromOnsets(
+                    file?.analysis?.onsets,
+                    file?.analysis?.beats,
+                    srcBpm,
+                    duration,
+                    selected.lengthBars,
+                    selected.audioOffsetSec || 0,
+                  );
+                  if (markers.length < 3) {
+                    useStudio.getState().pushToast({ id: "warp", kind: "warn", text: t("arrange.warpNoHits"), ttl: 2800 });
+                    return;
+                  }
+                  useStudio.getState().pushUndo();
+                  useStudio.getState().setClipAudio(selected.id, { warpMarkers: markers });
+                }}
+              >
+                {t("arrange.warpSeed")}
+              </button>
+              <button
+                className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+                disabled={!selected.warpMarkers?.length}
+                onClick={() => {
+                  useStudio.getState().pushUndo();
+                  useStudio.getState().setClipAudio(selected.id, { warpMarkers: [] });
+                }}
+              >
+                {t("arrange.warpClear")}
+              </button>
+            </>
+          )}
+          <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+            <input
+              type="checkbox"
+              checked={loopOn}
+              onChange={(e) => useStudio.getState().setLoopOn(e.target.checked)}
+            />
+            {t("arrange.loop")}
+          </label>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5"
+            title={t("arrange.tempoHint")}
+            onClick={() => useStudio.getState().setTempoPoint(bounceRange?.startBar || 0, bpm)}
+          >
+            {t("arrange.tempoHere")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy}
+            onClick={() => void useStudio.getState().exportLane()}
+          >
+            {t("arrange.exportLane")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy}
+            onClick={() => void useStudio.getState().exportAllLanes()}
+          >
+            {t("arrange.exportAll")}
+          </button>
           <button
             className="text-xs bg-accent text-black font-semibold px-2 py-1 rounded"
             onClick={() => useStudio.getState().addAudioLane()}
@@ -216,6 +405,7 @@ export function TimelinePanel() {
                 }}
               >
                 {lane.name}
+                {frozenLanes[lane.id] ? <span className="ml-1 text-[9px] text-zinc-400">{t("arrange.frozenBadge")}</span> : null}
               </button>
               <div
                 className="flex-1 relative bg-ink-900"
@@ -379,6 +569,9 @@ function ClipView({
       )}
       <div className="relative z-10 px-2 h-full flex items-center gap-1 pointer-events-none">
         <span className="truncate font-medium drop-shadow">{clip.name}</span>
+        {clip.frozen && (
+          <span className="shrink-0 bg-black/30 rounded px-1 font-mono uppercase">{t("arrange.frozenBadge")}</span>
+        )}
         {clip.kind === "audio" && (
           <>
             <span className="shrink-0 bg-black/20 rounded px-1 font-mono">
@@ -423,6 +616,9 @@ function ClipView({
         title={t("arrange.trim")}
         onPointerDown={(e) => startTrim("right", e)}
       />
+      {selected && clip.kind === "audio" && !clip.reverse && (clip.warpMarkers?.length || 0) >= 2 && (
+        <WarpOverlay clip={clip} barPx={barPx} durationSec={file?.duration || 0} />
+      )}
     </div>
   );
 }
@@ -440,5 +636,57 @@ function ClipWave({ peaks }: { peaks: number[] }) {
     <svg className="absolute inset-0 w-full h-full opacity-50" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
       <polyline fill="none" stroke="#111" strokeWidth="1.4" points={pts} />
     </svg>
+  );
+}
+
+function WarpOverlay({
+  clip,
+  barPx,
+  durationSec,
+}: {
+  clip: TimelineClip;
+  barPx: number;
+  durationSec: number;
+}) {
+  const markers = clip.warpMarkers || [];
+  const dur = durationSec > 0.05 ? durationSec : Math.max(0.05, ...markers.map((m) => m.srcSec));
+  const startWarp = (index: number, e: PointerEvent<HTMLDivElement>) => {
+    if (index <= 0 || index >= markers.length - 1) return;
+    e.stopPropagation();
+    e.preventDefault();
+    useStudio.getState().pushUndo();
+    const originX = e.clientX;
+    const origin = markers.map((m) => ({ ...m }));
+    const dest0 = origin[index].destBar;
+    const movePtr = (ev: globalThis.PointerEvent) => {
+      const destBar = dest0 + (ev.clientX - originX) / barPx;
+      const next = moveWarpMarker(origin, index, destBar, clip.lengthBars, dur);
+      useStudio.getState().setClipAudio(clip.id, { warpMarkers: next });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", movePtr);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", movePtr);
+    window.addEventListener("pointerup", up);
+  };
+
+  return (
+    <>
+      {markers.map((m, i) => {
+        const left = `${(m.destBar / Math.max(0.125, clip.lengthBars)) * 100}%`;
+        const ends = i === 0 || i === markers.length - 1;
+        return (
+          <div key={`${m.srcSec}-${m.destBar}-${i}`} className="absolute inset-y-0 z-40" style={{ left }}>
+            <div className="absolute top-0 bottom-0 w-px bg-white/70 pointer-events-none" />
+            <div
+              className={`absolute bottom-0.5 -translate-x-1/2 w-2 h-2 rotate-45 bg-white shadow ${ends ? "opacity-40" : "cursor-ew-resize"}`}
+              title={`${m.srcSec.toFixed(2)}s → ${m.destBar.toFixed(2)} bar`}
+              onPointerDown={(e) => startWarp(i, e)}
+            />
+          </div>
+        );
+      })}
+    </>
   );
 }

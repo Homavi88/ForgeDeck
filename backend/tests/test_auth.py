@@ -10,6 +10,26 @@ def test_register_login_me(client):
     assert bad.status_code == 401
 
 
+def test_change_password(client):
+    reg = client.post("/api/auth/register", json={"email": "pw@test.local", "name": "P", "password": "secret"})
+    token = reg.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    wrong = client.post(
+        "/api/auth/password",
+        json={"current_password": "nope", "new_password": "later"},
+        headers=headers,
+    )
+    assert wrong.status_code == 401
+    ok = client.post(
+        "/api/auth/password",
+        json={"current_password": "secret", "new_password": "later"},
+        headers=headers,
+    )
+    assert ok.status_code == 200, ok.text
+    login = client.post("/api/auth/login", json={"email": "pw@test.local", "password": "later"})
+    assert login.status_code == 200
+
+
 def test_fx_presets_seed(client):
     res = client.get("/api/presets/effects")
     assert res.status_code == 200

@@ -549,6 +549,22 @@ export function PianoRollPanel() {
         >
           {t("piano.clear")}
         </button>
+        <label className="px-2 py-0.5 rounded bg-ink-700 text-zinc-300 cursor-pointer">
+          {t("piano.importMidi")}
+          <input
+            type="file"
+            accept=".mid,.midi,audio/midi"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void useStudio.getState().importMidiFile(file);
+            }}
+          />
+        </label>
+        <button className="px-2 py-0.5 rounded bg-ink-700 text-zinc-300" onClick={() => useStudio.getState().exportMidiFile()}>
+          {t("piano.exportMidi")}
+        </button>
       </div>
       <div
         ref={scrollRef}

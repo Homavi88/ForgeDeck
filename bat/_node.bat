@@ -18,6 +18,7 @@ call :from_dir "%USERPROFILE%\scoop\apps\nodejs\current"
 call :from_dir "%USERPROFILE%\scoop\apps\nodejs-lts\current"
 call :from_dir "%ProgramData%\chocolatey\bin"
 call :from_dir "%USERPROFILE%\.nvs\default"
+call :from_dir "%LOCALAPPDATA%\ForgeDeck\node\current"
 
 REM fnm puts the active Node under a generated multishell directory.
 for /d %%D in ("%LOCALAPPDATA%\fnm_multishells\*") do call :from_dir "%%~D"

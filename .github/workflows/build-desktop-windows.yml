@@ -1,0 +1,43 @@
+name: Build Windows desktop installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Install sidecar build dependencies
+        run: py -3.12-64 -m pip install -r desktop/requirements-build.txt -r backend/requirements.txt
+      - name: Build NSIS installer
+        working-directory: desktop
+        run: npm run package:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ForgeDeck-Windows-installer
+          path: desktop/release/*.exe
+          if-no-files-found: error

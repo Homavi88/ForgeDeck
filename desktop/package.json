@@ -1,0 +1,46 @@
+{
+  "name": "forgedeck-desktop",
+  "version": "0.1.0",
+  "description": "Packaged ForgeDeck desktop application",
+  "main": "main.mjs",
+  "scripts": {
+    "dev": "electron .",
+    "build:ui": "npm --prefix ../frontend run build",
+    "build:server": "py -3.12-64 scripts/build-server.py",
+    "package:win": "npm run build:ui && npm run build:server && electron-builder --win nsis"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.forgedeck.studio",
+    "productName": "ForgeDeck",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.mjs",
+      "preload.mjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "ui"
+      },
+      {
+        "from": "dist/server/ForgeDeckServer.exe",
+        "to": "server/ForgeDeckServer.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "ForgeDeck-${version}-Setup.${ext}"
+    },
+    "publish": "never"
+  }
+}

@@ -6,8 +6,9 @@
 
 ```
 Deck A/B ─┐
-Drums ────┼─► Mixer channels ─► xfader A/B ─► master ChannelStrip ─► Limiter ─► dest
-Synth ────┘         │
+Drums ────┼─► Mixer channels ─► xfader A/B (только A/B) ─► master ChannelStrip ─► Limiter ─► dest
+Synth ────┤
+audio-N ──┘  (Mixer.addLane → master.input, не xfader)
                     ChannelStrip:
                     trim → EQ3 → Filter ┬→ fxSend → EffectChain → duck ┬→ mute → vol → pan → analyser → out
                                         ├→ sendRev → return reverb ───┘         └→ pflOut
@@ -25,9 +26,11 @@ Crossfader: `xfaderGains(x, curve)` — smooth = equal-power, sharp = узкий
 
 PFL: `pflOut` каналов A/B → `cueBus`. Headphones: mix master analyser + cue bus (`cueMix` 0=master … 1=cue) → `MediaStreamAudioDestinationNode` (только realtime `AudioContext`, не Offline bounce). Split cue: L=master, R=cue на основном `destination`.
 
-`EffectChain` (порядок фиксирован):
+`EffectChain` (порядок фиксирован; **bypass** ставит wet=0):
 
 compressor → analog distortion + cabinet IR → bitcrush → flanger → delay → reverb (plate/spring + tape IR)
+
+Insert rack UI (`InsertRack`) крутит те же устройства **на выбранном канале** плюс EQ3/Filter стрипа. Это не VST.
 
 IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был детерминированным).
 

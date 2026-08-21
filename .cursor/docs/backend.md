@@ -26,7 +26,7 @@
 
 Auth: `POST /api/auth/register`, `/login`, `GET /api/auth/me`.
 
-Projects: CRUD, `PUT` сохраняет graph (`persist_graph` обновляет **один** DrumPattern `Main` / SynthPreset `Current` / mixer channel по имени и удаляет дубли), duplicate, share, export JSON, tracks, patterns (**upsert** по имени), synth-presets (upsert по имени), decks, arrangements, render (+ upload WAV с клиента).
+Projects: CRUD, `PUT` сохраняет graph (`persist_graph` обновляет **один** DrumPattern `Main` / SynthPreset `Current` / mixer channel по имени — **создаёт** канал для extra `prodLanes` ключей — и удаляет дубли), duplicate, share, export JSON, tracks, patterns (**upsert** по имени), synth-presets (upsert по имени), decks, arrangements, render (+ upload WAV с клиента).
 
 Audio: `POST /upload` (квота), list, `GET /compatible` (**до** `/{id}`), analysis, cues, loops, `POST /{id}/stems`, stream stem.
 

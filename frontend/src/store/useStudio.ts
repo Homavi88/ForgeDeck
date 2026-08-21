@@ -6,6 +6,7 @@ import { applyStripState } from "../audio-engine/stripState";
 import type { XfaderCurve } from "../audio-engine/utils";
 import { t } from "../i18n";
 import { beatOffset, matchGainDb, phaseAlignSeek } from "../lib/djMix";
+import { AUDIO_LANE_COLORS, isCoreMixId, laneColor } from "../lib/mix";
 import type {
   AIAction,
   AudioFile,
@@ -15,6 +16,7 @@ import type {
   FxReturnsState,
   MidiNote,
   MidiPattern,
+  MixLane,
   MixerStripState,
   ProjectDetail,
   SamplerState,
@@ -39,6 +41,7 @@ type Snapshot = {
   activeMidiPatternId: string;
   mixer: Record<string, MixerStripState>;
   automation: AutomationLaneState[];
+  prodLanes: MixLane[];
 };
 
 export type Toast = { id: string; kind: "ok" | "info" | "warn" | "err"; text: string; ttl?: number };
@@ -81,6 +84,8 @@ interface StudioState {
   crossfader: number;
   sidechain: boolean;
   mixer: Record<string, MixerStripState>;
+  prodLanes: MixLane[];
+  selectedMixId: string;
   drumSteps: DrumSteps;
   drumLength: number;
   drumSwing: number;
@@ -136,6 +141,11 @@ interface StudioState {
   undo: () => void;
   redo: () => void;
   applyMixerChannel: (id: string, patch: Partial<MixerStripState>) => void;
+  addAudioLane: () => void;
+  removeAudioLane: (id: string) => void;
+  renameAudioLane: (id: string, name: string) => void;
+  selectMix: (id: string) => void;
+  setInsertBypass: (id: string, kind: string, on: boolean) => void;
   applyStylePack: (pack: StylePack, parts?: StylePackParts) => Promise<void>;
   xfaderCurve: XfaderCurve;
   setXfaderCurve: (curve: XfaderCurve) => void;
@@ -198,6 +208,7 @@ const channelState = (): MixerStripState => ({
   solo: false,
   pan: 0,
   fx: { delay: 0, reverb: 0, flanger: 0, distortion: 0, bitcrush: 0, compressor: 0 },
+  bypass: {},
   sendRev: 0,
   sendDly: 0,
 });
@@ -261,6 +272,7 @@ function snapOf(s: StudioState): Snapshot {
     activeMidiPatternId: s.activeMidiPatternId,
     mixer: s.mixer,
     automation: s.automation,
+    prodLanes: s.prodLanes,
   };
 }
 
@@ -290,6 +302,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   xfaderCurve: "smooth",
   sidechain: true,
   mixer: { A: channelState(), B: channelState(), drums: channelState(), synth: channelState() },
+  prodLanes: [],
+  selectedMixId: "A",
   drumSteps: emptySteps(),
   drumLength: 16,
   drumSwing: 0.08,
@@ -543,6 +557,16 @@ export const useStudio = create<StudioState>((set, get) => ({
           synth: { ...channelState(), ...mixerIn.synth },
         },
       };
+      const storedLanes = Array.isArray(g.prodLanes) ? (g.prodLanes as MixLane[]) : [];
+      next.prodLanes = storedLanes.filter((l) => l && typeof l.id === "string" && !isCoreMixId(l.id));
+      for (const [key, st] of Object.entries(mixerIn)) {
+        if (isCoreMixId(key) || !st || typeof st !== "object") continue;
+        next.mixer![key] = { ...channelState(), ...st };
+        if (!next.prodLanes.some((l) => l.id === key)) {
+          next.prodLanes.push({ id: key, name: key, color: laneColor(key), role: "audio" });
+        }
+      }
+      next.selectedMixId = typeof g.selectedMixId === "string" ? g.selectedMixId : "A";
       if (project.drum_patterns[0] || drums.steps) {
         next.drumSteps = { ...emptySteps(), ...(project.drum_patterns[0]?.steps || drums.steps || {}) };
         next.drumLength = project.drum_patterns[0]?.length || drums.length || 16;
@@ -618,6 +642,8 @@ export const useStudio = create<StudioState>((set, get) => ({
           drums: { steps: s.drumSteps, length: s.drumLength, swing: s.drumSwing },
           timeline: { clips: s.clips },
           mixer: s.mixer,
+          prodLanes: s.prodLanes,
+          selectedMixId: s.selectedMixId,
           crossfader: s.crossfader,
           xfaderCurve: s.xfaderCurve,
           notes: s.notes,
@@ -712,14 +738,11 @@ export const useStudio = create<StudioState>((set, get) => ({
   pollMeters: () => {
     const eng = getEngine();
     if (!eng.ready) return;
+    const levels: Record<string, number> = {};
+    for (const [id, ch] of Object.entries(eng.mixer.channels)) levels[id] = ch.level;
     set({
       masterLevel: eng.mixer.masterLevel,
-      levels: {
-        A: eng.mixer.channels.A.level,
-        B: eng.mixer.channels.B.level,
-        drums: eng.mixer.channels.drums.level,
-        synth: eng.mixer.channels.synth.level,
-      },
+      levels,
       deckPos: { A: eng.decks.A.position, B: eng.decks.B.position },
       currentStep: eng.transport.currentStep,
       playing: eng.decks.A.playing || eng.decks.B.playing || eng.transport.playing,
@@ -729,10 +752,59 @@ export const useStudio = create<StudioState>((set, get) => ({
   applyMixerChannel: (id, patch) => {
     const mixer = { ...get().mixer, [id]: { ...get().mixer[id], ...patch } };
     set({ mixer });
-    const ch = getEngine().mixer.channels[id];
+    const eng = getEngine();
+    if (!eng.ready) return;
+    if (!eng.mixer.channels[id]) eng.mixer.addLane(id);
+    const ch = eng.mixer.channels[id];
     if (!ch) return;
     applyStripState(ch, mixer[id]);
-    getEngine().mixer.setSolo(id, mixer[id].solo);
+    eng.mixer.setSolo(id, mixer[id].solo);
+  },
+
+  selectMix: (id) => set({ selectedMixId: id }),
+
+  setInsertBypass: (id, kind, on) => {
+    const st = get().mixer[id];
+    if (!st) return;
+    get().applyMixerChannel(id, { bypass: { ...(st.bypass || {}), [kind]: on } });
+  },
+
+  addAudioLane: () => {
+    get().pushUndo();
+    const n = get().prodLanes.length + 1;
+    const id = `t-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+    const color = AUDIO_LANE_COLORS[(n - 1) % AUDIO_LANE_COLORS.length];
+    const lane: MixLane = { id, name: t("mixer.audioN", { n }), color, role: "audio" };
+    const mixer = { ...get().mixer, [id]: channelState() };
+    set({ prodLanes: [...get().prodLanes, lane], mixer, selectedMixId: id });
+    void get().bootAudio().then(() => {
+      const ch = getEngine().mixer.addLane(id);
+      applyStripState(ch, mixer[id]);
+    });
+    get().pushToast({ id: "lane", kind: "ok", text: t("toast.trackAdded", { name: lane.name }), ttl: 1800 });
+  },
+
+  removeAudioLane: (id) => {
+    if (isCoreMixId(id)) return;
+    get().pushUndo();
+    const { [id]: _drop, ...rest } = get().mixer;
+    const clips = get().clips.filter((c) => c.trackId !== id);
+    const prodLanes = get().prodLanes.filter((l) => l.id !== id);
+    const selectedMixId = get().selectedMixId === id ? "drums" : get().selectedMixId;
+    set({ mixer: rest, clips, prodLanes, selectedMixId });
+    const eng = getEngine();
+    if (eng.ready) {
+      eng.mixer.removeLane(id);
+      eng.timeline.clips = clips;
+    }
+  },
+
+  renameAudioLane: (id, name) => {
+    if (isCoreMixId(id)) return;
+    const trimmed = name.trim().slice(0, 32) || id;
+    set({
+      prodLanes: get().prodLanes.map((l) => (l.id === id ? { ...l, name: trimmed } : l)),
+    });
   },
 
   applyStylePack: async (pack, parts = "all") => {
@@ -1278,7 +1350,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       name,
       kind: "audio",
       lengthBars,
-      color: TRACK_COLORS[trackId] || "#3dff7a",
+      color: laneColor(trackId, get().prodLanes),
       empty: false,
       audioFileId: file.id,
       stem: stem ?? null,
@@ -1304,7 +1376,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       name: stem ? `${stem} · ${file.original_filename}` : file.original_filename,
       startBar: Math.max(0, startBar),
       lengthBars: loopLengthBars(src?.duration, src?.bpm),
-      color: TRACK_COLORS[trackId] || "#3dff7a",
+      color: laneColor(trackId, get().prodLanes),
       kind: "audio",
       audioFileId: file.id,
       stem: stem ?? null,
@@ -1446,28 +1518,13 @@ function hydrateEngine(s: StudioState): void {
   eng.arrangeMode = s.mode === "arrange";
   for (const lane of s.automation) eng.automation.setLane(lane.target, lane.points);
   for (const id of Object.keys(s.mixer)) {
-    const ch = eng.mixer.channels[id];
+    if (!eng.mixer.channels[id]) eng.mixer.addLane(id);
     const st = s.mixer[id];
-    if (!ch || !st) continue;
-    ch.setVolume(st.volume);
-    ch.setGainDb(st.gain);
-    ch.eq.set(st.eq[0], st.eq[1], st.eq[2]);
-    ch.eq.setKills(st.eqKill || [false, false, false]);
-    ch.filter.setKnob(st.filter);
-    ch.setPan(st.pan);
-    ch.setMute(st.mute);
-    ch.setSendRev(st.sendRev ?? 0);
-    ch.setSendDly(st.sendDly ?? 0);
+    if (!st) continue;
+    applyStripState(eng.mixer.channels[id], st);
     eng.mixer.setSolo(id, st.solo);
   }
 }
-
-const TRACK_COLORS: Record<string, string> = {
-  drums: "#ff6a00",
-  synth: "#3dfff3",
-  deckA: "#3dff7a",
-  deckB: "#ffd23f",
-};
 
 function sessionToTimeline(clip: SessionClip, startBar: number, lengthBars: number): TimelineClip {
   return {

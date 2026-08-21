@@ -213,6 +213,15 @@ export const en = {
     returnRev: "Return reverb",
     returnDly: "Return delay",
     sends: "Sends · drums / synth",
+    production: "Console",
+    rack: "Inserts",
+    rackHint: "Built-in devices on the selected channel — not VST/AU",
+    addTrack: "+ Audio track",
+    removeTrack: "Remove",
+    renameTrack: "Track name",
+    bypass: "Bypass",
+    wet: "Wet",
+    audioN: "Audio {n}",
   },
   library: {
     title: "Library — drop files or drag a track onto a deck",
@@ -360,9 +369,11 @@ export const en = {
   },
   arrange: {
     title: "Arrangement · {bpm} BPM · snap to bars",
-    hint: "Drag clips · drop a library loop or stem · double-click to split at playhead bar",
+    hint: "Drag clips · drop a library loop or stem · double-click to split · edge handles trim",
     autoEmpty: "Automation lanes appear here after AI Apply (filter/EQ/volume).",
     addClip: "Add clip",
+    addTrack: "+ Audio track",
+    trim: "Trim",
     clip: "Clip",
     keyFollow: "Key follow — Rubber Band transpose to project key",
     keyFollowShort: "Key",
@@ -442,6 +453,7 @@ export const en = {
     styleDrums: "Loaded {name} drums",
     styleSynth: "Loaded {name} synth",
     styleFailed: "Could not load style",
+    trackAdded: "Track {name}",
   },
 } ;
 

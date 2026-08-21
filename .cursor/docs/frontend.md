@@ -22,6 +22,8 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
+Graph extras: `prodLanes` (user audio tracks), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert. `Mixer.addLane(id)` кормит master (не xfader). Arrange UI: `ProductionMixer` + `InsertRack`.
+
 Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
 
 Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S; graph пишется одним `PUT`. Паттерн `Main` больше не дублируется отдельным POST на каждый save. Успешный save даёт тост «Saved».
@@ -46,7 +48,7 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
 - `session` — `SessionPanel` (8 сцен, drop петли, Session rec / Capture)
-- `arrange` — `TimelinePanel` (warp-клипы, drop петли/стемов)
+- `arrange` — `TimelinePanel` (warp-клипы, waveform, trim handles, drop петли/стемов, **+ Audio track**) + `ProductionMixer` / `InsertRack`
 - `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; `StylePackSelect` drums-only)
 - `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; `StylePackSelect` synth-only)
 - `sampler` — `SamplerPanel` (стемы на пады)

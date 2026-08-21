@@ -16,6 +16,8 @@ export class EffectChain {
   comp: CompressorFx;
   /** 0 = stock compressor settings used by the live desk. */
   compAmount = 0;
+  bypassed: Record<string, boolean> = {};
+  private lastWet: Record<string, number> = {};
 
   constructor(ctx: BaseAudioContext) {
     this.input = ctx.createGain();
@@ -42,7 +44,17 @@ export class EffectChain {
   }
 
   setWet(kind: string, wet: number): void {
-    const w = Math.max(0, Math.min(1, wet));
+    this.lastWet[kind] = Math.max(0, Math.min(1, wet));
+    this.applyKind(kind);
+  }
+
+  setBypass(kind: string, on: boolean): void {
+    this.bypassed[kind] = on;
+    this.applyKind(kind);
+  }
+
+  private applyKind(kind: string): void {
+    const w = this.bypassed[kind] ? 0 : (this.lastWet[kind] ?? 0);
     if (kind === "delay") this.delay.set(0.375, 0.35, w);
     if (kind === "reverb") this.reverb.setWet(w);
     if (kind === "flanger") this.flanger.setWet(w);

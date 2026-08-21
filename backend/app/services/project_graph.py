@@ -52,13 +52,19 @@ def persist_graph(db: Session, project: Project, graph: dict[str, Any]) -> None:
 
     mixer = graph.get("mixer") or {}
     name_map = {"A": "Deck A", "B": "Deck B", "drums": "Drums", "synth": "Synth"}
-    for key, ch_name in name_map.items():
-        state = mixer.get(key)
+    for key, state in mixer.items():
         if not isinstance(state, dict):
             continue
+        ch_name = name_map.get(key, key)
         channel = keep_named(db, MixerChannel, project.id, ch_name)
-        if not channel:
-            continue
+        if channel is None:
+            channel = MixerChannel(
+                project_id=project.id,
+                name=ch_name,
+                role="audio" if key not in name_map else ("deck" if key in ("A", "B") else key),
+            )
+            db.add(channel)
+            db.flush()
         if "volume" in state:
             channel.volume = float(state["volume"])
         if "gain" in state:

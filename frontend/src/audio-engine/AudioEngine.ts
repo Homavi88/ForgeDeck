@@ -146,10 +146,7 @@ export class AudioEngine {
   }
 
   private clipDest(trackId: string): AudioNode {
-    if (trackId === "deckB") return this.mixer.channels.B.input;
-    if (trackId === "drums") return this.mixer.channels.drums.input;
-    if (trackId === "synth") return this.mixer.channels.synth.input;
-    return this.mixer.channels.A.input;
+    return this.mixer.clipInput(trackId);
   }
 
   bufferKey(audioId: string, stem?: string | null): string {

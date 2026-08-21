@@ -54,6 +54,7 @@ export default function StudioPage() {
     pitchRange,
     sessionClips,
     fxReturns,
+    prodLanes,
     aiPanelOpen,
     libraryOpen,
     decksFullscreen,
@@ -108,6 +109,7 @@ export default function StudioPage() {
     pitchRange,
     sessionClips,
     fxReturns,
+    prodLanes,
   ]);
 
   useEffect(() => {

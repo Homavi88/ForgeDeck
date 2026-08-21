@@ -84,3 +84,20 @@ def test_persist_graph_heals_duplicate_main(client):
     assert res.status_code == 200, res.text
     mains = [p for p in client.get(f"/api/projects/{pid}").json()["drum_patterns"] if p["name"] == "Main"]
     assert len(mains) == 1
+
+
+def test_persist_extra_mixer_lane(client):
+    pid = client.post("/api/projects", json={"name": "Prod"}).json()["id"]
+    graph = {
+        "mixer": {
+            "A": {"volume": 0.8},
+            "t-audio01": {"volume": 0.4, "mute": False, "fx": {"reverb": 0.2}},
+        },
+        "prodLanes": [{"id": "t-audio01", "name": "Pad", "color": "#7aa2ff", "role": "audio"}],
+    }
+    res = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert res.status_code == 200, res.text
+    names = {c["name"] for c in client.get(f"/api/projects/{pid}").json()["mixer_channels"]}
+    assert "t-audio01" in names
+    again = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert again.status_code == 200, again.text

@@ -9,6 +9,7 @@ DJ must-have с клавиатурой, library search, drag на деку, PFL,
 - ~~Mixer EQ/filter/gain/volume controlled (`value`)~~ — сделано на mixer strips
 - MIDI learn с деки: hotcue/loop/PFL note map 1:1 как у конкретного DDJ, не только CC Pioneer-ish
 - Отдельное окно/устройство для headphones без `getUserMedia` permission dance
+- VST/AU / third-party plugin scan (browser cannot load Serum, FabFilter, soothe2, ShaperBox)
 
 ## Не делать вид, что это баги архитектуры
 

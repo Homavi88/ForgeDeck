@@ -38,9 +38,16 @@ export function applyStripState(ch: ChannelStrip, state: MixerStripState | undef
   ch.setPan(state.pan ?? 0);
   ch.setMute(!!state.mute);
   ch.setSolo(!!state.solo);
-  for (const [kind, wet] of Object.entries(state.fx || {})) {
-    ch.fx.setWet(kind, wet);
-  }
+    for (const [kind, wet] of Object.entries(state.fx || {})) {
+      ch.fx.setWet(kind, wet);
+    }
+    const bypass = state.bypass || {};
+    if (bypass.eq) ch.eq.set(0, 0, 0);
+    if (bypass.filter) ch.filter.setKnob(0);
+    for (const [kind, on] of Object.entries(bypass)) {
+      if (kind === "eq" || kind === "filter") continue;
+      ch.fx.setBypass(kind, !!on);
+    }
   ch.setSendRev(state.sendRev ?? 0);
   ch.setSendDly(state.sendDly ?? 0);
 }

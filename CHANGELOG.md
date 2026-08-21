@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Production console on Arrange: extra audio tracks, per-channel insert rack (EQ/filter/comp/drive/crush/flange/delay/reverb with bypass), clip waveforms + trim handles. Not VST/AU — built-in Web Audio devices. DJ mixer in DJ mode is unchanged.
 - Electronic style packs: original ForgeDeck genre templates (house, deep house, techno, trance, DnB, dubstep, UKG, synthwave, ambient, electro) — BPM/key, drums, synth, FX, piano-roll notes. Settings cards plus drums-only / synth-only dropdowns. Not licensed Serum/Vital/Ableton banks; not fetched at runtime.
 - TopBar студии в две строки: режимы не обрезаются, транспорт/Save/Rec/Bounce сверху, панели и язык снизу
 - Audio clips on Session / Arrange warp to project BPM (Rubber Band, playbackRate fallback); optional Key follow to project `musical_key`. Bounce schedules the same warp.

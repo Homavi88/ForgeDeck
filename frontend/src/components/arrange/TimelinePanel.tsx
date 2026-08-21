@@ -1,24 +1,19 @@
-import { MixerPanel } from "../dj/MixerPanel";
+import { ProductionMixer } from "../mix/ProductionMixer";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { t, useI18n } from "../../i18n";
+import { CORE_LANES, arrangeIdForMix } from "../../lib/mix";
 import { peekStemDrag, peekTrackDrag, readStemDrag, readTrackDragId } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
 import type { TimelineClip } from "../../types";
-import type { DragEvent } from "react";
-
-const TRACK_IDS = [
-  { id: "drums", nameKey: "session.drums", color: "#ff6a00" },
-  { id: "synth", nameKey: "session.synth", color: "#3dfff3" },
-  { id: "deckA", nameKey: "session.deckA", color: "#3dff7a" },
-  { id: "deckB", nameKey: "session.deckB", color: "#ffd23f" },
-] as const;
+import type { DragEvent, PointerEvent } from "react";
 
 const PX = 28;
 
 export function TimelinePanel() {
-  const { clips, bpm, currentStep, library } = useStudio();
+  const { clips, bpm, currentStep, library, prodLanes, selectedMixId } = useStudio();
   const playhead = (currentStep / 16) * PX * 4;
   useI18n((s) => s.locale);
+  const lanes = [...CORE_LANES, ...prodLanes];
 
   const move = (id: string, startBar: number) => {
     const next = clips.map((c) => (c.id === id ? { ...c, startBar: Math.max(0, startBar) } : c));
@@ -26,8 +21,10 @@ export function TimelinePanel() {
     getEngine().timeline.clips = next;
   };
 
-  const trim = (id: string, lengthBars: number) => {
-    const next = clips.map((c) => (c.id === id ? { ...c, lengthBars: Math.max(1, lengthBars) } : c));
+  const trim = (id: string, startBar: number, lengthBars: number) => {
+    const next = clips.map((c) =>
+      c.id === id ? { ...c, startBar: Math.max(0, startBar), lengthBars: Math.max(1, lengthBars) } : c,
+    );
     useStudio.setState({ clips: next });
     getEngine().timeline.clips = next;
   };
@@ -48,9 +45,17 @@ export function TimelinePanel() {
   };
 
   return (
-    <div className="flex-1 p-3 overflow-auto">
-      <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500 mb-2">
-        {t("arrange.title", { bpm })}
+    <div className="flex-1 p-3 overflow-auto flex flex-col gap-3 min-h-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">
+          {t("arrange.title", { bpm })}
+        </div>
+        <button
+          className="text-xs bg-accent text-black font-semibold px-2 py-1 rounded"
+          onClick={() => useStudio.getState().addAudioLane()}
+        >
+          {t("arrange.addTrack")}
+        </button>
       </div>
       <div className="relative min-w-[1200px]">
         <div className="flex text-[9px] text-zinc-600 mb-1 ml-24">
@@ -60,49 +65,40 @@ export function TimelinePanel() {
             </div>
           ))}
         </div>
-        {TRACK_IDS.map((tr) => (
-          <div key={tr.id} className="flex h-14 border-b border-line relative">
-            <div className="w-24 shrink-0 text-xs pt-2 text-zinc-400">{t(tr.nameKey)}</div>
-            <div
-              className="flex-1 relative bg-ink-900"
-              onDragOver={(e) => {
-                if (peekTrackDrag(e.dataTransfer) || peekStemDrag(e.dataTransfer)) e.preventDefault();
-              }}
-              onDrop={(e) => dropOnTrack(tr.id, e)}
-            >
-              {clips
-                .filter((c) => c.trackId === tr.id)
-                .map((c) => (
-                  <ClipView key={c.id} clip={c} onMove={move} onTrim={trim} />
-                ))}
+        {lanes.map((lane) => {
+          const trackId = arrangeIdForMix(lane.id);
+          const selected = selectedMixId === lane.id;
+          return (
+            <div key={lane.id} className={`flex h-16 border-b border-line relative ${selected ? "bg-ink-800/40" : ""}`}>
+              <button
+                className="w-24 shrink-0 text-xs pt-2 text-left px-1 truncate"
+                style={{ color: lane.color }}
+                onClick={() => useStudio.getState().selectMix(lane.id)}
+              >
+                {lane.name}
+              </button>
+              <div
+                className="flex-1 relative bg-ink-900"
+                onDragOver={(e) => {
+                  if (peekTrackDrag(e.dataTransfer) || peekStemDrag(e.dataTransfer)) e.preventDefault();
+                }}
+                onDrop={(e) => dropOnTrack(trackId, e)}
+                onClick={() => useStudio.getState().selectMix(lane.id)}
+              >
+                {clips
+                  .filter((c) => c.trackId === trackId)
+                  .map((c) => (
+                    <ClipView key={c.id} clip={c} onMove={move} onTrim={trim} />
+                  ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div className="absolute top-4 bottom-0 w-0.5 bg-white" style={{ left: 96 + playhead }} />
       </div>
-      <div className="mt-3 flex gap-2">
-        <button
-          className="text-xs bg-ink-700 px-2 py-1 rounded"
-          onClick={() => {
-            const clip: TimelineClip = {
-              id: crypto.randomUUID(),
-              trackId: "synth",
-              name: t("arrange.clip"),
-              startBar: 0,
-              lengthBars: 4,
-              color: "#3dfff3",
-            };
-            useStudio.setState({ clips: [...clips, clip] });
-          }}
-        >
-          {t("arrange.addClip")}
-        </button>
-        <p className="text-xs text-zinc-500">{t("arrange.hint")}</p>
-      </div>
+      <p className="text-xs text-zinc-500">{t("arrange.hint")}</p>
       <AutomationLanes />
-      <div className="mt-4">
-        <MixerPanel />
-      </div>
+      <ProductionMixer />
     </div>
   );
 }
@@ -111,10 +107,10 @@ function AutomationLanes() {
   const automation = useStudio((s) => s.automation);
   useI18n((s) => s.locale);
   if (!automation.length) {
-    return <p className="text-xs text-zinc-600 mt-3">{t("arrange.autoEmpty")}</p>;
+    return <p className="text-xs text-zinc-600">{t("arrange.autoEmpty")}</p>;
   }
   return (
-    <div className="mt-4 space-y-2">
+    <div className="space-y-2">
       {automation.map((lane) => (
         <div key={lane.target} className="text-xs font-mono text-zinc-400">
           {lane.target}: {lane.points.map((p) => `${p.time.toFixed(1)}s→${p.value}`).join("  ")}
@@ -131,15 +127,41 @@ function ClipView({
 }: {
   clip: TimelineClip;
   onMove: (id: string, bar: number) => void;
-  onTrim: (id: string, bars: number) => void;
+  onTrim: (id: string, startBar: number, lengthBars: number) => void;
 }) {
   useI18n((s) => s.locale);
   const file = useStudio((s) => s.library.find((f) => f.id === clip.audioFileId));
   const bpm = clip.sourceBpm ?? file?.analysis?.bpm;
   const key = clip.sourceKey ?? file?.analysis?.key;
+  const peaks = file?.analysis?.waveform;
+
+  const startTrim = (edge: "left" | "right", e: PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const originX = e.clientX;
+    const start = clip.startBar;
+    const len = clip.lengthBars;
+    const movePtr = (ev: globalThis.PointerEvent) => {
+      const delta = Math.round((ev.clientX - originX) / (PX * 4));
+      if (edge === "right") {
+        onTrim(clip.id, start, Math.max(1, len + delta));
+        return;
+      }
+      const nextStart = Math.max(0, start + delta);
+      const consumed = nextStart - start;
+      onTrim(clip.id, nextStart, Math.max(1, len - consumed));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", movePtr);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", movePtr);
+    window.addEventListener("pointerup", up);
+  };
+
   return (
     <div
-      className="absolute top-1 h-10 rounded text-[10px] px-2 flex items-center gap-1 cursor-grab overflow-hidden"
+      className="absolute top-1 h-14 rounded text-[10px] cursor-grab overflow-hidden"
       style={{ left: clip.startBar * PX * 4, width: clip.lengthBars * PX * 4, background: clip.color, color: "#111" }}
       draggable
       onDragEnd={(e) => {
@@ -167,30 +189,55 @@ function ClipView({
         useStudio.setState({ clips: next });
         getEngine().timeline.clips = next;
       }}
-      onWheel={(e) => {
-        e.preventDefault();
-        onTrim(clip.id, clip.lengthBars + (e.deltaY > 0 ? -1 : 1));
-      }}
     >
-      <span className="truncate font-medium">{clip.name}</span>
-      {clip.kind === "audio" && (
-        <>
-          <span className="shrink-0 bg-black/20 rounded px-1 font-mono">
-            {bpm ? `${Math.round(bpm)}` : "—"} {key ? key.split(" ")[0] : ""}
-            {clip.stem ? ` · ${clip.stem}` : ""}
-          </span>
-          <button
-            className={`shrink-0 rounded px-1 ${clip.keyFollow ? "bg-black text-mint" : "bg-black/20"}`}
-            title={t("arrange.keyFollow")}
-            onClick={(e) => {
-              e.stopPropagation();
-              useStudio.getState().toggleClipKeyFollow(clip.id, "timeline");
-            }}
-          >
-            {t("arrange.keyFollowShort")}
-          </button>
-        </>
-      )}
+      {clip.kind === "audio" && peaks && peaks.length > 1 && <ClipWave peaks={peaks} />}
+      <div className="relative z-10 px-2 h-full flex items-center gap-1 pointer-events-none">
+        <span className="truncate font-medium drop-shadow">{clip.name}</span>
+        {clip.kind === "audio" && (
+          <>
+            <span className="shrink-0 bg-black/20 rounded px-1 font-mono">
+              {bpm ? `${Math.round(bpm)}` : "—"} {key ? key.split(" ")[0] : ""}
+              {clip.stem ? ` · ${clip.stem}` : ""}
+            </span>
+            <button
+              className={`pointer-events-auto shrink-0 rounded px-1 ${clip.keyFollow ? "bg-black text-mint" : "bg-black/20"}`}
+              title={t("arrange.keyFollow")}
+              onClick={(e) => {
+                e.stopPropagation();
+                useStudio.getState().toggleClipKeyFollow(clip.id, "timeline");
+              }}
+            >
+              {t("arrange.keyFollowShort")}
+            </button>
+          </>
+        )}
+      </div>
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-20 bg-black/30"
+        title={t("arrange.trim")}
+        onPointerDown={(e) => startTrim("left", e)}
+      />
+      <div
+        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-20 bg-black/30"
+        title={t("arrange.trim")}
+        onPointerDown={(e) => startTrim("right", e)}
+      />
     </div>
+  );
+}
+
+function ClipWave({ peaks }: { peaks: number[] }) {
+  const w = Math.max(peaks.length - 1, 1);
+  const pts = peaks
+    .map((p, i) => {
+      const x = (i / w) * 100;
+      const y = 50 - Math.max(0, Math.min(1, p)) * 42;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  return (
+    <svg className="absolute inset-0 w-full h-full opacity-50" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+      <polyline fill="none" stroke="#111" strokeWidth="1.4" points={pts} />
+    </svg>
   );
 }

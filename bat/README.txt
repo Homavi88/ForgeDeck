@@ -2,7 +2,7 @@ ForgeDeck — запуск на Windows
 ==============================
 
 Нужно один раз:
-  Python 3.11+  (галочка "Add python.exe to PATH")
+  64-битный Python 3.11–3.13 (рекомендуется 3.12; галочка "Add python.exe to PATH")
   Node.js LTS   (setup.bat ищет обычные установки, nvm/fnm/Volta/Scoop
                  и при отсутствии ставит portable-версию только для текущего
                  пользователя — без admin-пароля и без системной установки)
@@ -32,3 +32,7 @@ Docker (если установлен Docker Desktop): start-docker.bat
      %LOCALAPPDATA%\ForgeDeck\node\current
   Системная установка необязательна. Если она всё же нужна всем пользователям:
      winget install --id OpenJS.NodeJS.LTS --exact --source winget
+
+Если pip пишет про компилятор при установке numpy/scipy:
+  ForgeDeck не собирает эти библиотеки из исходников. Установи 64-битный
+  Python 3.12, затем удали папку ..\.venv и снова запусти setup.bat.

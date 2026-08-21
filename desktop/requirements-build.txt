@@ -1,0 +1,2 @@
+# Release-build dependency; end users do not install this.
+pyinstaller

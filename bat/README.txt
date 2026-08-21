@@ -36,3 +36,4 @@ Docker (если установлен Docker Desktop): start-docker.bat
 Если pip пишет про компилятор при установке numpy/scipy:
   ForgeDeck не собирает эти библиотеки из исходников. Установи 64-битный
   Python 3.12, затем удали папку ..\.venv и снова запусти setup.bat.
+  32-битный Python не поддерживается: для SciPy нет готового Windows-пакета.

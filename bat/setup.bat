@@ -112,6 +112,11 @@ exit /b 1
 
 :find_python
 set "PYLAUNCH="
+for %%V in (3.12 3.13 3.11) do (
+  py -%%V-64 --version >nul 2>&1
+  if not errorlevel 1 if not defined PYLAUNCH set "PYLAUNCH=py -%%V-64"
+)
+if defined PYLAUNCH exit /b 0
 py -3 --version >nul 2>&1
 if not errorlevel 1 set "PYLAUNCH=py -3"
 if not defined PYLAUNCH (

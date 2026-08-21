@@ -19,6 +19,10 @@ export function PowerOffButton({ compact = false }: { compact?: boolean }) {
     if (busy) return;
     if (!window.confirm(t("quit.confirm"))) return;
     setBusy(true);
+    if (window.forgedeckDesktop) {
+      await window.forgedeckDesktop.quit();
+      return;
+    }
     try {
       await api.shutdown();
     } catch (err) {

@@ -8,3 +8,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  readonly forgedeckDesktop?: {
+    quit: () => Promise<void>;
+  };
+}

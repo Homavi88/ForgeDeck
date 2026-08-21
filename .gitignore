@@ -19,6 +19,10 @@ frontend/playwright-report/
 frontend/test-results/
 frontend/blob-report/
 frontend/public/worklets/rubberband-processor.js
+desktop/dist/
+desktop/release/
+desktop/.pyinstaller-work/
+desktop/.pyinstaller-spec/
 *.log
 npm-debug.log*
 

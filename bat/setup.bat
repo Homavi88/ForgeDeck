@@ -9,12 +9,35 @@ echo === ForgeDeck: создание окружения ===
 echo Папка проекта: %ROOT%
 echo.
 
-where node >nul 2>&1
-if errorlevel 1 (
-  echo [Ошибка] Не найден Node.js. Установи LTS с https://nodejs.org/ и отметь Add to PATH.
-  pause
+call "%~dp0_node.bat"
+if not defined NODE_EXE (
+  echo [Node] Не найден в PATH этого окна. Ищу или ставлю Node.js LTS...
+  where winget >nul 2>&1
+  if not errorlevel 1 (
+    echo [Node] Установка через Windows Package Manager ^(winget^)...
+    winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
+    call "%~dp0_node.bat"
+  )
+)
+if not defined NODE_EXE (
+  where choco >nul 2>&1
+  if not errorlevel 1 (
+    echo [Node] Установка через Chocolatey...
+    choco install nodejs-lts -y
+    call "%~dp0_node.bat"
+  )
+)
+if not defined NODE_EXE (
+  echo.
+  echo [Ошибка] Не найден Node.js LTS.
+  echo Поставь его с https://nodejs.org/ ^(выбери LTS^) или выполни:
+  echo   winget install OpenJS.NodeJS.LTS
+  echo Затем запусти setup.bat снова.
+  echo.
+  if not defined PF_NOPAUSE pause
   exit /b 1
 )
+echo Node "%NODE_EXE%"
 
 set "PYLAUNCH="
 py -3 --version >nul 2>&1

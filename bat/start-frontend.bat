@@ -4,11 +4,16 @@ chcp 65001 >nul
 title ForgeDeck UI
 call "%~dp0_env.bat"
 
-where node >nul 2>&1
-if errorlevel 1 (
-  echo Не найден Node.js. Установи LTS с https://nodejs.org/
-  pause
-  exit /b 1
+call "%~dp0_node.bat"
+if not defined NODE_EXE (
+  echo Node.js не найден — setup.bat попробует поставить Node LTS...
+  set "PF_NOPAUSE=1"
+  call "%~dp0setup.bat"
+  if errorlevel 1 (
+    pause
+    exit /b 1
+  )
+  call "%~dp0_node.bat"
 )
 
 if not exist "%ROOT%\frontend\node_modules" (

@@ -4,7 +4,7 @@ import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import FileResponse, ORJSONResponse
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,10 +71,26 @@ def health():
     return {"ok": True, "app": settings.app_name, "env": settings.app_env}
 
 
-@app.get("/")
-def root():
-    return {
-        "name": settings.app_name,
-        "docs": "/docs",
-        "health": "/api/health",
-    }
+desktop_ui_path = settings.desktop_ui_path
+
+if desktop_ui_path:
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def desktop_ui(path: str):
+        """Serve the pre-built React application from the packaged backend."""
+        if path.startswith(("api/", "ws/")):
+            return ORJSONResponse({"detail": "Not Found"}, status_code=404)
+        candidate = (desktop_ui_path / path).resolve()
+        if desktop_ui_path in candidate.parents and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(desktop_ui_path / "index.html")
+
+else:
+
+    @app.get("/")
+    def root():
+        return {
+            "name": settings.app_name,
+            "docs": "/docs",
+            "health": "/api/health",
+        }

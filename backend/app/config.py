@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-to-a-long-random-string"
     debug: bool = True
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    desktop_ui_dir: str = ""
 
     database_url: str = "sqlite:///./forgedeck.db"
     redis_url: str = "redis://localhost:6379/0"
@@ -45,6 +46,13 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    @property
+    def desktop_ui_path(self) -> Path | None:
+        if not self.desktop_ui_dir:
+            return None
+        path = Path(self.desktop_ui_dir).expanduser().resolve()
+        return path if (path / "index.html").is_file() else None
 
     @property
     def storage_path(self) -> Path:

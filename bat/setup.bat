@@ -10,48 +10,13 @@ echo Папка проекта: %ROOT%
 echo.
 
 call "%~dp0_node.bat"
-if not defined NODE_EXE (
-  echo [Node] Не найден в PATH этого окна. Ищу или ставлю Node.js LTS...
-  where winget >nul 2>&1
-  if not errorlevel 1 (
-    echo [Node] Установка через Windows Package Manager ^(winget^)...
-    REM Avoid a broken Microsoft Store certificate; Node LTS is published in
-    REM the community winget source, so do not query msstore at all.
-    winget install --id OpenJS.NodeJS.LTS --exact --source winget --accept-package-agreements --accept-source-agreements
-    call "%~dp0_node.bat"
-  )
-)
-if not defined NODE_EXE (
-  where choco >nul 2>&1
-  if not errorlevel 1 (
-    echo [Node] Установка через Chocolatey...
-    choco install nodejs-lts -y
-    call "%~dp0_node.bat"
-  )
-)
-if not defined NODE_EXE (
-  REM Last automatic fallback: unpack a verified Node LTS ZIP in the current
-  REM user's LocalAppData. Unlike an MSI, this never asks for an admin password.
-  set "NODE_ARCH=x64"
-  if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "NODE_ARCH=arm64"
-  if /I "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "NODE_ARCH=arm64"
-  if /I "%PROCESSOR_ARCHITECTURE%"=="x86" if not defined PROCESSOR_ARCHITEW6432 set "NODE_ARCH=x86"
-  where powershell >nul 2>&1
-  if not errorlevel 1 (
-    echo [Node] Ставлю Node.js LTS только для текущего пользователя ^(без admin^)...
-    call powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-node-portable.ps1" -Arch "%%NODE_ARCH%%"
-    if not errorlevel 1 (
-      set "PATH=%LOCALAPPDATA%\ForgeDeck\node\current;%PATH%"
-      call "%~dp0_node.bat"
-    )
-  )
-)
+if not defined NODE_EXE call :install_portable_node
 if not defined NODE_EXE (
   echo.
-  echo [Ошибка] Не найден Node.js LTS.
-  echo Поставь его с https://nodejs.org/ ^(выбери LTS^) или выполни:
+  echo [Ошибка] Не удалось поставить portable Node.js LTS для текущего пользователя.
+  echo Проверь интернет и PowerShell, затем запусти setup.bat снова.
+  echo Системная установка ^(только если нужна всем пользователям, может запросить admin^):
   echo   winget install --id OpenJS.NodeJS.LTS --exact --source winget
-  echo Затем запусти setup.bat снова.
   echo.
   if not defined PF_NOPAUSE pause
   exit /b 1
@@ -123,3 +88,22 @@ echo Демо-файл: storage\audio\demo-loop.wav
 echo.
 if not defined PF_NOPAUSE pause
 endlocal
+exit /b 0
+
+:install_portable_node
+REM Default automatic path: unpack a verified Node LTS ZIP in the current
+REM user's LocalAppData. Do not invoke machine-wide installers or UAC.
+set "NODE_ARCH=x64"
+if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "NODE_ARCH=arm64"
+if /I "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "NODE_ARCH=arm64"
+if /I "%PROCESSOR_ARCHITECTURE%"=="x86" if not defined PROCESSOR_ARCHITEW6432 set "NODE_ARCH=x86"
+where powershell >nul 2>&1
+if errorlevel 1 exit /b 1
+
+echo [Node] Ставлю Node.js LTS только для текущего пользователя ^(без admin^)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-node-portable.ps1" -Arch "%NODE_ARCH%"
+if errorlevel 1 exit /b 1
+
+call "%~dp0_node.bat"
+if defined NODE_EXE exit /b 0
+exit /b 1

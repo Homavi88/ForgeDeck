@@ -6,7 +6,7 @@ import { scheduleWarpedClip, type WarpedVoice } from "./clipPlayback";
 import { Deck } from "./Deck";
 import { DrumMachine } from "./DrumMachine";
 import { Mixer } from "./Mixer";
-import { applyMidiTarget, loadMidiBindings, persistMidiBindings, type MidiBindings } from "./midiMap";
+import { applyMidiTarget, loadMidiBindings, lookupMidiTarget, persistMidiBindings, type MidiBindings } from "./midiMap";
 import { PianoRoll } from "./PianoRoll";
 import { LiveRecorder } from "./recorder";
 import { Sampler } from "./Sampler";
@@ -44,10 +44,19 @@ export class AudioEngine {
   stemIso: { A: string | null; B: string | null } = { A: null, B: null };
   projectKey = "C minor";
   onSessionLaunch?: (trackId: string, clip: SessionClip | null) => void;
-  private midiLearn: ((kind: "cc" | "note", number: number) => void) | null = null;
+  onPflChange?: (side: "A" | "B", on: boolean) => void;
+  onKeyLockChange?: (side: "A" | "B", on: boolean) => void;
+  private midiLearn: ((kind: "cc" | "note", number: number, channel: number) => void) | null = null;
   private clipVoices: WarpedVoice[] = [];
   private sessionVoices: Record<string, WarpedVoice | null> = {};
   private hpEl: HTMLAudioElement | null = null;
+  private hpElPopup: HTMLAudioElement | null = null;
+  private cueWin: Window | null = null;
+  private hpSinkId = "";
+
+  headphonesSinkId(): string {
+    return this.hpSinkId;
+  }
 
   constructor() {
     this.ctx = new AudioContext();
@@ -268,36 +277,116 @@ export class AudioEngine {
     persistMidiBindings(bindings);
   }
 
-  armMidiLearn(cb: (kind: "cc" | "note", number: number) => void): void {
+  armMidiLearn(cb: (kind: "cc" | "note", number: number, channel: number) => void): void {
     this.midiLearn = cb;
   }
 
   attachHeadphonesEl(el: HTMLAudioElement): void {
     this.hpEl = el;
+    this.keepHeadphonesAlive();
+  }
+
+  private wireHpEl(el: HTMLAudioElement | null, play: boolean): void {
+    if (!el) return;
     const dest = this.mixer.headphoneDest;
-    if (dest) {
-      el.srcObject = dest.stream;
-      void el.play().catch(() => undefined);
+    if (dest && el.srcObject !== dest.stream) el.srcObject = dest.stream;
+    if (play) void el.play().catch(() => undefined);
+    else el.pause();
+    const sink = el as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+    if (this.hpSinkId && typeof sink.setSinkId === "function") {
+      void sink.setSinkId(this.hpSinkId).catch(() => undefined);
     }
   }
 
+  keepHeadphonesAlive(): void {
+    const popup = !!(this.hpElPopup && this.cueWin && !this.cueWin.closed);
+    this.wireHpEl(this.hpEl, !popup);
+    this.wireHpEl(this.hpElPopup, popup);
+  }
+
+  /** Enumerate outputs without getUserMedia (labels may be blank). Prefer pickHeadphonesOutput(). */
   async listAudioOutputs(): Promise<MediaDeviceInfo[]> {
     if (!navigator.mediaDevices?.enumerateDevices) return [];
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      /* labels may be empty without permission */
-    }
     const all = await navigator.mediaDevices.enumerateDevices();
     return all.filter((d) => d.kind === "audiooutput");
   }
 
+  async pickHeadphonesOutput(): Promise<string> {
+    const md = navigator.mediaDevices as MediaDevices & {
+      selectAudioOutput?: () => Promise<{ deviceId: string }>;
+    };
+    if (typeof md?.selectAudioOutput === "function") {
+      const info = await md.selectAudioOutput();
+      return this.setHeadphonesSink(info.deviceId);
+    }
+    return t("engine.hpNoPicker");
+  }
+
   async setHeadphonesSink(deviceId: string): Promise<string> {
-    const el = this.hpEl as (HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }) | null;
-    if (!el) return t("engine.hpMissing");
-    if (typeof el.setSinkId !== "function") return t("engine.hpNoSink");
-    await el.setSinkId(deviceId);
+    this.hpSinkId = deviceId;
+    const apply = async (el: HTMLAudioElement | null): Promise<boolean> => {
+      if (!el) return false;
+      const sink = el as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+      if (typeof sink.setSinkId !== "function") return false;
+      await sink.setSinkId(deviceId);
+      return true;
+    };
+    const a = await apply(this.hpEl);
+    const b = await apply(this.hpElPopup);
+    if (!a && !b) {
+      if (!this.hpEl && !this.hpElPopup) return t("engine.hpMissing");
+      return t("engine.hpNoSink");
+    }
     return t("engine.hpRouted");
+  }
+
+  /** Blank popup that plays the same headphone MediaStream — not a second SPA/AudioContext. */
+  openCueWindow(): string {
+    if (this.cueWin && !this.cueWin.closed) {
+      this.cueWin.focus();
+      this.keepHeadphonesAlive();
+      return t("engine.cueOpen");
+    }
+    const w = window.open("", "forgedeck-cue", "width=420,height=280");
+    if (!w) return t("engine.cueBlocked");
+    this.cueWin = w;
+    w.document.write(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>ForgeDeck Cue</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0b0f;color:#d4d4d8;font:13px/1.4 ui-sans-serif,system-ui,sans-serif}
+  main{padding:20px}
+  h1{margin:0 0 8px;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#5eead4}
+  p{margin:0 0 12px;color:#a1a1aa}
+  button{background:#27272a;color:#e4e4e7;border:1px solid #3f3f46;border-radius:6px;padding:6px 10px;cursor:pointer}
+</style></head>
+<body><main>
+  <h1>ForgeDeck · Cue / PFL</h1>
+  <p>Same headphone bus as the studio. Not a second audio engine. Choose an output here if the browser offers a picker.</p>
+  <button type="button" id="pick">Choose output</button>
+  <audio id="cue" autoplay playsinline></audio>
+</main>
+<script>
+  document.getElementById("pick").onclick = async function () {
+    var md = navigator.mediaDevices;
+    if (!md || !md.selectAudioOutput) { alert("No output picker in this browser"); return; }
+    var info = await md.selectAudioOutput();
+    var el = document.getElementById("cue");
+    if (el && el.setSinkId) await el.setSinkId(info.deviceId);
+  };
+</script>
+</body></html>`);
+    w.document.close();
+    const el = w.document.getElementById("cue") as HTMLAudioElement | null;
+    this.hpElPopup = el;
+    const onGone = () => {
+      if (this.hpElPopup === el) this.hpElPopup = null;
+      if (this.cueWin === w) this.cueWin = null;
+      this.keepHeadphonesAlive();
+    };
+    w.addEventListener("pagehide", onGone);
+    w.addEventListener("beforeunload", onGone);
+    this.keepHeadphonesAlive();
+    return t("engine.cueOpen");
   }
 
   setPfl(id: string, on: boolean): void {
@@ -313,25 +402,26 @@ export class AudioEngine {
         const d = ev.data;
         if (!d) return;
         const status = d[0] & 0xf0;
+        const channel = (d[0] & 0x0f) + 1;
         const number = d[1];
         const vel = d[2] / 127;
         if (status === 0xb0) {
           if (this.midiLearn) {
-            this.midiLearn("cc", number);
+            this.midiLearn("cc", number, channel);
             this.midiLearn = null;
             return;
           }
-          const target = this.midiBindings.cc[String(number)];
+          const target = lookupMidiTarget(this.midiBindings, "cc", channel, number);
           if (target) applyMidiTarget(this, target, vel);
           return;
         }
         if (status === 0x90 || status === 0x80) {
           if (this.midiLearn && status === 0x90 && vel > 0) {
-            this.midiLearn("note", number);
+            this.midiLearn("note", number, channel);
             this.midiLearn = null;
             return;
           }
-          const mapped = this.midiBindings.notes[String(number)];
+          const mapped = lookupMidiTarget(this.midiBindings, "note", channel, number);
           if (mapped) {
             applyMidiTarget(this, mapped, vel, status === 0x90 && vel > 0);
             return;

@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- Insert rack order is the real ChannelStrip graph: drag or ←/→ on Console inserts (EQ / filter / FX). Echo-out still starves FX via `fxSend` placed before the first FX device. Aux sends follow the Filter device. Bounce uses the same order. Not VST/AU.
+- MIDI learn 1:1 from the deck: Shift+click Play / Cue / PFL / hotcue / loop / key lock (channel+note, Pioneer-ish DDJ-400-style defaults on ch1=A / ch2=B — not an official dump). Settings still maps CC and now lists notes.
+- Headphones cue window: Open cue window plays the same headphone MediaStream (not a second AudioContext). Output picker uses `selectAudioOutput` when the browser has it; listing devices no longer calls `getUserMedia`.
 - Arrange automation: draw volume / filter / EQ-low on the timeline (snap + zoom). Same points drive live mixer writes and bounce ramps. Extra `prodLanes` have their own targets. Filter LP/HP type is not an AudioParam — a zero-cross on bounce is approximate.
 - Session view uses the same tracks as Arrange (`prodLanes`): extra audio rows, scene launch across every lane, Session rec / Capture write those clips onto the timeline. Console sits under the launcher. Not a second independent track list.
 - Arrange clips: snap (bar / beat / 8th), timeline zoom, duplicate (Ctrl/Cmd+D), copy/paste, drag onto other tracks (Alt = copy), fade-in/out as a real GainNode envelope on live playback and bounce. Fractional clip starts fire on the transport (beat-snapped clips actually play).

@@ -189,6 +189,8 @@ export interface MixerStripState {
   sendRev?: number;
   /** Aux send into mixer return delay (0–1). */
   sendDly?: number;
+  /** Serial insert order (EQ / filter / FX). Missing → stock ChannelStrip order. */
+  insertOrder?: string[];
 }
 
 export interface FxReturnsState {

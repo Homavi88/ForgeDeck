@@ -16,11 +16,11 @@
 | FX send / return | `ChannelStrip.sendRev/sendDly`, `Mixer.returnRev/returnDly` |
 | Channel Rack (drums graph/fill) | `components/drums/DrumMachinePanel.tsx` |
 | Electronic style pack | `backend/app/services/style_packs.py` + `GET /api/presets/styles`; apply в `useStudio.applyStylePack`; UI `components/presets/StylePackSelect.tsx` + Settings cards |
-| Production mixer / extra arrange tracks | `Mixer.addLane`, `lib/mix.ts`, `components/mix/ProductionMixer.tsx` + `InsertRack.tsx`; graph `prodLanes` + extra `mixer` keys |
+| Production mixer / extra arrange tracks | `Mixer.addLane`, `lib/mix.ts`, `components/mix/ProductionMixer.tsx` + `InsertRack.tsx`; graph `prodLanes` + extra `mixer` keys; `insertOrder` + `ChannelStrip.wireInserts` |
 | Session rows for those tracks | `ensureSessionClips` в `lib/mix.ts`; `ClipLauncher.trackIds()`; UI `SessionPanel` |
 | CDJ-клавиши | `frontend/src/lib/djHotkeys.ts` (только mode=dj) |
 | DJ mix math (offset, gain match) | `frontend/src/lib/djMix.ts` |
-| PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor` |
+| PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor`; cue popup `AudioEngine.openCueWindow` (same stream) |
 | Сохранить новое поле проекта | graph в `useStudio.save`, типы в `types/index.ts`, при необходимости `project_graph.py` |
 | REST endpoint | `backend/app/api/*.py`, схема в `schemas.py`, owner check через `require_*` |
 | Выключить приложение | `PowerOffButton` + `app/services/shutdown.py` + `POST /api/shutdown` (localhost) |

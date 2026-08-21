@@ -26,6 +26,55 @@ export type InsertKind = (typeof INSERT_DEVICES)[number]["kind"];
 
 export const FX_INSERT_KINDS = ["compressor", "distortion", "bitcrush", "flanger", "delay", "reverb"] as const;
 
+export type FxInsertKind = (typeof FX_INSERT_KINDS)[number];
+
+export const DEFAULT_INSERT_ORDER: InsertKind[] = INSERT_DEVICES.map((d) => d.kind);
+
+const INSERT_KIND_SET = new Set<string>(DEFAULT_INSERT_ORDER);
+
+export function isFxInsertKind(kind: string): kind is FxInsertKind {
+  return (FX_INSERT_KINDS as readonly string[]).includes(kind);
+}
+
+/** Every device once; unknown ids dropped; missing kinds appended in the stock order. */
+export function normalizeInsertOrder(order?: readonly string[] | null): InsertKind[] {
+  const seen = new Set<InsertKind>();
+  const out: InsertKind[] = [];
+  for (const raw of order || []) {
+    if (!INSERT_KIND_SET.has(raw) || seen.has(raw as InsertKind)) continue;
+    const kind = raw as InsertKind;
+    seen.add(kind);
+    out.push(kind);
+  }
+  for (const kind of DEFAULT_INSERT_ORDER) {
+    if (!seen.has(kind)) out.push(kind);
+  }
+  return out;
+}
+
+export function moveInsertOrder(order: readonly string[] | undefined, kind: InsertKind, dir: -1 | 1): InsertKind[] {
+  const cur = normalizeInsertOrder(order);
+  const i = cur.indexOf(kind);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= cur.length) return cur;
+  const next = [...cur];
+  const swap = next[i];
+  next[i] = next[j];
+  next[j] = swap;
+  return next;
+}
+
+export function reorderInsert(order: readonly string[] | undefined, kind: InsertKind, toIndex: number): InsertKind[] {
+  const cur = normalizeInsertOrder(order);
+  const from = cur.indexOf(kind);
+  if (from < 0) return cur;
+  const next = [...cur];
+  next.splice(from, 1);
+  const clamped = Math.max(0, Math.min(next.length, toIndex));
+  next.splice(clamped, 0, kind);
+  return normalizeInsertOrder(next);
+}
+
 export function isCoreMixId(id: string): boolean {
   return (CORE_MIX_IDS as readonly string[]).includes(id);
 }

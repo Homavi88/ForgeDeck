@@ -56,6 +56,9 @@
 - [x] Arrange clip edit: snap (bar/beat/8th), zoom, duplicate/copy/paste, drag between tracks, fade in/out (GainNode on live + bounce)
 - [x] Session launcher on the same lanes as Arrange (`prodLanes`); scene launch / rec / capture include extra audio tracks
 - [x] Arrange automation: mouse-drawn volume/filter/EQ-low (live + bounce); AI Apply still writes the same graph lanes
+- [x] Insert rack reorder is the live/bounce ChannelStrip graph (`insertOrder`)
+- [x] MIDI learn 1:1 from the deck (hotcue / loop / PFL / play / cue, `channel:note`)
+- [x] Headphones cue window on the same bus; output list without getUserMedia
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

@@ -1,3 +1,4 @@
+import type { FxInsertKind } from "../lib/mix";
 import { BitcrusherFx } from "./effects/Bitcrusher";
 import { CompressorFx } from "./effects/Compressor";
 import { DelayFx } from "./effects/Delay";
@@ -5,6 +6,9 @@ import { DistortionFx } from "./effects/Distortion";
 import { FlangerFx } from "./effects/Flanger";
 import { ReverbFx } from "./effects/Reverb";
 
+export type FxPort = { input: AudioNode; output: AudioNode };
+
+/** Insert FX devices. Serial order is owned by ChannelStrip.wireInserts — not this constructor. */
 export class EffectChain {
   input: GainNode;
   output: GainNode;
@@ -28,15 +32,15 @@ export class EffectChain {
     this.crush = new BitcrusherFx(ctx);
     this.dist = new DistortionFx(ctx);
     this.comp = new CompressorFx(ctx);
+  }
 
-    this.input
-      .connect(this.comp.input)
-      .connect(this.dist.input);
-    this.dist.output.connect(this.crush.input);
-    this.crush.output.connect(this.flanger.input);
-    this.flanger.output.connect(this.delay.input);
-    this.delay.output.connect(this.reverb.input);
-    this.reverb.output.connect(this.output);
+  port(kind: FxInsertKind): FxPort {
+    if (kind === "compressor") return { input: this.comp.input, output: this.comp.output };
+    if (kind === "distortion") return { input: this.dist.input, output: this.dist.output };
+    if (kind === "bitcrush") return { input: this.crush.input, output: this.crush.output };
+    if (kind === "flanger") return { input: this.flanger.input, output: this.flanger.output };
+    if (kind === "delay") return { input: this.delay.input, output: this.delay.output };
+    return { input: this.reverb.input, output: this.reverb.output };
   }
 
   ready(): Promise<void> {

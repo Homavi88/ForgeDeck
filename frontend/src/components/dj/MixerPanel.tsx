@@ -501,8 +501,14 @@ function PflButton({ id }: { id: "A" | "B" }) {
   return (
     <button
       className={`text-[9px] px-1 rounded ${on ? "bg-mint text-black" : "bg-ink-700"}`}
-      title={t("mixer.pflTitle")}
-      onClick={() => useStudio.getState().setPfl(id, !on)}
+      title={`${t("mixer.pflTitle")} · ${t("deck.midiLearnHint")}`}
+      onClick={(e) => {
+        if (e.shiftKey) {
+          void useStudio.getState().armDeckMidiLearn(`${id}.pfl`);
+          return;
+        }
+        useStudio.getState().setPfl(id, !on);
+      }}
     >
       {t("mixer.cue")}
     </button>
@@ -536,15 +542,50 @@ function HeadphonesSection({ cueMix, splitCue }: { cueMix: number; splitCue: boo
         />
         {t("mixer.split")}
       </label>
-      <button
-        className="text-[9px] uppercase text-zinc-400"
-        onClick={async () => {
-          await useStudio.getState().bootAudio();
-          setOutputs(await getEngine().listAudioOutputs());
-        }}
-      >
-        {outputs.length ? t("mixer.refreshOut") : t("mixer.listOut")}
-      </button>
+      <p className="text-[9px] text-zinc-600">{t("mixer.cueHint")}</p>
+      <div className="flex flex-wrap gap-1">
+        <button
+          className="text-[9px] uppercase text-zinc-300 px-2 py-1 rounded bg-ink-700"
+          onClick={async () => {
+            await useStudio.getState().bootAudio();
+            const msg = getEngine().openCueWindow();
+            const kind = msg === t("engine.cueBlocked") ? "err" : "ok";
+            useStudio.getState().pushToast({ id: "cue-win", kind, text: msg, ttl: 2800 });
+          }}
+        >
+          {t("mixer.openCue")}
+        </button>
+        <button
+          className="text-[9px] uppercase text-zinc-400 px-2 py-1 rounded bg-ink-700"
+          onClick={async () => {
+            await useStudio.getState().bootAudio();
+            const picked = await getEngine().pickHeadphonesOutput();
+            if (picked === t("engine.hpNoPicker")) {
+              setOutputs(await getEngine().listAudioOutputs());
+            } else {
+              const id = getEngine().headphonesSinkId();
+              if (id) useStudio.setState({ headphoneDeviceId: id });
+            }
+            useStudio.getState().pushToast({
+              id: "hp",
+              kind: picked === t("engine.hpNoPicker") ? "info" : "ok",
+              text: picked,
+              ttl: 2200,
+            });
+          }}
+        >
+          {t("mixer.pickOut")}
+        </button>
+        <button
+          className="text-[9px] uppercase text-zinc-400"
+          onClick={async () => {
+            await useStudio.getState().bootAudio();
+            setOutputs(await getEngine().listAudioOutputs());
+          }}
+        >
+          {outputs.length ? t("mixer.refreshOut") : t("mixer.listOut")}
+        </button>
+      </div>
       {outputs.length > 0 && (
         <select
           className="w-full bg-ink-900 border border-line rounded px-1 py-1 text-[10px]"

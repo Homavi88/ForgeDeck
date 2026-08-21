@@ -1,5 +1,11 @@
+import { DEFAULT_INSERT_ORDER, normalizeInsertOrder } from "../lib/mix";
 import type { MixerStripState } from "../types";
 import type { ChannelStrip } from "./ChannelStrip";
+
+function sameOrder(a: readonly string[] | undefined, b: readonly string[]): boolean {
+  if (!a || a.length !== b.length) return false;
+  return a.every((k, i) => k === b[i]);
+}
 
 export function snapshotStrip(ch: ChannelStrip): MixerStripState {
   return {
@@ -21,6 +27,7 @@ export function snapshotStrip(ch: ChannelStrip): MixerStripState {
     },
     sendRev: ch.sendRev.gain.value,
     sendDly: ch.sendDly.gain.value,
+    insertOrder: [...ch.insertOrder],
   };
 }
 
@@ -38,16 +45,18 @@ export function applyStripState(ch: ChannelStrip, state: MixerStripState | undef
   ch.setPan(state.pan ?? 0);
   ch.setMute(!!state.mute);
   ch.setSolo(!!state.solo);
-    for (const [kind, wet] of Object.entries(state.fx || {})) {
-      ch.fx.setWet(kind, wet);
-    }
-    const bypass = state.bypass || {};
-    if (bypass.eq) ch.eq.set(0, 0, 0);
-    if (bypass.filter) ch.filter.setKnob(0);
-    for (const [kind, on] of Object.entries(bypass)) {
-      if (kind === "eq" || kind === "filter") continue;
-      ch.fx.setBypass(kind, !!on);
-    }
+  for (const [kind, wet] of Object.entries(state.fx || {})) {
+    ch.fx.setWet(kind, wet);
+  }
+  const bypass = state.bypass || {};
+  if (bypass.eq) ch.eq.set(0, 0, 0);
+  if (bypass.filter) ch.filter.setKnob(0);
+  for (const [kind, on] of Object.entries(bypass)) {
+    if (kind === "eq" || kind === "filter") continue;
+    ch.fx.setBypass(kind, !!on);
+  }
   ch.setSendRev(state.sendRev ?? 0);
   ch.setSendDly(state.sendDly ?? 0);
+  const order = normalizeInsertOrder(state.insertOrder ?? ch.insertOrder ?? DEFAULT_INSERT_ORDER);
+  if (!sameOrder(ch.insertOrder, order)) ch.wireInserts(order);
 }

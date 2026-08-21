@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import get_db
 from app.deps import get_current_user
@@ -115,6 +116,38 @@ def delete_effect(preset_id: str, db: Session = Depends(get_db), user: User = De
 
 
 def default_midi_map() -> dict:
+    notes = {
+        str(36 + i): f"pad:{name}"
+        for i, name in enumerate(
+            (
+                "kick",
+                "snare",
+                "hat",
+                "clap",
+                "perc",
+                "ride",
+                "tom",
+                "fx",
+                "kick2",
+                "snare2",
+                "ohat",
+                "rim",
+                "shaker",
+                "cowbell",
+                "stab",
+                "vox",
+            )
+        )
+    }
+    for ch, side in ((1, "A"), (2, "B")):
+        for i in range(4):
+            notes[f"{ch}:{i}"] = f"{side}.hotcue.{i + 1}"
+        notes[f"{ch}:11"] = f"{side}.play"
+        notes[f"{ch}:12"] = f"{side}.cue"
+        notes[f"{ch}:16"] = f"{side}.loop.4"
+        notes[f"{ch}:18"] = f"{side}.loop.off"
+        notes[f"{ch}:84"] = f"{side}.pfl"
+        notes[f"{ch}:8"] = f"{side}.keylock"
     return {
         "cc": {
             "7": "master.volume",
@@ -129,29 +162,7 @@ def default_midi_map() -> dict:
             "21": "B.filter",
             "23": "B.eq.low",
         },
-        "notes": {
-            str(36 + i): f"pad:{name}"
-            for i, name in enumerate(
-                (
-                    "kick",
-                    "snare",
-                    "hat",
-                    "clap",
-                    "perc",
-                    "ride",
-                    "tom",
-                    "fx",
-                    "kick2",
-                    "snare2",
-                    "ohat",
-                    "rim",
-                    "shaker",
-                    "cowbell",
-                    "stab",
-                    "vox",
-                )
-            )
-        },
+        "notes": notes,
     }
 
 
@@ -200,6 +211,14 @@ def ensure_global_presets(db: Session) -> None:
     if midi is None:
         db.add(EffectPreset(user_id=None, name="Pioneer-ish", effect_type="midi_map", params=default_midi_map()))
         added = True
+    else:
+        params = dict(midi.params or {})
+        notes = dict(params.get("notes") or {})
+        missing = {k: v for k, v in default_midi_map()["notes"].items() if k not in notes}
+        if missing:
+            midi.params = {**params, "notes": {**notes, **missing}}
+            flag_modified(midi, "params")
+            added = True
 
     have_kits = {r.name for r in db.query(DrumKit).filter(DrumKit.user_id.is_(None))}
     pads = _kit_pads()

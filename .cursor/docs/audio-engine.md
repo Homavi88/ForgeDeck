@@ -10,27 +10,25 @@ Drums ────┼─► Mixer channels ─► xfader A/B (только A/B) 
 Synth ────┤
 audio-N ──┘  (Mixer.addLane → master.input, не xfader)
                     ChannelStrip:
-                    trim → EQ3 → Filter ┬→ fxSend → EffectChain → duck ┬→ mute → vol → pan → analyser → out
-                                        ├→ sendRev → return reverb ───┘         └→ pflOut
-                                        └→ sendDly → return delay  ─┘ → master.input
-                                                             └→ pflOut (PFL/CUE, до mute)
+                    trim → [insertOrder: EQ3 / Filter / FX…] → duck ┬→ mute → vol → pan → analyser → out
+                           fxSend sits immediately before the first FX device
+                           Filter.output (or trim) → sendRev / sendDly → return bus
+                                                                  └→ pflOut (PFL/CUE, до mute)
 ```
 
 `fxSend` = 1 в нормальной работе. **Echo out** (live): delay/reverb wet вверх, `fxSend` → 0, хвост продолжает идти через mute/volume; bounce этот жест не автоматизирует.
 
-**Return bus:** `sendRev` / `sendDly` с каждого канала (post-EQ, pre-insert FX) в общие `ReverbFx` / `DelayFx` (dry=0). Return fader → `master.input`. Bounce копирует send amounts и return levels.
+**Return bus:** `sendRev` / `sendDly` tap the **Filter** device's output (wherever Filter sits in `insertOrder`; else trim) into shared `ReverbFx` / `DelayFx` (dry=0). Return fader → `master.input`. Bounce копирует send amounts, return levels и `insertOrder`.
 
 EQ3 isolator **kills** (−72 dB) не затирают значение ручки (`EQ3.user` / `kills`).
 
 Crossfader: `xfaderGains(x, curve)` — smooth = equal-power, sharp = узкий overlap, cut = оба открыты до ~7% у краёв.
 
-PFL: `pflOut` каналов A/B → `cueBus`. Headphones: mix master analyser + cue bus (`cueMix` 0=master … 1=cue) → `MediaStreamAudioDestinationNode` (только realtime `AudioContext`, не Offline bounce). Split cue: L=master, R=cue на основном `destination`.
+PFL: `pflOut` каналов A/B → `cueBus`. Headphones: mix master analyser + cue bus (`cueMix` 0=master … 1=cue) → `MediaStreamAudioDestinationNode` (только realtime `AudioContext`, не Offline bounce). Hidden `<audio>` и опциональное **окно cue** (`window.open` blank HTML) играют **тот же stream** — не второй SPA и не второй AudioContext. `selectAudioOutput()` (Chrome) или `enumerateDevices()` **без** `getUserMedia`. Split cue: L=master, R=cue на основном `destination`. `setSinkId` копируется на hidden и popup audio.
 
-`EffectChain` (порядок фиксирован; **bypass** ставит wet=0):
+`EffectChain` устройства сами по себе не склеены; `ChannelStrip.wireInserts(insertOrder)` ставит EQ3 / Filter / comp / dist / crush / flanger / delay / reverb в сохранённом порядке. **bypass** ставит wet=0. `fxSend` всегда сразу перед первым FX, чтобы echo-out глушил хвосты, а не EQ. Default order = прежний фиксированный.
 
-compressor → analog distortion + cabinet IR → bitcrush → flanger → delay → reverb (plate/spring + tape IR)
-
-Insert rack UI (`InsertRack`) крутит те же устройства **на выбранном канале** плюс EQ3/Filter стрипа. Это не VST.
+Insert rack UI (`InsertRack`) рисует устройства **слева направо в audio order**; ←/→ и drag меняют `mixer[id].insertOrder` и пересобирают граф. Это не VST.
 
 IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был детерминированным).
 
@@ -82,6 +80,6 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 | `clipPlayback.ts` | shared Rubber Band / playbackRate warp + optional clip GainNode fade |
 | `AutomationEngine` | filter/EQ/volume lanes; live tick + bounce ramps |
 | `LiveRecorder` | MediaRecorder с master |
-| `midiMap.ts` | Pioneer-ish CC map по умолчанию, learn, localStorage |
+| `midiMap.ts` | Pioneer-ish CC + DDJ-400-style notes (`channel:note`, ch1=A / ch2=B); learn from Settings or Shift+click on the deck |
 
 `ChannelStrip` / FX принимают `BaseAudioContext`, чтобы тот же код жил в OfflineAudioContext.

@@ -3,10 +3,11 @@ import { api } from "../api/client";
 import { getEngine } from "../audio-engine/AudioEngine";
 import { emptySteps } from "../audio-engine/DrumMachine";
 import { applyStripState } from "../audio-engine/stripState";
+import { midiBindingKey } from "../audio-engine/midiMap";
 import type { XfaderCurve } from "../audio-engine/utils";
 import { t } from "../i18n";
 import { beatOffset, matchGainDb, phaseAlignSeek } from "../lib/djMix";
-import { AUDIO_LANE_COLORS, arrangeIdForMix, ensureSessionClips, isCoreMixId, laneColor } from "../lib/mix";
+import { AUDIO_LANE_COLORS, arrangeIdForMix, DEFAULT_INSERT_ORDER, ensureSessionClips, isCoreMixId, laneColor, moveInsertOrder, reorderInsert, type InsertKind } from "../lib/mix";
 import { parseAutoTarget } from "../lib/automation";
 import type {
   AIAction,
@@ -164,6 +165,9 @@ interface StudioState {
   renameAudioLane: (id: string, name: string) => void;
   selectMix: (id: string) => void;
   setInsertBypass: (id: string, kind: string, on: boolean) => void;
+  moveInsert: (id: string, kind: InsertKind, dir: -1 | 1) => void;
+  setInsertOrder: (id: string, kind: InsertKind, toIndex: number) => void;
+  armDeckMidiLearn: (target: string) => Promise<void>;
   applyStylePack: (pack: StylePack, parts?: StylePackParts) => Promise<void>;
   xfaderCurve: XfaderCurve;
   setXfaderCurve: (curve: XfaderCurve) => void;
@@ -246,6 +250,7 @@ const channelState = (): MixerStripState => ({
   bypass: {},
   sendRev: 0,
   sendDly: 0,
+  insertOrder: [...DEFAULT_INSERT_ORDER],
 });
 
 const FX_WET_KEYS = new Set(["delay", "reverb", "flanger", "distortion", "bitcrush", "compressor"]);
@@ -507,6 +512,8 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ sessionClips });
     hydrateEngine(get());
     getEngine().onSessionLaunch = (trackId, clip) => get().noteSessionLaunch(trackId, clip);
+    getEngine().onPflChange = (side, on) => set({ pfl: { ...get().pfl, [side]: on } });
+    getEngine().onKeyLockChange = (side, on) => set({ keyLock: { ...get().keyLock, [side]: on } });
   },
 
   togglePlay: async () => {
@@ -817,6 +824,42 @@ export const useStudio = create<StudioState>((set, get) => ({
     const st = get().mixer[id];
     if (!st) return;
     get().applyMixerChannel(id, { bypass: { ...(st.bypass || {}), [kind]: on } });
+  },
+
+  moveInsert: (id, kind, dir) => {
+    const st = get().mixer[id];
+    if (!st) return;
+    get().applyMixerChannel(id, { insertOrder: moveInsertOrder(st.insertOrder, kind, dir) });
+  },
+
+  setInsertOrder: (id, kind, toIndex) => {
+    const st = get().mixer[id];
+    if (!st) return;
+    get().applyMixerChannel(id, { insertOrder: reorderInsert(st.insertOrder, kind, toIndex) });
+  },
+
+  armDeckMidiLearn: async (target) => {
+    await get().bootAudio();
+    const eng = getEngine();
+    const msg = await eng.enableMidi();
+    if (msg === t("engine.midiUnsupported")) {
+      get().pushToast({ id: "midi-learn", kind: "err", text: msg, ttl: 3500 });
+      return;
+    }
+    get().pushToast({ id: "midi-learn", kind: "info", text: t("toast.midiLearn", { target }), ttl: 8000 });
+    eng.armMidiLearn((kind, number, channel) => {
+      const next = structuredClone(eng.midiBindings);
+      const key = midiBindingKey(channel, number);
+      if (kind === "cc") next.cc[key] = target;
+      else next.notes[key] = target;
+      eng.setMidiBindings(next);
+      get().pushToast({
+        id: "midi-learn",
+        kind: "ok",
+        text: t("toast.midiLearned", { kind, number, channel, target }),
+        ttl: 3500,
+      });
+    });
   },
 
   addAudioLane: () => {

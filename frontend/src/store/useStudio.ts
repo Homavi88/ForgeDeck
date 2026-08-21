@@ -514,6 +514,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     getEngine().onSessionLaunch = (trackId, clip) => get().noteSessionLaunch(trackId, clip);
     getEngine().onPflChange = (side, on) => set({ pfl: { ...get().pfl, [side]: on } });
     getEngine().onKeyLockChange = (side, on) => set({ keyLock: { ...get().keyLock, [side]: on } });
+    getEngine().onHeadphonesSinkChange = (deviceId) => set({ headphoneDeviceId: deviceId });
   },
 
   togglePlay: async () => {

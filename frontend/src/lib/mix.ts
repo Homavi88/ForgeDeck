@@ -1,4 +1,4 @@
-import type { MixLane } from "../types";
+import type { MixLane, SessionClip } from "../types";
 
 export const CORE_MIX_IDS = ["A", "B", "drums", "synth"] as const;
 
@@ -47,4 +47,42 @@ export function arrangeIdForMix(id: string): string {
 export function laneColor(id: string, extra: MixLane[] = []): string {
   const hit = [...CORE_LANES, ...extra].find((l) => l.id === id || arrangeIdForMix(l.id) === id);
   return hit?.color || "#7aa2ff";
+}
+
+export const SESSION_SCENES = 8;
+
+const SESSION_SCENE_NAMES = ["Intro", "Groove", "Drop", "Break", "Drop 2", "Fill", "Outro", "Loop"];
+
+export function sessionLanes(prodLanes: MixLane[]): MixLane[] {
+  return [...CORE_LANES, ...prodLanes];
+}
+
+export function emptySessionSlot(trackId: string, scene: number, color: string): SessionClip {
+  const kind: SessionClip["kind"] = trackId === "drums" ? "drums" : trackId === "synth" ? "midi" : "audio";
+  return {
+    id: `${trackId}-${scene}`,
+    trackId,
+    scene,
+    name: SESSION_SCENE_NAMES[scene] || `Scene ${scene + 1}`,
+    kind,
+    lengthBars: scene % 2 === 0 ? 8 : 4,
+    color,
+    empty: true,
+  };
+}
+
+/** Keep Session slots in lockstep with Arrange/mixer lanes (8 scenes × each track). */
+export function ensureSessionClips(clips: SessionClip[], prodLanes: MixLane[]): SessionClip[] {
+  const lanes = sessionLanes(prodLanes);
+  const trackIds = new Set(lanes.map((l) => arrangeIdForMix(l.id)));
+  const out = clips.filter((c) => trackIds.has(c.trackId));
+  for (const lane of lanes) {
+    const trackId = arrangeIdForMix(lane.id);
+    for (let scene = 0; scene < SESSION_SCENES; scene++) {
+      if (!out.some((c) => c.trackId === trackId && c.scene === scene)) {
+        out.push(emptySessionSlot(trackId, scene, lane.color));
+      }
+    }
+  }
+  return out;
 }

@@ -22,7 +22,7 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
-Graph extras: `prodLanes` (user audio tracks), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert, `arrangeZoom` / `arrangeSnap`. Clip JSON: `fadeInBars` / `fadeOutBars`, fractional `startBar`. `Mixer.addLane(id)` кормит master (не xfader). Arrange UI: `ProductionMixer` + `InsertRack`.
+Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert, `arrangeZoom` / `arrangeSnap`. Clip JSON: `fadeInBars` / `fadeOutBars`, fractional `startBar`. Session graph `session[]` slots are filled to 8 scenes × every lane via `ensureSessionClips`. `Mixer.addLane(id)` кормит master (не xfader). Arrange/Session UI: `ProductionMixer` + `InsertRack`.
 
 Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
 
@@ -47,7 +47,7 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 `StudioPage` переключает `mode`:
 
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
-- `session` — `SessionPanel` (8 сцен, drop петли, Session rec / Capture)
+- `session` — `SessionPanel` (8 сцен на тех же lanes, что Arrange/`prodLanes`, drop петли, Session rec / Capture, **+ Audio track**, `ProductionMixer`)
 - `arrange` — `TimelinePanel` (warp-клипы, waveform, trim/fade, snap/zoom, drag на другую дорожку, drop петли/стемов, **+ Audio track**) + `ProductionMixer` / `InsertRack`
 - `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; `StylePackSelect` drums-only)
 - `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; `StylePackSelect` synth-only)

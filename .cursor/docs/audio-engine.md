@@ -74,7 +74,7 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 | `DrumMachine` | 16 падов, swing, onKick → sidechain; UI paint + velocity graph |
 | `Synth` + `PianoRoll` | OSC/ADSR/filter/LFO; `loopSteps` = длина паттерна; note-off не режет ноту, стартующую на том же шаге |
 | `Sampler` | slice на пады; стемы грузятся тем же prefetch |
-| `ClipLauncher` | session scenes; audio слоты loop + warp |
+| `ClipLauncher` | session scenes; audio слоты loop + warp; ряды = CORE + `prodLanes` (те же trackId, что Arrange) |
 | `TimelineEngine` | arrange clips; fire at fractional start step; audio warp + fade 1:1 с bounce |
 | `clipPlayback.ts` | shared Rubber Band / playbackRate warp + optional clip GainNode fade |
 | `AutomationEngine` | filter/EQ/volume lanes |

@@ -27,7 +27,7 @@ API:      http://127.0.0.1:8000/docs
 Docker (если установлен Docker Desktop): start-docker.bat
 
 Если Node.js всё ещё не найден:
-  1) убедись, что есть интернет и доступен PowerShell: powershell -NoProfile -Command "$PSVersionTable.PSVersion"
+  1) убедись, что есть интернет и доступен Python 3: py -3 --version
   2) снова запусти setup.bat — portable Node будет помещён в:
      %LOCALAPPDATA%\ForgeDeck\node\current
   Системная установка необязательна. Если она всё же нужна всем пользователям:

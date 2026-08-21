@@ -15,7 +15,9 @@ if not defined NODE_EXE (
   where winget >nul 2>&1
   if not errorlevel 1 (
     echo [Node] Установка через Windows Package Manager ^(winget^)...
-    winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
+    REM Avoid a broken Microsoft Store certificate; Node LTS is published in
+    REM the community winget source, so do not query msstore at all.
+    winget install --id OpenJS.NodeJS.LTS --exact --source winget --accept-package-agreements --accept-source-agreements
     call "%~dp0_node.bat"
   )
 )
@@ -28,10 +30,30 @@ if not defined NODE_EXE (
   )
 )
 if not defined NODE_EXE (
+  REM Last automatic fallback: fetch the current signed Node LTS MSI directly
+  REM from nodejs.org. Keep the version lookup dynamic instead of pinning it.
+  set "NODE_ARCH=x64"
+  if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "NODE_ARCH=arm64"
+  if /I "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "NODE_ARCH=arm64"
+  if /I "%PROCESSOR_ARCHITECTURE%"=="x86" if not defined PROCESSOR_ARCHITEW6432 set "NODE_ARCH=x86"
+  call set "NODE_INSTALLER=%%TEMP%%\ForgeDeck-node-lts-%%NODE_ARCH%%.msi"
+  where powershell >nul 2>&1
+  if not errorlevel 1 (
+    echo [Node] Скачиваю подписанный Node.js LTS с nodejs.org...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$release = (Invoke-RestMethod 'https://nodejs.org/dist/index.json' ^| Where-Object { $_.lts } ^| Select-Object -First 1).version; $url = 'https://nodejs.org/dist/' + $release + '/node-' + $release + '-win-' + $env:NODE_ARCH + '.msi'; Invoke-WebRequest -UseBasicParsing $url -OutFile $env:NODE_INSTALLER; $signature = Get-AuthenticodeSignature -FilePath $env:NODE_INSTALLER; if ($signature.Status -ne 'Valid') { throw ('Invalid Node installer signature: ' + $signature.Status) }"
+    if not errorlevel 1 (
+      echo [Node] Запускаю установщик Node.js LTS...
+      call msiexec /i "%%NODE_INSTALLER%%" /passive /norestart
+      call if exist "%%NODE_INSTALLER%%" del /q "%%NODE_INSTALLER%%" >nul 2>&1
+      call "%~dp0_node.bat"
+    )
+  )
+)
+if not defined NODE_EXE (
   echo.
   echo [Ошибка] Не найден Node.js LTS.
   echo Поставь его с https://nodejs.org/ ^(выбери LTS^) или выполни:
-  echo   winget install OpenJS.NodeJS.LTS
+  echo   winget install --id OpenJS.NodeJS.LTS --exact --source winget
   echo Затем запусти setup.bat снова.
   echo.
   if not defined PF_NOPAUSE pause

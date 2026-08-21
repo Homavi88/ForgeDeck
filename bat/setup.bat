@@ -9,12 +9,20 @@ echo === ForgeDeck: создание окружения ===
 echo Папка проекта: %ROOT%
 echo.
 
+call :find_python
+if not defined PYLAUNCH (
+  echo [Ошибка] Не найден Python 3. Установи с https://www.python.org/downloads/
+  echo и на первом экране включи "Add python.exe to PATH".
+  if not defined PF_NOPAUSE pause
+  exit /b 1
+)
+
 call "%~dp0_node.bat"
 if not defined NODE_EXE call :install_portable_node
 if not defined NODE_EXE (
   echo.
   echo [Ошибка] Не удалось поставить portable Node.js LTS для текущего пользователя.
-  echo Проверь интернет и PowerShell, затем запусти setup.bat снова.
+  echo Проверь интернет и Python 3, затем запусти setup.bat снова.
   echo Системная установка ^(только если нужна всем пользователям, может запросить admin^):
   echo   winget install --id OpenJS.NodeJS.LTS --exact --source winget
   echo.
@@ -22,20 +30,6 @@ if not defined NODE_EXE (
   exit /b 1
 )
 echo Node "%NODE_EXE%"
-
-set "PYLAUNCH="
-py -3 --version >nul 2>&1
-if not errorlevel 1 set "PYLAUNCH=py -3"
-if not defined PYLAUNCH (
-  python --version >nul 2>&1
-  if not errorlevel 1 set "PYLAUNCH=python"
-)
-if not defined PYLAUNCH (
-  echo [Ошибка] Не найден Python 3. Установи с https://www.python.org/downloads/
-  echo и на первом экране включи "Add python.exe to PATH".
-  pause
-  exit /b 1
-)
 
 echo [1/5] Виртуальное окружение .venv
 if not exist "%PY%" (
@@ -92,18 +86,26 @@ exit /b 0
 
 :install_portable_node
 REM Default automatic path: unpack a verified Node LTS ZIP in the current
-REM user's LocalAppData. Do not invoke machine-wide installers or UAC.
+REM user's LocalAppData with Python. Do not invoke PowerShell, UAC, or installers.
 set "NODE_ARCH=x64"
 if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "NODE_ARCH=arm64"
 if /I "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "NODE_ARCH=arm64"
 if /I "%PROCESSOR_ARCHITECTURE%"=="x86" if not defined PROCESSOR_ARCHITEW6432 set "NODE_ARCH=x86"
-where powershell >nul 2>&1
-if errorlevel 1 exit /b 1
 
 echo [Node] Ставлю Node.js LTS только для текущего пользователя ^(без admin^)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-node-portable.ps1" -Arch "%NODE_ARCH%"
+call %PYLAUNCH% "%~dp0install-node-portable.py" --arch "%NODE_ARCH%"
 if errorlevel 1 exit /b 1
 
 call "%~dp0_node.bat"
 if defined NODE_EXE exit /b 0
 exit /b 1
+
+:find_python
+set "PYLAUNCH="
+py -3 --version >nul 2>&1
+if not errorlevel 1 set "PYLAUNCH=py -3"
+if not defined PYLAUNCH (
+  python --version >nul 2>&1
+  if not errorlevel 1 set "PYLAUNCH=python"
+)
+exit /b 0

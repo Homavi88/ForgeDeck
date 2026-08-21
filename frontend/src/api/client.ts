@@ -82,7 +82,8 @@ export const api = {
     list: () => parse<Array<{ id: string; name: string; bpm: number; updated_at: string }>>(fetch(`${API}/api/projects`, withAuth())),
     get: (id: string) => parse<import("../types").ProjectDetail>(fetch(`${API}/api/projects/${id}`, withAuth())),
     create: (name: string, bpm = 120) => parse<import("../types").ProjectDetail>(j("/api/projects", "POST", { name, bpm })),
-    save: (id: string, patch: Record<string, unknown>) => parse(j(`/api/projects/${id}`, "PUT", patch)),
+    save: (id: string, patch: Record<string, unknown>) =>
+      parse<{ graph_revision: number }>(j(`/api/projects/${id}`, "PUT", patch)),
     remove: (id: string) => fetch(`${API}/api/projects/${id}`, withAuth({ method: "DELETE" })).then((r) => r.json()),
     duplicate: (id: string) => parse<import("../types").ProjectDetail>(fetch(`${API}/api/projects/${id}/duplicate`, withAuth({ method: "POST" }))),
     snapshots: (id: string) =>

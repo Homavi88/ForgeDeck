@@ -686,10 +686,11 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!s.project) return;
     set({ saving: true });
     try {
-      await api.projects.save(s.project.id, {
+      const saved = await api.projects.save(s.project.id, {
         name: s.project.name,
         bpm: s.bpm,
         musical_key: s.musicalKey,
+        expected_revision: s.project.graph_revision,
         graph: {
           version: 2,
           mode: s.mode,
@@ -725,7 +726,11 @@ export const useStudio = create<StudioState>((set, get) => ({
           layout: { aiPanelOpen: s.aiPanelOpen, libraryOpen: s.libraryOpen },
         },
       });
-      set({ saving: false, lastSavedAt: Date.now() });
+      set({
+        saving: false,
+        lastSavedAt: Date.now(),
+        project: { ...s.project, graph_revision: saved.graph_revision ?? s.project.graph_revision + 1 },
+      });
       get().pushToast({ id: "save", kind: "ok", text: t("toast.saved"), ttl: 1400 });
     } catch (err) {
       set({ saving: false, error: err instanceof Error ? err.message : t("toast.saveFailed") });

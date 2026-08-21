@@ -12,7 +12,7 @@ function deckTargets(): string[] {
   const out: string[] = [];
   for (const side of ["A", "B"] as const) {
     out.push(`${side}.play`, `${side}.cue`, `${side}.pfl`, `${side}.keylock`, `${side}.loop.off`);
-    for (const n of [1, 2, 3, 4]) out.push(`${side}.hotcue.${n}`);
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) out.push(`${side}.hotcue.${n}`);
     for (const n of [1, 2, 4, 8, 16]) out.push(`${side}.loop.${n}`);
   }
   return out;
@@ -40,7 +40,7 @@ function pioneerNoteDefaults(): Record<string, string> {
     [1, "A"],
     [2, "B"],
   ] as const) {
-    for (let i = 0; i < 4; i++) notes[`${ch}:${i}`] = `${side}.hotcue.${i + 1}`;
+    for (let i = 0; i < 8; i++) notes[`${ch}:${i}`] = `${side}.hotcue.${i + 1}`;
     notes[`${ch}:11`] = `${side}.play`;
     notes[`${ch}:12`] = `${side}.cue`;
     notes[`${ch}:16`] = `${side}.loop.4`;
@@ -106,7 +106,7 @@ export function lookupMidiTarget(
 
 /** Deck commands are discrete: CC mappings must fire only on a rising edge. */
 export function isMidiDeckActionTarget(target: string): boolean {
-  return /^(A|B)\.(play|cue|pfl|keylock|hotcue\.[1-4]|loop\.(off|1|2|4|8|16))$/.test(target);
+  return /^(A|B)\.(play|cue|pfl|keylock|hotcue\.[1-8]|loop\.(off|1|2|4|8|16))$/.test(target);
 }
 
 export type MidiHost = {
@@ -174,7 +174,7 @@ function applyDeckNote(eng: MidiHost, target: string): void {
     eng.onKeyLockChange?.(side, next);
     return;
   }
-  const hot = /^(A|B)\.hotcue\.([1-4])$/.exec(target);
+  const hot = /^(A|B)\.hotcue\.([1-8])$/.exec(target);
   if (hot) {
     eng.decks[hot[1] as "A" | "B"].jumpHotcue(Number(hot[2]));
     return;

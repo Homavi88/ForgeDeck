@@ -48,7 +48,7 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 
 `TimelineEngine` стартует клип на `round(startBar * 16)` 16th-step, не только на целом такте. Gating drums/synth в arrange сравнивает playhead `step/16` с интервалом клипа (дроби ок). `reset()` при Stop, чтобы клипы снова стреляли с начала.
 
-`AutomationEngine` хранит точки `{time,value}` (time в секундах). Live: каждый 16th пишет volume/filter/EQ на **любой** канал микшера (`writeAutomationValue`). Bounce: `scheduleAutomationLanes` ставит `setValueAtTime` / `linearRampToValueAtTime` на те же AudioParam. Filter **type** (LP/HP) не AudioParam — при пересечении нуля bounce приблизительный. Arrange: мышью рисуешь кривую (`AutomationLane`).
+`AutomationEngine` хранит точки `{time,value}` (time в секундах). Live: каждый 16th пишет volume/filter/EQ/**pan/sends** на **любой** канал микшера (`writeAutomationValue`). Bounce: `scheduleAutomationLanes` ставит `setValueAtTime` / `linearRampToValueAtTime` на те же AudioParam. Filter **type** (LP/HP) не AudioParam — при пересечении нуля bounce приблизительный. Arrange: мышью рисуешь кривую (`AutomationLane`).
 
 Прогрев WASM: `AudioEngine.init()` → `warmupRubberBand`.
 
@@ -63,7 +63,11 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 5. Synth + timeline clips (**warped** через тот же `scheduleWarpedClip`, включая stem-клипы)
 6. Return reverb/delay как в live mixer
 7. Automation ramps (`scheduleAutomationLanes`) на volume / filter freq / EQ low
-8. WAV через `encodeWav`
+8. WAV: `wav.ts` `encodeWav` — default bounce **24-bit** PCM at **48 kHz**. Rec encodes **16-bit with TPDF dither**. Optional `normalizeLoudness` (−14 LUFS, −1 dBTP ceiling) and `echoOutLastBars` (`ChannelStrip.scheduleEchoOut`). `renderLoudness` reports gated LUFS + 4× true peak. Per-lane freeze/export taps `soloLane`. Extra lanes may `routeLane` into another extra strip.
+
+**Freeze** (`soloLane`): disconnects master/xfader/returns and taps `ChannelStrip.duck` (after inserts, before mute/fader). Span = clips/notes/drums on that lane. Result is uploaded to the library and replaces that track’s clips; originals sit in `graph.frozenLanes` until Unfreeze. Flatten drops that snapshot. Frozen clips play as audio on bounce; the live deck/drums/synth for that lane is skipped so it does not double. Not master limiter, not send-returns, not VST.
+
+**Bounce range:** `startBar` / `lengthBars` on `renderOfflineWav`. Empty = auto duration (decks, clips, notes, drums, automation, cap 8 min) via `lib/renderSpan.ts`. Arrange toolbar writes `graph.bounceRange`. Loop playback uses the same window when `loopOn`.
 
 Не собирать урезанный EQ+delay «для экспорта» — это снова разъедет live и bounce.
 
@@ -71,15 +75,17 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 
 | Класс | Роль |
 | --- | --- |
-| `Transport` | clock, metronome, ticks для drums/timeline/piano |
+| `Transport` | clock, metronome, ticks, **tempo map**, **loop range**, **count-in**, optional **MIDI clock** (6× 0xF8 per 16th, JS timing — not Ableton Link) |
 | `DrumMachine` | 16 падов, swing, onKick → sidechain; UI paint + velocity graph |
 | `Synth` + `PianoRoll` | OSC/ADSR/filter/LFO; `loopSteps` = длина паттерна; note-off не режет ноту, стартующую на том же шаге |
 | `Sampler` | slice на пады; стемы грузятся тем же prefetch |
-| `ClipLauncher` | session scenes; audio слоты loop + warp; ряды = CORE + `prodLanes` (те же trackId, что Arrange) |
+| `ClipLauncher` | **12** session scenes; followBars → next scene; audio слоты loop + warp; ряды = CORE + `prodLanes` |
 | `TimelineEngine` | arrange clips; fire at fractional start step; audio warp + fade 1:1 с bounce |
-| `clipPlayback.ts` | shared Rubber Band / playbackRate warp + optional clip GainNode fade |
-| `AutomationEngine` | filter/EQ/volume lanes; live tick + bounce ramps |
+| `clipPlayback.ts` | warp + fade + **gain / reverse / transpose / audioOffsetSec** |
+| `AutomationEngine` | volume/filter/EQ/pan/sends; live tick + bounce ramps |
 | `LiveRecorder` | MediaRecorder с master |
-| `midiMap.ts` | Pioneer-ish CC + DDJ-400-style notes (`channel:note`, ch1=A / ch2=B); learn from Settings or Shift+click on the deck; CC deck targets fire only on a rising edge |
+| `midiMap.ts` | Pioneer-ish CC + notes; hotcues **1–8**; learn from Settings or Shift+click |
+| `lib/loudness.ts` | BS.1770-ish gated LUFS + true peak (48 kHz coeffs) |
+| `lib/midiSmf.ts` | type 0 SMF read/write, PPQ 96 |
 
 `ChannelStrip` / FX принимают `BaseAudioContext`, чтобы тот же код жил в OfflineAudioContext.

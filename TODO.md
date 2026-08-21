@@ -60,8 +60,22 @@
 - [x] MIDI learn 1:1 from the deck (hotcue / loop / PFL / play / cue, `channel:note`)
 - [x] Headphones cue window on the same bus; output list without getUserMedia
 - [x] Project history: graph revisions, restore points (list / pin / restore), Rec/Bounce provenance
+- [x] Freeze / flatten selected mixer lane to a 24-bit audio clip (insert rack only); Unfreeze from `frozenLanes`
+- [x] Rec places the take on the selected Arrange lane
+- [x] Bounce range (Arrange from/bars) + 24-bit / 48 kHz WAV (no dither)
+- [x] Per-lane / batch insert-rack export; Renders browser; Bounce WAV/FLAC/MP3 + LUFS/true peak + TPDF on 16-bit
+- [x] Arrange loop range, clip gain/reverse/transpose/offset/crossfade, pan/send automation, SMF MIDI I/O, count-in
+- [x] 12 session scenes + names + follow actions; session rec audio take
+- [x] Deck hotcues 1–8, beatgrid nudge, bounce echo-out, MIDI clock (not Ableton Link)
+- [x] Extra-lane buses, collab prodLanes/automation, gzip History snapshots, project zip bundle
+- [x] Production auth (`APP_ENV=production`), password change, JWT ≤24 h in prod, CI pytest + npm build
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load
 - [x] GPU Demucs — requires extra `requirements-stems.txt` + CUDA/MPS; else CPU Demucs or HPSS
 - [x] Bounce 1:1 — same ChannelStrip + analog/convolution plugins as the live desk (not bit-identical sample-for-sample vs a hardware CDJ)
+- [ ] Ableton Link (browser has no official Link; MIDI clock is JS timing only)
+- [ ] Second synth / second drum rack / VST-AU host
+- [ ] Transient warp markers (clip offset is the stand-in, not a marker list)
+- [ ] NSIS code signing / auto-update (needs a cert; SmartScreen will warn without it)
+

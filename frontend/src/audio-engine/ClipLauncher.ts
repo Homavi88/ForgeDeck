@@ -3,12 +3,13 @@ import { arrangeIdForMix, CORE_LANES, SESSION_SCENES } from "../lib/mix";
 
 const CORE_SESSION_TRACKS = CORE_LANES.map((l) => arrangeIdForMix(l.id));
 
-/** Ableton-style clip launcher: 8 scenes × the same lanes as Arrange. Launch is quantized by the transport. */
+/** Ableton-style clip launcher: scenes × the same lanes as Arrange. Launch is quantized by the transport. */
 export class ClipLauncher {
   scenes = SESSION_SCENES;
   clips: SessionClip[] = [];
   active: Record<string, SessionClip | null> = {};
   pendingScene: number | null = null;
+  private followAt: Record<string, { bar: number; scene: number }> = {};
 
   constructor() {
     this.clips = defaultSession();
@@ -31,9 +32,14 @@ export class ClipLauncher {
     return this.clips.find((c) => c.trackId === trackId && c.scene === scene);
   }
 
-  launchClip(trackId: string, scene: number): SessionClip | null {
+  launchClip(trackId: string, scene: number, bar = 0): SessionClip | null {
     const clip = this.clipAt(trackId, scene) ?? null;
     this.active[trackId] = clip;
+    if (clip && !clip.empty && clip.followBars && clip.followBars > 0) {
+      this.followAt[trackId] = { bar: bar + clip.followBars, scene: (scene + 1) % this.scenes };
+    } else {
+      delete this.followAt[trackId];
+    }
     return clip;
   }
 
@@ -41,21 +47,58 @@ export class ClipLauncher {
     this.pendingScene = scene;
   }
 
-  onBar(bar: number): void {
-    if (this.pendingScene == null) return;
-    if (bar % 1 !== 0) return;
-    const scene = this.pendingScene;
-    this.pendingScene = null;
-    for (const track of this.trackIds()) {
-      this.launchClip(track, scene);
+  onBar(bar: number): SessionClip[] {
+    const launched: SessionClip[] = [];
+    if (this.pendingScene != null) {
+      const scene = this.pendingScene;
+      this.pendingScene = null;
+      for (const track of this.trackIds()) {
+        const clip = this.launchClip(track, scene, bar);
+        if (clip) launched.push(clip);
+      }
     }
+    for (const track of Object.keys(this.followAt)) {
+      const f = this.followAt[track];
+      if (f && bar >= f.bar) {
+        delete this.followAt[track];
+        const clip = this.launchClip(track, f.scene, bar);
+        if (clip) launched.push(clip);
+      }
+    }
+    return launched;
   }
 }
 
 function defaultSession(): SessionClip[] {
   const tracks = ["drums", "synth", "deckA", "deckB"] as const;
-  const names = ["Intro", "Groove", "Drop", "Break", "Drop 2", "Fill", "Outro", "Loop"];
-  const colors = ["#3dfff3", "#ff6a00", "#3dff7a", "#ffd23f", "#ff6a00", "#c084fc", "#64748b", "#fb7185"];
+  const names = [
+    "Intro",
+    "Groove",
+    "Drop",
+    "Break",
+    "Drop 2",
+    "Fill",
+    "Outro",
+    "Loop",
+    "Bridge",
+    "Build",
+    "Peak",
+    "End",
+  ];
+  const colors = [
+    "#3dfff3",
+    "#ff6a00",
+    "#3dff7a",
+    "#ffd23f",
+    "#ff6a00",
+    "#c084fc",
+    "#64748b",
+    "#fb7185",
+    "#38bdf8",
+    "#a3e635",
+    "#f472b6",
+    "#94a3b8",
+  ];
   const clips: SessionClip[] = [];
   tracks.forEach((trackId) => {
     names.forEach((name, scene) => {

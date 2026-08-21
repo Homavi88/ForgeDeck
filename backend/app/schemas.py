@@ -197,6 +197,7 @@ class RenderJobOut(ORMModel):
     output_path: str | None
     progress: float
     error_message: str | None
+    created_at: datetime | None = None
 
 
 class AIChatRequest(BaseModel):

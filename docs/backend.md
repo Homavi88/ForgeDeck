@@ -12,22 +12,22 @@
 | `app/models/entities.py` | SQLAlchemy |
 | `app/schemas.py` | Pydantic |
 | `app/api/` | Роутеры |
-| `app/services/` | analysis, stems, storage, object_store, project_graph, security, events, shutdown, **style_packs** |
+| `app/services/` | analysis, stems, storage, object_store, project_graph, security, events, shutdown, **style_packs**, **snapshot_codec**, **render_convert** |
 | `alembic/` | миграции |
 
 ## Модели (коротко)
 
 - `User` → `Project`, `AudioFile`
 - `Project.graph` — JSON студии; `graph_revision` — монотонный счётчик PUT; `share_token` для публичной страницы
-- `ProjectSnapshot` — до 30 точек восстановления graph (autosave / ручные / restore). Список **без** graph; restore копирует JSON обратно.
+- `ProjectSnapshot` — до 30 точек восстановления graph (autosave / ручные / restore). Список **без** graph; крупные graph **gzip+base64** (`__fd_gzip__`); restore распаковывает JSON обратно.
 - `AudioFile.analysis` — JSON: bpm, key, camelot, waveform, beats, stems, `stems_engine`, **energy 1–10**, **mix_in / mix_out** (phrase heuristic)
 - `Deck`, `MixerChannel`, `DrumPattern`, `SynthPreset`, `Clip`, `Arrangement`, `CuePoint`, `LoopRegion`, `RenderJob` (`source` + `details` provenance), `AIConversation`
 
 ## REST (практическое)
 
-Auth: `POST /api/auth/register`, `/login`, `GET /api/auth/me`.
+Auth: `POST /api/auth/register`, `/login`, `GET /api/auth/me`, `POST /api/auth/password` (`current_password`, `new_password`). `APP_ENV=production` (или `prod`) включает `auth_required` даже если `REQUIRE_AUTH=false`, и режет JWT до min(`JWT_EXPIRE_HOURS`, 24).
 
-Projects: CRUD, `PUT` сохраняет graph (`persist_graph` **flush**, commit делает роутер). `expected_revision` на PUT → **409** `{code, graph_revision}`, если graph уже новее (autosave не затирает чужое окно). Изменение graph поднимает `graph_revision` и пишет `ProjectSnapshot` (`snapshot_label` или `Autosave`), лимит 30. `GET/POST /projects/{id}/snapshots`, `POST .../snapshots/{sid}/restore` (гидрация persist_graph + снимок `Restored: …`). Duplicate, share, export JSON, tracks, patterns (**upsert** по имени), synth-presets (upsert по имени), decks, arrangements, render + upload WAV (`source`: `bounce` | `live_rec` | `session_rec` | `server_render`, `details` JSON).
+Projects: CRUD, `PUT` сохраняет graph (`persist_graph` **flush**, commit делает роутер). `expected_revision` на PUT → **409** `{code, graph_revision}`, если graph уже новее (autosave не затирает чужое окно). Изменение graph поднимает `graph_revision` и пишет `ProjectSnapshot` (`snapshot_label` или `Autosave`), лимит 30. `GET/POST /projects/{id}/snapshots`, `POST .../snapshots/{sid}/restore` (гидрация persist_graph + снимок `Restored: …`). Duplicate, share, export JSON, **`GET /bundle` zip** (graph + referenced audio), tracks, patterns (**upsert** по имени), synth-presets (upsert по имени), decks, arrangements, render + **`GET /renders`** + upload WAV (`source`: `bounce` | `live_rec` | `session_rec` | `lane_export` | `server_render`, `format`: wav|flac|mp3, `details` JSON). FLAC = soundfile PCM_24; MP3 = ffmpeg/libmp3lame if present (else 503, WAV kept).
 
 Audio: `POST /upload` (квота), list, `GET /compatible` (**до** `/{id}`), analysis, cues, loops, `POST /{id}/stems`, stream stem.
 
@@ -49,14 +49,14 @@ Owner: проект и файл чужого user_id → 404/403. Compatible-sea
 
 `/ws/projects/{project_id}?token=`
 
-Токен обязателен (или demo, если `REQUIRE_AUTH=false`). Чужая комната → close 4404.
+Токен обязателен (или demo, если `REQUIRE_AUTH=false` и не production). Чужая комната → close 4404.
 
 Типы сообщений (`app/services/events.py`):
 
 | type | Смысл |
 | --- | --- |
 | `hello` | сервер → клиент, snapshot presence/locks/chat |
-| `state` | snapshot студии (bpm, mixer, decks, drums, notes, clips…) |
+| `state` | snapshot студии (bpm, mixer, decks, drums, notes, clips, **prodLanes / automation / frozenLanes**) |
 | `presence` | кто на Deck A/B |
 | `chat` | комната, последние 80 |
 | `lock` / `unlock` | эксклюзив на `deckA` / `deckB` / drums |
@@ -90,4 +90,4 @@ Owner: проект и файл чужого user_id → 404/403. Compatible-sea
 
 ## Тесты
 
-`backend/tests/`. `conftest.py` поднимает SQLite `test_forgedeck.db` и `REQUIRE_AUTH=false`. Не ходить в сеть и не грузить torch в CI: GPU Demucs мокается.
+`backend/tests/`. `conftest.py` поднимает SQLite `test_forgedeck.db` и `REQUIRE_AUTH=false`. Не ходить в сеть и не грузить torch в CI: GPU Demucs мокается. GitHub Actions: `.github/workflows/ci.yml` (pytest + `npm run build`).

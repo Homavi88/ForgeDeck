@@ -12,6 +12,10 @@ export type ClipWarpParams = {
   sourceKey?: string | null;
   projectKey?: string | null;
   keyFollow?: boolean | null;
+  transpose?: number | null;
+  gain?: number | null;
+  reverse?: boolean | null;
+  audioOffsetSec?: number | null;
 };
 
 export type ClipFade = {
@@ -31,8 +35,9 @@ export function clipWarpRate(p: ClipWarpParams): number {
 }
 
 export function clipWarpSemitones(p: ClipWarpParams): number {
-  if (!p.keyFollow) return 0;
-  return keySemitoneDelta(p.sourceKey ?? undefined, p.projectKey ?? undefined);
+  const extra = typeof p.transpose === "number" && Number.isFinite(p.transpose) ? p.transpose : 0;
+  if (!p.keyFollow) return extra;
+  return keySemitoneDelta(p.sourceKey ?? undefined, p.projectKey ?? undefined) + extra;
 }
 
 export async function connectWarpedSource(
@@ -96,19 +101,45 @@ export async function scheduleWarpedClip(
   fade?: ClipFade,
 ): Promise<WarpedVoice> {
   const src = ctx.createBufferSource();
-  src.buffer = buffer;
+  let bufferToPlay = buffer;
+  if (params.reverse) {
+    bufferToPlay = ctx.createBuffer(buffer.numberOfChannels, buffer.length, ctx.sampleRate);
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const a = buffer.getChannelData(c);
+      const b = bufferToPlay.getChannelData(c);
+      for (let i = 0; i < a.length; i++) b[i] = a[a.length - 1 - i];
+    }
+  }
+  src.buffer = bufferToPlay;
   const rate = clipWarpRate(params);
   const semis = clipWarpSemitones(params);
   if (loop) src.loop = true;
   const fadeGain = ctx.createGain();
-  fadeGain.connect(dest);
-  scheduleFade(fadeGain, when, durationSec, fade, loop);
+  const clipGain = ctx.createGain();
+  clipGain.gain.value = Math.max(0, Math.min(4, params.gain == null ? 1 : params.gain));
+  fadeGain.connect(clipGain);
+  clipGain.connect(dest);
+  const skip = when < 0 ? -when : 0;
+  const remaining = durationSec - skip;
+  if (remaining <= 0.02) {
+    return {
+      source: src,
+      rb: null,
+      fade: fadeGain,
+      stop: () => undefined,
+    };
+  }
+  const t0 = Math.max(0, when);
+  const fadeAdj = skip > 0.001 ? { fadeInSec: 0, fadeOutSec: fade?.fadeOutSec } : fade;
+  scheduleFade(fadeGain, t0, remaining, fadeAdj, loop);
   const rb = await connectWarpedSource(ctx, src, fadeGain, rate, semis);
-  const play = Math.max(0.02, durationSec);
-  src.start(when);
-  if (!loop && Number.isFinite(when + play)) {
+  const play = Math.max(0.02, remaining);
+  const fileOffset = Math.max(0, params.audioOffsetSec || 0);
+  const offset = Math.min(Math.max(0, skip * rate + fileOffset), Math.max(0, bufferToPlay.duration - 0.01));
+  src.start(t0, offset);
+  if (!loop && Number.isFinite(t0 + play)) {
     try {
-      src.stop(when + play);
+      src.stop(t0 + play);
     } catch {
       /* offline may ignore */
     }

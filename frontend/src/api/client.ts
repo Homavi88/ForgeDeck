@@ -86,6 +86,8 @@ export const api = {
         j("/api/auth/login", "POST", { email, password }),
       ),
     me: () => parse<{ id: string; email: string; name: string }>(fetch(`${API}/api/auth/me`, withAuth())),
+    changePassword: (current_password: string, new_password: string) =>
+      parse<{ ok: boolean }>(j("/api/auth/password", "POST", { current_password, new_password })),
   },
   presets: {
     effects: () => parse<Array<{ id: string; name: string; effect_type: string; params: Record<string, number> }>>(fetch(`${API}/api/presets/effects`, withAuth())),
@@ -115,16 +117,43 @@ export const api = {
         fetch(`${API}/api/projects/${id}/snapshots/${snapshotId}/restore`, withAuth({ method: "POST" })),
       ),
     render: (id: string, format = "wav") => parse(j(`/api/projects/${id}/render`, "POST", { format })),
+    renders: (id: string) =>
+      parse<
+        Array<{
+          id: string;
+          status: string;
+          format: string;
+          source: string;
+          details: Record<string, unknown>;
+          progress: number;
+          error_message: string | null;
+          created_at?: string | null;
+        }>
+      >(fetch(`${API}/api/projects/${id}/renders`, withAuth())),
+    renderFileUrl: (projectId: string, jobId: string) => `${API}/api/projects/${projectId}/render/${jobId}/file`,
+    downloadRender: async (projectId: string, jobId: string) => {
+      const res = await fetch(`${API}/api/projects/${projectId}/render/${jobId}/file`, withAuth());
+      if (!res.ok) throw new Error(await res.text());
+      return res.blob();
+    },
+    bundle: async (id: string) => {
+      const res = await fetch(`${API}/api/projects/${id}/bundle`, withAuth());
+      if (!res.ok) throw new Error(await res.text());
+      return res.blob();
+    },
     uploadRender: async (
       id: string,
       blob: Blob,
-      source: "bounce" | "live_rec" | "session_rec" = "bounce",
+      source: "bounce" | "live_rec" | "session_rec" | "lane_export" = "bounce",
       details: Record<string, unknown> = {},
+      format: "wav" | "flac" | "mp3" = "wav",
     ) => {
+      const ext = format === "mp3" ? "mp3" : format === "flac" ? "flac" : "wav";
       const body = new FormData();
-      body.append("file", blob, "mix.wav");
+      body.append("file", blob, `mix.${ext === "wav" ? "wav" : "wav"}`);
       body.append("source", source);
       body.append("details", JSON.stringify(details));
+      body.append("format", format);
       return parse(fetch(`${API}/api/projects/${id}/render/upload`, withAuth({ method: "POST", body })));
     },
     addTrack: (id: string, name: string, kind = "audio") => parse(j(`/api/projects/${id}/tracks`, "POST", { name, kind })),

@@ -39,8 +39,14 @@ export function AutomationLane({
   const playhead = (currentStep / 16) * barPx;
   const mergeSec = Math.max(0.02, snap * barSec * 0.45);
 
-  const kindLabel = (kind: AutoKind) =>
-    kind === "volume" ? t("arrange.autoVolume") : kind === "filter" ? t("arrange.autoFilter") : t("arrange.autoEqLow");
+  const kindLabel = (kind: AutoKind) => {
+    if (kind === "volume") return t("arrange.autoVolume");
+    if (kind === "filter") return t("arrange.autoFilter");
+    if (kind === "eqLow") return t("arrange.autoEqLow");
+    if (kind === "pan") return t("arrange.autoPan");
+    if (kind === "sendRev") return t("arrange.autoSendRev");
+    return t("arrange.autoSendDly");
+  };
 
   const mixName = (mixId: string) => {
     if (mixId === "master") return t("mixer.master");

@@ -19,6 +19,7 @@ def test_fx_presets_seed(client):
     kits = client.get("/api/presets/kits")
     assert kits.status_code == 200
     assert kits.json()[0]["name"] == "808 Core"
+    assert all(row["effect_type"] != "midi_map" for row in res.json())
     saved = client.post("/api/presets/kits", json={"name": "Mine", "pads": [{"id": "kick"}]})
     assert saved.status_code == 200
 

@@ -6,13 +6,13 @@
 
 | Путь | Роль |
 | --- | --- |
-| `app/main.py` | FastAPI, CORS, ProxyHeaders, lifespan (storage, schema, demo user) |
+| `app/main.py` | FastAPI, CORS, ProxyHeaders, lifespan (storage, schema, demo user, `ensure_global_presets`) |
 | `app/config.py` | `Settings` из env / `.env` |
 | `app/deps.py` | JWT или demo user, `require_project` / `require_audio` |
 | `app/models/entities.py` | SQLAlchemy |
 | `app/schemas.py` | Pydantic |
 | `app/api/` | Роутеры |
-| `app/services/` | analysis, stems, storage, object_store, project_graph, security, events, shutdown |
+| `app/services/` | analysis, stems, storage, object_store, project_graph, security, events, shutdown, **style_packs** |
 | `alembic/` | миграции |
 
 ## Модели (коротко)
@@ -32,7 +32,9 @@ Audio: `POST /upload` (квота), list, `GET /compatible` (**до** `/{id}`), 
 
 AI: chat + apply actions (см. [ai.md](ai.md)).
 
-Presets: effects / kits / midi; seeded FX нельзя удалить.
+Presets: `GET /api/presets/styles` (10 original electronic packs, no auth), `GET /api/presets/styles/{id}` (404 if missing); effects / kits / midi. `GET /api/presets/effects` **не** отдаёт `midi_map` (Pioneer-ish живёт в `/midi`). `ensure_global_presets` идемпотентно досеивает FX/kits/midi в существующие SQLite. Seeded FX нельзя удалить.
+
+Пакеты стилей (`app/services/style_packs.py`): оригинальные шаблоны ForgeDeck по публичным жанровым условностям (four-on-the-floor, 2-step, half-time). Не копии Serum/Vital/Ableton. Не скачиваются из сети в runtime. Поля: id, name, genre, bpm, key, blurb, synth, fx (wet: delay/reverb/flanger/distortion/bitcrush/compressor; extra keys вроде feedback игнорирует `setWet`), drums `{length, swing, steps}`, notes. 808 Core — первый kit в `KIT_NAMES`.
 
 Share: `GET /api/share/{token}` публично.
 

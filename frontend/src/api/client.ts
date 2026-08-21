@@ -75,6 +75,8 @@ export const api = {
     saveKit: (name: string, pads: unknown[]) => parse(j("/api/presets/kits", "POST", { name, pads })),
     midi: () => parse<Array<{ id: string; name: string; bindings: { cc: Record<string, string>; notes: Record<string, string> } }>>(fetch(`${API}/api/presets/midi`, withAuth())),
     saveMidi: (name: string, bindings: Record<string, unknown>) => parse(j("/api/presets/midi", "POST", { name, bindings })),
+    styles: () => parse<import("../types").StylePack[]>(fetch(`${API}/api/presets/styles`)),
+    style: (id: string) => parse<import("../types").StylePack>(fetch(`${API}/api/presets/styles/${encodeURIComponent(id)}`)),
   },
   projects: {
     list: () => parse<Array<{ id: string; name: string; bpm: number; updated_at: string }>>(fetch(`${API}/api/projects`, withAuth())),

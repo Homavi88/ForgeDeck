@@ -84,6 +84,10 @@ export const ru: Dict = {
     learnHint: "Поверни ручку, чтобы запомнить {target}",
     learned: "Запомнил {kind} {number} → {target}",
     loadFailed: "Не удалось загрузить пресеты",
+    styles: "Электронные стили",
+    applyStyle: "Применить",
+    styleHint:
+      "Оригинальные шаблоны ForgeDeck по публичным жанровым условностям — не лицензированные банки Serum, Vital или Ableton, и не скачиваются из интернета.",
     tipDocs: "Документация API: http://localhost:8000/docs",
     tipHealth: "Health: http://localhost:8000/api/health",
     tipStems: "Стемы: GPU Demucs (CUDA/MPS), если стоят torch+demucs, иначе CPU Demucs, иначе HPSS.",
@@ -304,6 +308,7 @@ export const ru: Dict = {
     savePattern: "Сохранить паттерн",
     saveKit: "Сохранить кит",
     loadKit: "Загрузить кит…",
+    loadStyle: "Стиль (drums)…",
     steps: "Шаги",
     swing: "Свинг",
     graph: "Graph editor · {pad}",
@@ -326,6 +331,7 @@ export const ru: Dict = {
     poly: "Полифония",
     hint: "Клавиши A S D F G H J K (без модификаторов) · MIDI: ноты, пады 36–51, CC7 мастер",
     save: "Сохранить пресет",
+    loadStyle: "Стиль (synth)…",
   },
   sampler: {
     title: "Сэмплер",
@@ -432,5 +438,9 @@ export const ru: Dict = {
     sessionCaptured: "На Arrange записано клипов: {n}",
     sessionEmpty: "Сначала запусти клип сцены",
     stemPad: "{stem} → пад {pad}",
+    styleApplied: "Загружен {name} — оригинальный шаблон ForgeDeck",
+    styleDrums: "Загружены drums: {name}",
+    styleSynth: "Загружен synth: {name}",
+    styleFailed: "Не удалось загрузить стиль",
   },
 };

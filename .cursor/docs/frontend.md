@@ -13,12 +13,12 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 | `/projects` | список + создать |
 | `/projects/:id` | студия |
 | `/library` | файлы пользователя |
-| `/settings` | FX/MIDI пресеты, подсказки |
+| `/settings` | Electronic styles (Apply → `applyStylePack`), FX/MIDI пресеты, подсказки |
 | `/share/:token` | публичный микс |
 
 ## Состояние студии
 
-`frontend/src/store/useStudio.ts` — единственный store сессии: project, library, decks, mixer, drums, notes, clips, AI chat, queue, collab overlays, toasts, PFL, layout (AI/library/fullscreen).
+`frontend/src/store/useStudio.ts` — единственный store сессии: project, library, decks, mixer, drums, notes, clips, AI chat, queue, collab overlays, toasts, PFL, layout (AI/library/fullscreen). `applyStylePack(pack, parts?)` бутит аудио, ставит BPM/key, drums (`emptySteps()` merge), synth, FX wet на A (B ≈ 0.65) и drums/synth, `writeNotes`; `parts` `"drums"` / `"synth"` — частичное применение. Тост при успехе, режим студии не переключает.
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
@@ -28,7 +28,7 @@ Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S; 
 
 Undo/redo: снимки в `history` / `future` (не весь engine).
 
-Auth token: `localStorage` через `api/client.ts`; `decodeUrl` подставляет Bearer, иначе стемы/файлы 401.
+Auth token: `localStorage` через `api/client.ts`; `decodeUrl` подставляет Bearer, иначе стемы/файлы 401. Style packs: `api.presets.styles()` / `style(id)` — `GET /api/presets/styles`, без токена.
 
 Layout AI/library: `localStorage` ключ `fd_layout`.
 
@@ -47,8 +47,8 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
 - `session` — `SessionPanel` (8 сцен, drop петли, Session rec / Capture)
 - `arrange` — `TimelinePanel` (warp-клипы, drop петли/стемов)
-- `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад)
-- `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum)
+- `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; `StylePackSelect` drums-only)
+- `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; `StylePackSelect` synth-only)
 - `sampler` — `SamplerPanel` (стемы на пады)
 
 `AIPanel` справа, если не спрятана. Сверху `TopBar` в **две строки**: (1) бренд, имя проекта, режимы (горизонтальный скролл, `whitespace-nowrap`), Play / BPM / Key / Click, Save / Rec / Bounce; (2) Session rec, undo/redo, MIDI / mic / Keys, тогглы AI / Library / Decks (подсветка = включено, без «Hide …»), язык EN/RU, Share, Выключить. Library открыта в DJ / Session / Arrange / Sampler. `ToastHost` + `HeadphonesMonitor` + `KeymapHelp`.

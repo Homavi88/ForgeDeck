@@ -112,6 +112,26 @@ export interface MidiNote {
   velocity: number;
 }
 
+/** Public payload from GET /api/presets/styles — original ForgeDeck templates, not third-party banks. */
+export interface StylePack {
+  id: string;
+  name: string;
+  genre: string;
+  bpm: number;
+  key: string;
+  blurb: string;
+  synth: SynthParams;
+  fx: Record<string, number>;
+  drums: {
+    length: number;
+    swing: number;
+    steps: DrumSteps;
+  };
+  notes: MidiNote[];
+}
+
+export type StylePackParts = "all" | "drums" | "synth";
+
 export interface MidiPattern {
   id: string;
   name: string;

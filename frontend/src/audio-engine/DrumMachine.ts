@@ -21,6 +21,12 @@ export const PAD_IDS = [
   "vox",
 ] as const;
 
+export function emptySteps(): DrumSteps {
+  const steps: DrumSteps = {};
+  for (const id of PAD_IDS) steps[id] = Array(64).fill(0);
+  return steps;
+}
+
 export class DrumMachine {
   ctx: AudioContext;
   output: GainNode;

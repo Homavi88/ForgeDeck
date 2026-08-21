@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { api } from "../api/client";
 import { getEngine } from "../audio-engine/AudioEngine";
-import { PAD_IDS } from "../audio-engine/DrumMachine";
+import { emptySteps } from "../audio-engine/DrumMachine";
 import { applyStripState } from "../audio-engine/stripState";
 import type { XfaderCurve } from "../audio-engine/utils";
 import { t } from "../i18n";
@@ -19,6 +19,8 @@ import type {
   ProjectDetail,
   SamplerState,
   SessionClip,
+  StylePack,
+  StylePackParts,
   StudioMode,
   SynthParams,
   TimelineClip,
@@ -134,6 +136,7 @@ interface StudioState {
   undo: () => void;
   redo: () => void;
   applyMixerChannel: (id: string, patch: Partial<MixerStripState>) => void;
+  applyStylePack: (pack: StylePack, parts?: StylePackParts) => Promise<void>;
   xfaderCurve: XfaderCurve;
   setXfaderCurve: (curve: XfaderCurve) => void;
   setEqKill: (id: "A" | "B", band: 0 | 1 | 2, on: boolean) => void;
@@ -199,10 +202,27 @@ const channelState = (): MixerStripState => ({
   sendDly: 0,
 });
 
-function emptySteps(): DrumSteps {
-  const steps: DrumSteps = {};
-  for (const id of PAD_IDS) steps[id] = Array(64).fill(0);
+const FX_WET_KEYS = new Set(["delay", "reverb", "flanger", "distortion", "bitcrush", "compressor"]);
+
+function mergePackDrums(packSteps: DrumSteps | undefined): DrumSteps {
+  const steps = emptySteps();
+  for (const [pad, row] of Object.entries(packSteps || {})) {
+    if (!Array.isArray(row)) continue;
+    const dest = steps[pad] ? [...steps[pad]] : Array(64).fill(0);
+    for (let i = 0; i < Math.min(row.length, dest.length); i++) dest[i] = Number(row[i]) || 0;
+    steps[pad] = dest;
+  }
   return steps;
+}
+
+function asMidiNotes(raw: StylePack["notes"] | undefined): MidiNote[] {
+  return (raw || []).map((n, i) => ({
+    id: String(n.id || `n${i + 1}`),
+    pitch: Number(n.pitch),
+    startStep: Number(n.startStep),
+    length: Math.max(1, Number(n.length) || 1),
+    velocity: typeof n.velocity === "number" ? n.velocity : 0.85,
+  }));
 }
 
 const defaultSynth: SynthParams = {
@@ -713,6 +733,68 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!ch) return;
     applyStripState(ch, mixer[id]);
     getEngine().mixer.setSolo(id, mixer[id].solo);
+  },
+
+  applyStylePack: async (pack, parts = "all") => {
+    const wantAll = parts === "all";
+    const wantDrums = wantAll || parts === "drums";
+    const wantSynth = wantAll || parts === "synth";
+    get().pushUndo();
+    try {
+      await get().bootAudio();
+      const eng = getEngine();
+      if (wantAll) {
+        get().setBpm(pack.bpm);
+        get().setMusicalKey(pack.key);
+      }
+      if (wantDrums) {
+        const steps = mergePackDrums(pack.drums?.steps);
+        const length = pack.drums?.length || 16;
+        const swing = pack.drums?.swing ?? 0;
+        eng.drums.steps = steps;
+        eng.drums.length = length;
+        eng.drums.swing = swing;
+        eng.piano.setLoopSteps(length);
+        set({ drumSteps: steps, drumLength: length, drumSwing: swing });
+      }
+      if (wantSynth) {
+        const synth = { ...get().synth, ...pack.synth };
+        eng.synth.setParams(synth);
+        set({ synth });
+        get().writeNotes(asMidiNotes(pack.notes));
+        if (!wantAll) get().setMusicalKey(pack.key);
+      }
+      if (wantAll && pack.fx) {
+        const aFx = { ...get().mixer.A.fx };
+        const bFx = { ...get().mixer.B.fx };
+        const drumFx = { ...get().mixer.drums.fx };
+        const synthFx = { ...get().mixer.synth.fx };
+        for (const [k, v] of Object.entries(pack.fx)) {
+          if (typeof v !== "number" || !FX_WET_KEYS.has(k)) continue;
+          eng.mixer.channels.A.fx.setWet(k, v);
+          eng.mixer.channels.B.fx.setWet(k, v * 0.65);
+          eng.mixer.channels.drums.fx.setWet(k, v);
+          eng.mixer.channels.synth.fx.setWet(k, v);
+          aFx[k] = v;
+          bFx[k] = v * 0.65;
+          drumFx[k] = v;
+          synthFx[k] = v;
+        }
+        get().applyMixerChannel("A", { fx: aFx });
+        get().applyMixerChannel("B", { fx: bFx });
+        get().applyMixerChannel("drums", { fx: drumFx });
+        get().applyMixerChannel("synth", { fx: synthFx });
+      }
+      const toastKey = wantAll ? "toast.styleApplied" : wantDrums ? "toast.styleDrums" : "toast.styleSynth";
+      get().pushToast({ id: "style", kind: "ok", text: t(toastKey, { name: pack.name }), ttl: 2400 });
+    } catch (err) {
+      get().pushToast({
+        id: "style",
+        kind: "err",
+        text: err instanceof Error ? err.message : t("toast.styleFailed"),
+        ttl: 4000,
+      });
+    }
   },
 
   setXfaderCurve: (curve) => {

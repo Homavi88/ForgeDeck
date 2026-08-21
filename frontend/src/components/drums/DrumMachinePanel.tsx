@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { PAD_IDS } from "../../audio-engine/DrumMachine";
+import { StylePackSelect } from "../presets/StylePackSelect";
 import { t, useI18n, type MsgKey } from "../../i18n";
 import { rotateRow } from "../../lib/pianoRoll";
 import { collabName, getCollabId, sendCollab } from "../../store/useProjectSync";
@@ -118,6 +119,7 @@ export function DrumMachinePanel() {
             </option>
           ))}
         </select>
+        <StylePackSelect parts="drums" label={t("drums.loadStyle")} />
         <label className="text-xs text-zinc-400">
           {t("drums.steps")}
           <select

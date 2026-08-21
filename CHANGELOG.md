@@ -4,7 +4,7 @@
 
 ## Unreleased
 
-- Windows launcher: `bat/setup.bat` / `start.bat` no longer rely only on the double-clicked cmd PATH for Node.js. They find standard installs plus nvm/fnm/Volta/Scoop/Chocolatey and install Node LTS from the `winget` source (then Chocolatey) when available, avoiding a broken `msstore` certificate.
+- Windows launcher: `bat/setup.bat` / `start.bat` no longer rely only on the double-clicked cmd PATH for Node.js. They find standard installs plus nvm/fnm/Volta/Scoop/Chocolatey, install Node LTS from the `winget` source (then Chocolatey), then download and verify the signed official MSI as the automatic fallback — avoiding a broken `msstore` certificate.
 - Insert rack order is the real ChannelStrip graph: drag or ←/→ on Console inserts (EQ / filter / FX). Echo-out still starves FX via `fxSend` placed before the first FX device. Aux sends follow the Filter device. Bounce uses the same order. Not VST/AU.
 - MIDI learn 1:1 from the deck: Shift+click Play / Cue / PFL / hotcue / loop / key lock (channel+note, Pioneer-ish DDJ-400-style defaults on ch1=A / ch2=B — not an official dump). Settings still maps CC and now lists notes.
 - Headphones cue window: Open cue window plays the same headphone MediaStream (not a second AudioContext). Output picker uses `selectAudioOutput` when the browser has it; listing devices no longer calls `getUserMedia`.

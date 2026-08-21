@@ -4,7 +4,8 @@ ForgeDeck — запуск на Windows
 Нужно один раз:
   Python 3.11+  (галочка "Add python.exe to PATH")
   Node.js LTS   (setup.bat ищет обычные установки, nvm/fnm/Volta/Scoop
-                 и при отсутствии пробует поставить LTS через winget или Chocolatey)
+                 и при отсутствии пробует поставить LTS через winget, Chocolatey
+                 или подписанный installer с nodejs.org)
 
 Двойной клик по файлам в этой папке:
 

@@ -14,6 +14,7 @@
 | FX send / return | `ChannelStrip.sendRev/sendDly`, `Mixer.returnRev/returnDly` |
 | Channel Rack (drums graph/fill) | `components/drums/DrumMachinePanel.tsx` |
 | Electronic style pack | `backend/app/services/style_packs.py` + `GET /api/presets/styles`; apply в `useStudio.applyStylePack`; UI `components/presets/StylePackSelect.tsx` + Settings cards |
+| Production mixer / extra arrange tracks | `Mixer.addLane`, `lib/mix.ts`, `components/mix/ProductionMixer.tsx` + `InsertRack.tsx`; graph `prodLanes` + extra `mixer` keys |
 | CDJ-клавиши | `frontend/src/lib/djHotkeys.ts` (только mode=dj) |
 | DJ mix math (offset, gain match) | `frontend/src/lib/djMix.ts` |
 | PFL / headphones | `ChannelStrip.pflOut`, `Mixer` cue bus, `HeadphonesMonitor` |

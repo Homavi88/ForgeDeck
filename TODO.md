@@ -52,6 +52,7 @@
 - [x] Mixer send/return reverb+delay
 - [x] Crate energy + mix-in/mix-out + next-track highlight
 - [x] Electronic style packs (original ForgeDeck templates: house, techno, trance, DnB, …) — not scraped commercial banks
+- [x] Arrange production console: addable audio tracks, per-channel insert rack (built-in devices, not VST), clip waveform + trim handles
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

@@ -159,6 +159,16 @@ export interface AutomationLaneState {
   points: Array<{ time: number; value: number }>;
 }
 
+export type MixRole = "deck" | "drums" | "synth" | "audio";
+
+/** Extra arrange/mixer lane (beyond Deck A/B, drums, synth). */
+export interface MixLane {
+  id: string;
+  name: string;
+  color: string;
+  role: MixRole;
+}
+
 export interface MixerStripState {
   volume: number;
   gain: number;
@@ -169,6 +179,8 @@ export interface MixerStripState {
   solo: boolean;
   pan: number;
   fx: Record<string, number>;
+  /** Device-rack bypass: eq/filter plus EffectChain kinds. */
+  bypass?: Record<string, boolean>;
   /** Aux send into mixer return reverb (0–1). */
   sendRev?: number;
   /** Aux send into mixer return delay (0–1). */

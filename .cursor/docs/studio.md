@@ -8,7 +8,7 @@
 
 **Session** — clip launcher, 8 сцен (drums / synth / audio). Петлю из library можно бросить на слот — она играет в BPM проекта (warp). **Session rec** (TopBar) пишет запущенные сцены на Arrange; **Capture to arrange** снимает текущие клипы на плейхед.
 
-**Arrange** — клипы на таймлайне, automation lanes (filter, EQ, volume). Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key** = transpose в `musical_key`. Drop петли или стема на дорожку.
+**Arrange** — клипы на таймлайне (волна из analysis, ручки trim по краям), **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
 
 **Drums** — 16 падов, 16/32/64 шага, paint по сетке (как Channel Rack), graph editor velocity, fill 1/4·1/8·all·offbeat, сдвиг << >>, humanize, swing, save pattern/kit, **Load style drums** (оригинальный шаблон жанра, только сетка), edit lock в коллабе. Shift-клик по имени пада — mute. Клик по паду выбирает ряд для graph editor.
 

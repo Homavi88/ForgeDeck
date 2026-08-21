@@ -2,6 +2,7 @@ import { ChannelStrip } from "./ChannelStrip";
 import { LimiterFx } from "./effects/Compressor";
 import { DelayFx } from "./effects/Delay";
 import { ReverbFx } from "./effects/Reverb";
+import { mixerIdForTrack } from "../lib/mix";
 import { xfaderGains, type XfaderCurve } from "./utils";
 
 function isRealtime(ctx: BaseAudioContext): ctx is AudioContext {
@@ -9,6 +10,7 @@ function isRealtime(ctx: BaseAudioContext): ctx is AudioContext {
 }
 
 export class Mixer {
+  ctx: BaseAudioContext;
   channels: Record<string, ChannelStrip>;
   master: ChannelStrip;
   limiter: LimiterFx;
@@ -34,6 +36,7 @@ export class Mixer {
   private splitGate: GainNode;
 
   constructor(ctx: BaseAudioContext, destination: AudioNode) {
+    this.ctx = ctx;
     this.channels = {
       A: new ChannelStrip(ctx),
       B: new ChannelStrip(ctx),
@@ -108,6 +111,39 @@ export class Mixer {
 
     this.output = destination;
     this.setCrossfader(0.5);
+  }
+
+  /** Extra arrange/audio lanes feed master (not the DJ xfader). */
+  addLane(id: string): ChannelStrip {
+    const existing = this.channels[id];
+    if (existing) return existing;
+    const ch = new ChannelStrip(this.ctx);
+    this.channels[id] = ch;
+    ch.output.connect(this.master.input);
+    ch.sendRev.connect(this.returnRev.input);
+    ch.sendDly.connect(this.returnDly.input);
+    ch.pflOut.connect(this.cueBus);
+    void ch.fx.ready();
+    return ch;
+  }
+
+  removeLane(id: string): void {
+    if (id === "A" || id === "B" || id === "drums" || id === "synth") return;
+    const ch = this.channels[id];
+    if (!ch) return;
+    for (const node of [ch.output, ch.sendRev, ch.sendDly, ch.pflOut]) {
+      try {
+        node.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+    }
+    delete this.channels[id];
+  }
+
+  clipInput(trackId: string): AudioNode {
+    const id = mixerIdForTrack(trackId);
+    return this.channels[id]?.input ?? this.channels.A.input;
   }
 
   async ready(): Promise<void> {

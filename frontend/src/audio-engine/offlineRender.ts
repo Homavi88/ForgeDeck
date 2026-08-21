@@ -45,10 +45,15 @@ export async function renderOfflineWav(): Promise<Blob> {
   const length = Math.max(1, Math.floor(sr * seconds));
   const offline = new OfflineAudioContext(2, length, sr);
   const mixer = new Mixer(offline, offline.destination);
+  for (const id of Object.keys(s.mixer)) {
+    if (!mixer.channels[id]) mixer.addLane(id);
+  }
   await mixer.ready();
 
-  for (const id of ["A", "B", "drums", "synth"] as const) {
-    applyStripState(mixer.channels[id], snapshotStrip(eng.mixer.channels[id]));
+  for (const id of Object.keys(s.mixer)) {
+    const live = eng.mixer.channels[id];
+    const snap = live ? snapshotStrip(live) : s.mixer[id];
+    applyStripState(mixer.channels[id], { ...snap, bypass: s.mixer[id]?.bypass });
   }
   applyStripState(mixer.master, snapshotStrip(eng.mixer.master));
   mixer.setXfaderCurve(eng.mixer.xfaderCurve);
@@ -215,14 +220,7 @@ async function scheduleTimelineAudio(
     if (clip.kind !== "audio" || !clip.audioFileId) continue;
     const buf = await getBuf(clip.audioFileId, clip.stem);
     if (!buf) continue;
-    const dest =
-      clip.trackId === "deckB"
-        ? mixer.channels.B.input
-        : clip.trackId === "drums"
-          ? mixer.channels.drums.input
-          : clip.trackId === "synth"
-            ? mixer.channels.synth.input
-            : mixer.channels.A.input;
+    const dest = mixer.clipInput(clip.trackId);
     await scheduleWarpedClip(
       offline,
       buf,

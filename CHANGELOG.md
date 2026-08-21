@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Project documentation moved from `.cursor/docs/` to `docs/` (architecture, studio, audio engine, API, AI, conventions). Agent rule `docs-sync` and `AGENTS.md` follow the new path. Product landing stays `README.md`.
 - Windows launcher: `bat/setup.bat` / `start.bat` no longer rely only on the double-clicked cmd PATH for Node.js. They find standard installs plus nvm/fnm/Volta/Scoop/Chocolatey, install Node LTS from the `winget` source (then Chocolatey), then download a SHA-256-verified official ZIP into the current user's LocalAppData as the automatic no-admin fallback — avoiding a broken `msstore` certificate.
 - Insert rack order is the real ChannelStrip graph: drag or ←/→ on Console inserts (EQ / filter / FX). Echo-out still starves FX via `fxSend` placed before the first FX device. Aux sends follow the Filter device. Bounce uses the same order. Not VST/AU.
 - MIDI learn 1:1 from the deck: Shift+click Play / Cue / PFL / hotcue / loop / key lock (channel+note, Pioneer-ish DDJ-400-style defaults on ch1=A / ch2=B — not an official dump). Settings still maps CC and now lists notes.

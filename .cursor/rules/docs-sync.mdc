@@ -5,31 +5,31 @@ alwaysApply: true
 
 # ForgeDeck: docs follow the code
 
-Internal docs live in **`.cursor/docs/`** (not the GitHub landing README). Do not treat them as optional.
+Internal docs live in **`docs/`** (not the GitHub landing README). Do not treat them as optional.
 
 After **any** change that users or future developers will notice, update the matching files **in the same PR/commit set**. Shipping code without the docs update is incomplete.
 
 ## Always
 
 1. Add a bullet under `CHANGELOG.md` → **Unreleased** (what changed, in the user’s or a developer’s words).
-2. Touch the layer file under `.cursor/docs/` if the flow, API, graph, or UX changed — not only when you add a new page.
+2. Touch the layer file under `docs/` if the flow, API, graph, or UX changed — not only when you add a new page.
 
 ## Which file
 
 | Kind of change | Update |
 | --- | --- |
-| New/removed REST or WS message | `.cursor/docs/backend.md` |
-| New route, store field, keyboard shortcut | `.cursor/docs/frontend.md`, `.cursor/docs/studio.md` |
-| Deck, mixer, FX, key lock, bounce, worklets | `.cursor/docs/audio-engine.md` |
-| AI tool, provider, apply path | `.cursor/docs/ai.md` |
-| Env var, how to run, tests | `.cursor/docs/development.md` |
-| Where to put code / new invariant | `.cursor/docs/conventions.md` |
-| Split of browser vs Python | `.cursor/docs/architecture.md` |
+| New/removed REST or WS message | `docs/backend.md` |
+| New route, store field, keyboard shortcut | `docs/frontend.md`, `docs/studio.md` |
+| Deck, mixer, FX, key lock, bounce, worklets | `docs/audio-engine.md` |
+| AI tool, provider, apply path | `docs/ai.md` |
+| Env var, how to run, tests | `docs/development.md` |
+| Where to put code / new invariant | `docs/conventions.md` |
+| Split of browser vs Python | `docs/architecture.md` |
 | Finished product checkbox | `TODO.md` |
-| UX idea not started / started now | `.cursor/docs/roadmap.md` (move off the list when built) |
+| UX idea not started / started now | `docs/roadmap.md` (move off the list when built) |
 | Rename, license, “don’t fake GPU/Rubber Band” | `README.md` limitations + conventions |
 
-Index: `.cursor/docs/README.md`. Contributing reminder: `CONTRIBUTING.md`.
+Index: `docs/README.md`. Contributing reminder: `CONTRIBUTING.md`.
 
 ## Do not
 
@@ -37,6 +37,6 @@ Index: `.cursor/docs/README.md`. Contributing reminder: `CONTRIBUTING.md`.
 - Say Rubber Band landed if only WSOLA remains; say GPU Demucs if only HPSS ran.
 - Add docs that contradict the code “for later”.
 - Skip CHANGELOG because the diff is “just refactor” if the public behavior or the extension point changed.
-- Link `.cursor/docs/` from the public GitHub `README.md` (that page is the product landing).
+- Dump the architecture table onto the public GitHub `README.md` (that page is the product landing). Point to `docs/` instead.
 
-If you are unsure which doc: update `CHANGELOG.md` and `.cursor/docs/conventions.md` at minimum.
+If you are unsure which doc: update `CHANGELOG.md` and `docs/conventions.md` at minimum.

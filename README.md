@@ -135,4 +135,4 @@ npx playwright test
 - Auth — JWT есть; в dev `REQUIRE_AUTH=false` оставляет demo-пользователя. `SECRET_KEY` пишется setup-скриптами.
 - Upload до 250 MB, квота 2 GB на пользователя. HTTPS: `X-Forwarded-Proto` через ProxyHeadersMiddleware.
 
-Подробный чеклист продукта: [TODO.md](TODO.md). Что влито в `main`: [CHANGELOG.md](CHANGELOG.md).
+Подробный чеклист продукта: [TODO.md](TODO.md). Что влито в `main`: [CHANGELOG.md](CHANGELOG.md). Документация для разработки: [`docs/`](docs/).

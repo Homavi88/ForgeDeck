@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { spawn } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync } from "node:fs";
 import net from "node:net";
@@ -114,6 +114,10 @@ function createWindow(port) {
 app.on("before-quit", () => {
   quitting = true;
   if (backend && !backend.killed) backend.kill();
+});
+
+ipcMain.handle("forgedeck:quit", () => {
+  app.quit();
 });
 
 app.whenReady().then(async () => {

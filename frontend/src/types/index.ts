@@ -165,7 +165,7 @@ export interface AutomationLaneState {
 
 export type MixRole = "deck" | "drums" | "synth" | "audio";
 
-/** Extra arrange/mixer lane (beyond Deck A/B, drums, synth). */
+/** Extra arrange/session/mixer lane (beyond Deck A/B, drums, synth). */
 export interface MixLane {
   id: string;
   name: string;

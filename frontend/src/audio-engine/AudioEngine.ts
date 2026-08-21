@@ -15,6 +15,7 @@ import { TimelineEngine } from "./Timeline";
 import { Transport } from "./Transport";
 import { warmupRubberBand } from "./rubberband";
 import { decodeUrl } from "./utils";
+import { isCoreMixId, mixerIdForTrack } from "../lib/mix";
 import type { MidiNote, SessionClip, TimelineClip } from "../types";
 
 export class AudioEngine {
@@ -87,7 +88,7 @@ export class AudioEngine {
         const pending = this.launcher.pendingScene;
         this.launcher.onBar(bar);
         if (pending != null && this.launcher.pendingScene == null) {
-          for (const track of ["drums", "synth", "deckA", "deckB"]) {
+          for (const track of this.launcher.trackIds()) {
             const clip = this.launcher.active[track] ?? null;
             void this.startSessionClip(track, clip);
             this.onSessionLaunch?.(track, clip);
@@ -146,6 +147,8 @@ export class AudioEngine {
   }
 
   private clipDest(trackId: string): AudioNode {
+    const id = mixerIdForTrack(trackId);
+    if (!this.mixer.channels[id] && !isCoreMixId(id)) this.mixer.addLane(id);
     return this.mixer.clipInput(trackId);
   }
 
@@ -196,6 +199,12 @@ export class AudioEngine {
       this.sessionVoices[k]?.stop();
       this.sessionVoices[k] = null;
     }
+  }
+
+  stopSessionTrack(trackId: string): void {
+    this.sessionVoices[trackId]?.stop();
+    this.sessionVoices[trackId] = null;
+    this.launcher.active[trackId] = null;
   }
 
   async prefetch(audioId: string, stem?: string | null): Promise<AudioBuffer> {

@@ -6,7 +6,7 @@ import { applyStripState } from "../audio-engine/stripState";
 import type { XfaderCurve } from "../audio-engine/utils";
 import { t } from "../i18n";
 import { beatOffset, matchGainDb, phaseAlignSeek } from "../lib/djMix";
-import { AUDIO_LANE_COLORS, arrangeIdForMix, isCoreMixId, laneColor } from "../lib/mix";
+import { AUDIO_LANE_COLORS, arrangeIdForMix, ensureSessionClips, isCoreMixId, laneColor } from "../lib/mix";
 import type {
   AIAction,
   AudioFile,
@@ -494,13 +494,13 @@ export const useStudio = create<StudioState>((set, get) => ({
       };
       eng.transport.onTick((step) => set({ currentStep: step }));
     }
+    const sessionClips = ensureSessionClips(
+      get().sessionClips.length ? get().sessionClips : eng.launcher.clips,
+      get().prodLanes,
+    );
+    set({ sessionClips });
     hydrateEngine(get());
     getEngine().onSessionLaunch = (trackId, clip) => get().noteSessionLaunch(trackId, clip);
-    if (!get().sessionClips.length) {
-      set({ sessionClips: eng.launcher.clips });
-    } else {
-      eng.launcher.clips = get().sessionClips;
-    }
   },
 
   togglePlay: async () => {
@@ -605,6 +605,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       next.arrangeZoom = normalizeZoom(g.arrangeZoom);
       next.arrangeSnap = normalizeSnap(g.arrangeSnap);
       next.selectedClipId = null;
+      next.sessionClips = ensureSessionClips(next.sessionClips || get().sessionClips, next.prodLanes || []);
       if (project.drum_patterns[0] || drums.steps) {
         next.drumSteps = { ...emptySteps(), ...(project.drum_patterns[0]?.steps || drums.steps || {}) };
         next.drumLength = project.drum_patterns[0]?.length || drums.length || 16;
@@ -816,10 +817,13 @@ export const useStudio = create<StudioState>((set, get) => ({
     const color = AUDIO_LANE_COLORS[(n - 1) % AUDIO_LANE_COLORS.length];
     const lane: MixLane = { id, name: t("mixer.audioN", { n }), color, role: "audio" };
     const mixer = { ...get().mixer, [id]: channelState() };
-    set({ prodLanes: [...get().prodLanes, lane], mixer, selectedMixId: id });
+    const prodLanes = [...get().prodLanes, lane];
+    const sessionClips = ensureSessionClips(get().sessionClips, prodLanes);
+    set({ prodLanes, mixer, selectedMixId: id, sessionClips });
     void get().bootAudio().then(() => {
       const ch = getEngine().mixer.addLane(id);
       applyStripState(ch, mixer[id]);
+      getEngine().launcher.clips = sessionClips;
     });
     get().pushToast({ id: "lane", kind: "ok", text: t("toast.trackAdded", { name: lane.name }), ttl: 1800 });
   },
@@ -829,13 +833,16 @@ export const useStudio = create<StudioState>((set, get) => ({
     get().pushUndo();
     const { [id]: _drop, ...rest } = get().mixer;
     const clips = get().clips.filter((c) => c.trackId !== id);
+    const sessionClips = get().sessionClips.filter((c) => c.trackId !== id);
     const prodLanes = get().prodLanes.filter((l) => l.id !== id);
     const selectedMixId = get().selectedMixId === id ? "drums" : get().selectedMixId;
-    set({ mixer: rest, clips, prodLanes, selectedMixId });
+    set({ mixer: rest, clips, sessionClips, prodLanes, selectedMixId });
     const eng = getEngine();
     if (eng.ready) {
       eng.mixer.removeLane(id);
       eng.timeline.clips = clips;
+      eng.launcher.clips = sessionClips;
+      eng.stopSessionTrack(id);
     }
   },
 
@@ -1400,8 +1407,9 @@ export const useStudio = create<StudioState>((set, get) => ({
     };
     if (i >= 0) clips[i] = next;
     else clips.push(next);
-    eng.launcher.clips = clips;
-    set({ sessionClips: clips });
+    const sessionClips = ensureSessionClips(clips, get().prodLanes);
+    eng.launcher.clips = sessionClips;
+    set({ sessionClips });
     void get().bootAudio().then(() => {
       void eng.prefetch(file.id, stem);
     });
@@ -1663,7 +1671,7 @@ function hydrateEngine(s: StudioState): void {
   eng.synth.setParams(s.synth);
   eng.setNotes(s.notes);
   eng.timeline.clips = s.clips;
-  if (s.sessionClips.length) eng.launcher.clips = s.sessionClips;
+  eng.launcher.clips = ensureSessionClips(s.sessionClips, s.prodLanes);
   eng.mixer.sidechain = s.sidechain;
   eng.mixer.setXfaderCurve(s.xfaderCurve);
   eng.mixer.setCrossfader(s.crossfader);

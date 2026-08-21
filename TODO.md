@@ -54,6 +54,7 @@
 - [x] Electronic style packs (original ForgeDeck templates: house, techno, trance, DnB, …) — not scraped commercial banks
 - [x] Arrange production console: addable audio tracks, per-channel insert rack (built-in devices, not VST), clip waveform + trim handles
 - [x] Arrange clip edit: snap (bar/beat/8th), zoom, duplicate/copy/paste, drag between tracks, fade in/out (GainNode on live + bounce)
+- [x] Session launcher on the same lanes as Arrange (`prodLanes`); scene launch / rec / capture include extra audio tracks
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

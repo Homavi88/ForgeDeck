@@ -6,7 +6,7 @@
 
 **DJ** — две деки как у CDJ, vinyl platter, waveform overview+zoom, cue/hotcues, loop in/out, loop roll, Rubber Band key lock, beat jump, quantize, slip, sync, **instant doubles**, **crossfader curve**, **EQ kills**, **gain match**, **beat offset / Q-sync**, **echo out**, EQ3, filter, FX, pan/mute/solo, **PFL/CUE**, sidechain, stem rack, crate/queue auto-advance, поиск/сортировка library, drag трека на деку.
 
-**Session** — clip launcher, 8 сцен (drums / synth / audio). Петлю из library можно бросить на слот — она играет в BPM проекта (warp). **Session rec** (TopBar) пишет запущенные сцены на Arrange; **Capture to arrange** снимает текущие клипы на плейхед.
+**Session** — clip launcher, 8 сцен на **тех же дорожках, что Arrange** (drums / synth / Deck A/B + `prodLanes`). **+ Audio track** добавляет ряд здесь и канал в Console. Петлю из library можно бросить на слот — она играет в BPM проекта (warp). Сцена запускает **все** ряды на следующем такте. **Session rec** (TopBar) пишет запущенные сцены на Arrange; **Capture to arrange** снимает текущие клипы на плейхед. Внизу та же **Console**, что в Arrange.
 
 **Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, snap bar/beat/1/8, zoom). Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
 

@@ -356,7 +356,7 @@ export const en = {
     stemHint: "Drag stem → pad / Arrange",
   },
   session: {
-    hint: "Clip launcher · click clip · drop a library loop · scene buttons launch the row on the next bar",
+    hint: "Same tracks as Arrange · click a clip · drop a loop · scene launches every row on the next bar",
     scene: "Scene {n}",
     drums: "Drums",
     synth: "Synth",

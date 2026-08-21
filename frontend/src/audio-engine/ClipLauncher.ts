@@ -1,14 +1,30 @@
 import type { SessionClip } from "../types";
+import { arrangeIdForMix, CORE_LANES, SESSION_SCENES } from "../lib/mix";
 
-/** Ableton-style clip launcher: 8 scenes × tracks. Launch is quantized by the transport. */
+const CORE_SESSION_TRACKS = CORE_LANES.map((l) => arrangeIdForMix(l.id));
+
+/** Ableton-style clip launcher: 8 scenes × the same lanes as Arrange. Launch is quantized by the transport. */
 export class ClipLauncher {
-  scenes = 8;
+  scenes = SESSION_SCENES;
   clips: SessionClip[] = [];
-  active: Record<string, SessionClip | null> = { drums: null, synth: null, deckA: null, deckB: null };
+  active: Record<string, SessionClip | null> = {};
   pendingScene: number | null = null;
 
   constructor() {
     this.clips = defaultSession();
+    for (const t of CORE_SESSION_TRACKS) this.active[t] = null;
+  }
+
+  trackIds(): string[] {
+    const ids: string[] = [...CORE_SESSION_TRACKS];
+    const seen = new Set(ids);
+    for (const c of this.clips) {
+      if (!seen.has(c.trackId)) {
+        seen.add(c.trackId);
+        ids.push(c.trackId);
+      }
+    }
+    return ids;
   }
 
   clipAt(trackId: string, scene: number): SessionClip | undefined {
@@ -30,7 +46,7 @@ export class ClipLauncher {
     if (bar % 1 !== 0) return;
     const scene = this.pendingScene;
     this.pendingScene = null;
-    for (const track of ["drums", "synth", "deckA", "deckB"]) {
+    for (const track of this.trackIds()) {
       this.launchClip(track, scene);
     }
   }

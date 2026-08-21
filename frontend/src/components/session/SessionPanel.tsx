@@ -1,22 +1,19 @@
 import { getEngine } from "../../audio-engine/AudioEngine";
+import { ProductionMixer } from "../mix/ProductionMixer";
 import { t, useI18n } from "../../i18n";
+import { arrangeIdForMix, SESSION_SCENES, sessionLanes } from "../../lib/mix";
 import { peekStemDrag, peekTrackDrag, readStemDrag, readTrackDragId } from "../../lib/trackDrag";
 import { useStudio } from "../../store/useStudio";
 
 export function SessionPanel() {
-  const { sessionClips, bootAudio, sessionRec } = useStudio();
+  const { sessionClips, bootAudio, sessionRec, prodLanes, selectedMixId } = useStudio();
   const clips = sessionClips.length ? sessionClips : getEngine().launcher.clips;
   useI18n((s) => s.locale);
-  const TRACKS = [
-    { id: "drums", name: t("session.drums") },
-    { id: "synth", name: t("session.synth") },
-    { id: "deckA", name: t("session.deckA") },
-    { id: "deckB", name: t("session.deckB") },
-  ];
+  const lanes = sessionLanes(prodLanes);
 
   return (
-    <div className="flex-1 p-4 overflow-auto">
-      <div className="flex flex-wrap items-center gap-2 mb-3">
+    <div className="flex-1 p-4 overflow-auto flex flex-col gap-3 min-h-0">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="text-[10px] tracking-[0.25em] uppercase text-zinc-500">{t("session.hint")}</div>
         <button
           className={`text-[10px] uppercase px-2 py-1 rounded ${sessionRec ? "bg-danger text-white" : "bg-ink-700"}`}
@@ -30,16 +27,23 @@ export function SessionPanel() {
         >
           {t("session.capture")}
         </button>
+        <button
+          className="text-[10px] uppercase px-2 py-1 rounded bg-accent text-black font-semibold"
+          onClick={() => useStudio.getState().addAudioLane()}
+        >
+          {t("arrange.addTrack")}
+        </button>
       </div>
-      <div className="flex gap-2 mb-3">
-        {Array.from({ length: 8 }).map((_, scene) => (
+      <div className="flex gap-2">
+        {Array.from({ length: SESSION_SCENES }).map((_, scene) => (
           <button
             key={scene}
             className="text-[10px] uppercase bg-ink-700 px-2 py-1 rounded"
             onClick={() => {
               void bootAudio().then(() => {
                 getEngine().launcher.queueScene(scene);
-                useStudio.getState().togglePlay();
+                const st = useStudio.getState();
+                if (!st.playing) void st.togglePlay();
               });
             }}
           >
@@ -49,34 +53,68 @@ export function SessionPanel() {
       </div>
       <div className="grid gap-2" style={{ gridTemplateColumns: "80px repeat(8, minmax(72px, 1fr))" }}>
         <div />
-        {Array.from({ length: 8 }).map((_, i) => (
+        {Array.from({ length: SESSION_SCENES }).map((_, i) => (
           <div key={i} className="text-[9px] uppercase text-zinc-600 text-center">
             {i + 1}
           </div>
         ))}
-        {TRACKS.map((tr) => (
-          <Row key={tr.id} trackId={tr.id} name={tr.name} clips={clips} />
-        ))}
+        {lanes.map((lane) => {
+          const trackId = arrangeIdForMix(lane.id);
+          const name =
+            lane.id === "drums"
+              ? t("session.drums")
+              : lane.id === "synth"
+                ? t("session.synth")
+                : lane.id === "A"
+                  ? t("session.deckA")
+                  : lane.id === "B"
+                    ? t("session.deckB")
+                    : lane.name;
+          return (
+            <Row
+              key={lane.id}
+              trackId={trackId}
+              mixId={lane.id}
+              name={name}
+              color={lane.color}
+              selected={selectedMixId === lane.id}
+              clips={clips}
+            />
+          );
+        })}
       </div>
+      <ProductionMixer />
     </div>
   );
 }
 
 function Row({
   trackId,
+  mixId,
   name,
+  color,
+  selected,
   clips,
 }: {
   trackId: string;
+  mixId: string;
   name: string;
+  color: string;
+  selected: boolean;
   clips: ReturnType<typeof useStudio.getState>["sessionClips"];
 }) {
   useI18n((s) => s.locale);
   const library = useStudio((s) => s.library);
   return (
     <>
-      <div className="text-xs text-zinc-400 self-center">{name}</div>
-      {Array.from({ length: 8 }).map((_, scene) => {
+      <button
+        className={`text-xs self-center text-left truncate px-1 rounded ${selected ? "bg-ink-700" : ""}`}
+        style={{ color }}
+        onClick={() => useStudio.getState().selectMix(mixId)}
+      >
+        {name}
+      </button>
+      {Array.from({ length: SESSION_SCENES }).map((_, scene) => {
         const clip = clips.find((c) => c.trackId === trackId && c.scene === scene);
         const empty = clip?.empty ?? true;
         const file = clip?.audioFileId ? library.find((f) => f.id === clip.audioFileId) : undefined;
@@ -103,6 +141,7 @@ function Row({
               if (f) useStudio.getState().placeLoopOnSession(trackId, scene, f);
             }}
             onClick={() => {
+              useStudio.getState().selectMix(mixId);
               void useStudio.getState().bootAudio().then(() => {
                 const launched = getEngine().launch(trackId, scene);
                 if (launched && !launched.empty && !useStudio.getState().playing) {

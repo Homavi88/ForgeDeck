@@ -133,3 +133,30 @@ def test_persist_arrange_clip_edits(client):
     assert clip["startBar"] == 0.25
     assert clip["fadeInBars"] == 0.25
     assert clip["fadeOutBars"] == 0.5
+
+
+def test_persist_session_extra_lane(client):
+    pid = client.post("/api/projects", json={"name": "Session lanes"}).json()["id"]
+    graph = {
+        "prodLanes": [{"id": "t-audio01", "name": "Pad", "color": "#7aa2ff", "role": "audio"}],
+        "session": [
+            {
+                "id": "t-audio01-0",
+                "trackId": "t-audio01",
+                "scene": 0,
+                "name": "Pad loop",
+                "kind": "audio",
+                "lengthBars": 8,
+                "color": "#7aa2ff",
+                "empty": False,
+                "audioFileId": None,
+            }
+        ],
+    }
+    res = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert res.status_code == 200, res.text
+    saved = client.get(f"/api/projects/{pid}").json()["graph"]
+    assert saved["prodLanes"][0]["id"] == "t-audio01"
+    slot = next(c for c in saved["session"] if c["trackId"] == "t-audio01" and c["scene"] == 0)
+    assert slot["name"] == "Pad loop"
+    assert slot["empty"] is False

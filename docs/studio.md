@@ -8,7 +8,7 @@
 
 **Session** — clip launcher, 8 сцен на **тех же дорожках, что Arrange** (drums / synth / Deck A/B + `prodLanes`). **+ Audio track** добавляет ряд здесь и канал в Console. Петлю из library можно бросить на слот — она играет в BPM проекта (warp). Сцена запускает **все** ряды на следующем такте. **Session rec** (TopBar) пишет запущенные сцены на Arrange; **Capture to arrange** снимает текущие клипы на плейхед. Внизу та же **Console**, что в Arrange.
 
-**Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, snap bar/beat/1/8, zoom). Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. Под клипами **Automation**: рисуешь volume / filter / EQ low по сетке (Alt снимает точки). AI Apply по-прежнему пишет `deck_a.filter.cutoff` и т.д. **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass, **порядок = звук**: ←/→ или drag). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
+**Arrange** — клипы на таймлайне (волна, trim, **fade** треугольники, snap bar/beat/1/8, zoom). Drag на другую дорожку (Alt = копия); Dup / Copy / Paste; Del и Ctrl/Cmd+D/C/V в режиме Arrange. **Freeze / Unfreeze / Flatten** на выбранной дорожке консоли: offline WAV insert rack → один audio clip; Unfreeze возвращает клипы из `frozenLanes`; Flatten бросает оригиналы. **Bounce from / bars** — окно экспорта (пусто = весь микс). Под клипами **Automation**: рисуешь volume / filter / EQ low по сетке (Alt снимает точки). AI Apply по-прежнему пишет `deck_a.filter.cutoff` и т.д. **+ Audio track** добавляет дорожку и канал консоли. Внизу **Console**: полоски drums/synth/A/B + user tracks, клик открывает **Inserts** (EQ3, Filter, Comp, Drive, Crush, Flange, Delay, Reverb, bypass, **порядок = звук**: ←/→ или drag). Это встроенный Web Audio, не VST. Audio-клипы варпаются в BPM проекта; бейдж BPM/key, кнопка **Key**. Drop петли или стема на дорожку.
 
 **Drums** — 16 падов, 16/32/64 шага, paint по сетке (как Channel Rack), graph editor velocity, fill 1/4·1/8·all·offbeat, сдвиг << >>, humanize, swing, save pattern/kit, **Load style drums** (оригинальный шаблон жанра, только сетка), edit lock в коллабе. Shift-клик по имени пада — mute. Клик по паду выбирает ряд для graph editor.
 
@@ -32,8 +32,8 @@ Shift+click Play / Cue / PFL / hotcue / loop / key lock на деке — MIDI l
 
 ## Экспорт и шаринг
 
-- **Bounce** — offline WAV через полный mixer graph, upload в проект (`source=bounce` + bpm/key), скачивание; тост «Rendering…» / «Bounce ready»
-- **Rec** — live с master (+ mic, если включён); HUD: время, peak, размер; upload `source=live_rec` с duration/peak/sampleRate
+- **Bounce** — offline WAV, **24-bit / 48 kHz**, полный mixer graph (или **from/bars** с Arrange). Upload `source=bounce` + bpm/key/bitDepth. Скачивание; тост «Rendering…» / «Bounce ready». Не dither.
+- **Rec** — live с master (+ mic, если включён); HUD: время, peak, размер; upload `source=live_rec`; клип на выбранный Arrange lane (длина по буферу); плюс скачивание 16-bit WAV
 - **Share** — `POST /api/projects/{id}/share` → `/share/:token` (нужен bounce или rec)
 - **History** — Restore points на сервере (не undo в RAM). Последние 30.
 

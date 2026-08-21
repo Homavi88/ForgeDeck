@@ -131,10 +131,20 @@ export class AudioEngine {
     const playBar = step / 16;
     if (this.arrangeMode) {
       const inDrums = this.timeline.clips.some(
-        (c) => c.trackId === "drums" && playBar >= c.startBar && playBar < c.startBar + c.lengthBars,
+        (c) =>
+          c.trackId === "drums" &&
+          !c.frozen &&
+          c.kind !== "audio" &&
+          playBar >= c.startBar &&
+          playBar < c.startBar + c.lengthBars,
       );
       const inSynth = this.timeline.clips.some(
-        (c) => c.trackId === "synth" && playBar >= c.startBar && playBar < c.startBar + c.lengthBars,
+        (c) =>
+          c.trackId === "synth" &&
+          !c.frozen &&
+          c.kind !== "audio" &&
+          playBar >= c.startBar &&
+          playBar < c.startBar + c.lengthBars,
       );
       this.drums.enabled = inDrums;
       this.piano.enabled = inSynth;
@@ -156,6 +166,7 @@ export class AudioEngine {
   playTimelineClip(clip: TimelineClip, when: number): void {
     if (clip.kind === "audio" && clip.audioFileId) {
       void this.playWarpedAudio(clip, when, false);
+      return;
     }
     if (clip.kind === "drums" || clip.trackId === "drums") this.drums.enabled = true;
     if (clip.kind === "midi" || clip.trackId === "synth") this.piano.enabled = true;

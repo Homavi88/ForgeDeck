@@ -102,13 +102,26 @@ export async function scheduleWarpedClip(
   if (loop) src.loop = true;
   const fadeGain = ctx.createGain();
   fadeGain.connect(dest);
-  scheduleFade(fadeGain, when, durationSec, fade, loop);
+  const skip = when < 0 ? -when : 0;
+  const remaining = durationSec - skip;
+  if (remaining <= 0.02) {
+    return {
+      source: src,
+      rb: null,
+      fade: fadeGain,
+      stop: () => undefined,
+    };
+  }
+  const t0 = Math.max(0, when);
+  const fadeAdj = skip > 0.001 ? { fadeInSec: 0, fadeOutSec: fade?.fadeOutSec } : fade;
+  scheduleFade(fadeGain, t0, remaining, fadeAdj, loop);
   const rb = await connectWarpedSource(ctx, src, fadeGain, rate, semis);
-  const play = Math.max(0.02, durationSec);
-  src.start(when);
-  if (!loop && Number.isFinite(when + play)) {
+  const play = Math.max(0.02, remaining);
+  const offset = Math.min(Math.max(0, skip * rate), Math.max(0, buffer.duration - 0.01));
+  src.start(t0, offset);
+  if (!loop && Number.isFinite(t0 + play)) {
     try {
-      src.stop(when + play);
+      src.stop(t0 + play);
     } catch {
       /* offline may ignore */
     }

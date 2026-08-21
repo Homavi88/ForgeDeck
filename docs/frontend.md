@@ -22,11 +22,11 @@ Dev-прокси: `/api` и `/ws` → `localhost:8000` (`vite.config.ts`).
 
 `bootAudio()` создаёт синглтон `getEngine()` (`AudioEngine.ts`). Флаг, чтобы не вешать граф дважды.
 
-Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert, `insertOrder` (serial ChannelStrip devices), `arrangeZoom` / `arrangeSnap`. Clip JSON: `fadeInBars` / `fadeOutBars`, fractional `startBar`. Session graph `session[]` slots are filled to 8 scenes × every lane via `ensureSessionClips`. `Mixer.addLane(id)` кормит master (не xfader). Arrange/Session UI: `ProductionMixer` + `InsertRack` (reorder = live graph).
+Graph extras: `prodLanes` (user audio tracks shared by Arrange **and** Session), `selectedMixId`, mixer keys beyond A/B/drums/synth, `bypass` per insert, `insertOrder` (serial ChannelStrip devices), `arrangeZoom` / `arrangeSnap`, `frozenLanes` (pre-freeze clips per mixer id), `bounceRange` (`startBar` / `lengthBars`, omitted = full mix). Clip JSON: `fadeInBars` / `fadeOutBars`, `frozen`, fractional `startBar`. Session graph `session[]` slots are filled to 8 scenes × every lane via `ensureSessionClips`. `Mixer.addLane(id)` кормит master (не xfader). Arrange/Session UI: `ProductionMixer` + `InsertRack` (reorder = live graph). Freeze/Flatten/Unfreeze live in the Arrange toolbar and Console.
 
 Graph DJ extras: `crossfader`, `xfaderCurve` (`smooth` | `sharp` | `cut`), mixer strip `eqKill`.
 
-Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/… плюс Ctrl+S / кнопка Save (`snapshot_label`: Autosave vs Manual save). `PUT` шлёт `expected_revision`; 409 на autosave не затирает другую вкладку (тост), ручной Save перезаписывает. Параллельные save ставятся в очередь. **History** в TopBar: список restore points, Pin, Restore (сначала «Before restore»). Undo/redo в памяти — не то же самое, что серверные snapshots.
+Autosave: `StudioPage` debounce ~2.2s на mixer/bpm/clips/`frozenLanes`/`bounceRange`/… плюс Ctrl+S / кнопка Save (`snapshot_label`: Autosave vs Manual save). `PUT` шлёт `expected_revision`; 409 на autosave не затирает другую вкладку (тост), ручной Save перезаписывает. Параллельные save ставятся в очередь. **History** в TopBar: список restore points, Pin, Restore (сначала «Before restore»). Undo/redo в памяти — не то же самое, что серверные snapshots.
 
 Undo/redo: снимки в `history` / `future` (не весь engine; не путать с `ProjectSnapshot`).
 
@@ -48,7 +48,7 @@ Layout AI/library: `localStorage` ключ `fd_layout`.
 
 - `dj` — `DeckPanel` ×2, `MixerPanel`, `LibraryBrowser` (если library открыта)
 - `session` — `SessionPanel` (8 сцен на тех же lanes, что Arrange/`prodLanes`, drop петли, Session rec / Capture, **+ Audio track**, `ProductionMixer`)
-- `arrange` — `TimelinePanel` (warp-клипы, waveform, trim/fade, snap/zoom, drag на другую дорожку, drop петли/стемов, **+ Audio track**, **рисование automation**) + `ProductionMixer` / `InsertRack`
+- `arrange` — `TimelinePanel` (warp-клипы, waveform, trim/fade, snap/zoom, drag на другую дорожку, drop петли/стемов, **Freeze/Flatten**, **bounce from/bars**, **+ Audio track**, **рисование automation**) + `ProductionMixer` / `InsertRack`
 - `drums` — `DrumMachinePanel` (paint + velocity graph; drop стема на пад; `StylePackSelect` drums-only)
 - `synth` — `SynthPanel` + FL-style piano roll (`PianoRollPanel`: patterns + ghost notes, arp/strum; `StylePackSelect` synth-only)
 - `sampler` — `SamplerPanel` (стемы на пады)

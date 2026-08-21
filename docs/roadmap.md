@@ -10,11 +10,11 @@ DJ must-have с клавиатурой, library search, drag на деку, PFL,
 
 ### Довести микс до файла
 
-- **Freeze / flatten** — drums, synth или audio+inserts в новый WAV-клип на той же дорожке (CPU и «зафиксировать звук»). Сейчас Bounce только весь микс.
-- **Bounce куска** — цикл / между локаторами, не весь сет (сейчас offline до ~8 мин, 16-bit PCM).
-- **24-bit / 48 kHz / dither** — Bounce и Rec сейчас `encodeWav` → 16-bit. Для мастеринга мало.
-- **Стемы / per-track export** — drums / synth / каждая `prodLane` отдельно, с тем же insert rack. ISO стемов Demucs — не то же самое.
-- **Rec в дорожку** — mic/line пишет клип на выбранный Arrange lane. Сейчас Rec = dump master + скачивание, в library/таймлайн сам не падает.
+- ~~**Freeze / flatten** — drums, synth или audio+inserts в новый WAV-клип на той же дорожке.~~ Arrange toolbar + Console: Freeze / Unfreeze / Flatten. Freeze = insert rack (`ChannelStrip.duck`), не мастер и не send-returns. Unfreeze читает `graph.frozenLanes`.
+- ~~**Bounce куска** — цикл / между локаторами.~~ Arrange **from / bars**; пусто = весь микс (как раньше, потолок 8 мин).
+- ~~**24-bit / 48 kHz** Bounce~~ (PCM, без dither). Rec live остаётся 16-bit. **Dither** при даунсемпле в 16-bit — ещё нет.
+- **Стемы / per-track export** — drums / synth / каждая `prodLane` отдельно, с тем же insert rack. ISO стемов Demucs — не то же самое. Freeze одной дорожки ≠ batch export всех.
+- ~~**Rec в дорожку** — mic/line пишет клип на выбранный Arrange lane.~~ Rec по-прежнему пишет master + скачивание; клип падает на `selectedMixId`.
 - **Список Bounce/Rec** — `RenderJob.source` + `details` уже есть; в UI нет браузера прошлых файлов, только share последнего.
 - **LUFS / true peak** на Bounce (сейчас peak limiter на master, без громкости под стриминг).
 - **MP3/FLAC Bounce** для шаринга (share отдаёт WAV). Серверный `render.py` — наивный mix файлов **без** FX, не 1:1.

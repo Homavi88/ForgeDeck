@@ -86,6 +86,8 @@ export interface TimelineClip {
   fadeInBars?: number;
   /** Linear gain fade-out at clip end (arrangement bars). Audio clips only. */
   fadeOutBars?: number;
+  /** Offline freeze of that mixer lane (insert rack). Unfreeze restores `frozenLanes` originals. */
+  frozen?: boolean;
 }
 
 export interface DrumSteps {

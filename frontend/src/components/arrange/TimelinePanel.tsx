@@ -31,6 +31,9 @@ export function TimelinePanel() {
     selectedClipId,
     arrangeZoom,
     arrangeSnap,
+    frozenLanes,
+    bounceRange,
+    renderBusy,
   } = useStudio();
   useI18n((s) => s.locale);
   const barPx = BAR_PX * arrangeZoom;
@@ -152,6 +155,65 @@ export function TimelinePanel() {
           >
             {t("arrange.paste")}
           </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy || !!frozenLanes[selectedMixId]}
+            title={t("arrange.freezeHint")}
+            onClick={() => void useStudio.getState().freezeLane()}
+          >
+            {renderBusy ? t("arrange.freezing") : t("arrange.freeze")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={!frozenLanes[selectedMixId]}
+            onClick={() => useStudio.getState().unfreezeLane()}
+          >
+            {t("arrange.unfreeze")}
+          </button>
+          <button
+            className="text-xs bg-ink-800 border border-line rounded px-2 py-0.5 disabled:opacity-40"
+            disabled={renderBusy}
+            title={t("arrange.flattenHint")}
+            onClick={() => void useStudio.getState().flattenLane()}
+          >
+            {t("arrange.flatten")}
+          </button>
+          <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+            {t("arrange.bounceFrom")}
+            <input
+              type="number"
+              min={1}
+              step={1}
+              className="w-12 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+              value={bounceRange ? bounceRange.startBar + 1 : ""}
+              placeholder="1"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  useStudio.getState().setBounceRange(bounceRange?.lengthBars ? { startBar: 0, lengthBars: bounceRange.lengthBars } : null);
+                  return;
+                }
+                const startBar = Math.max(0, Number(raw) - 1);
+                useStudio.getState().setBounceRange({ startBar, lengthBars: bounceRange?.lengthBars || 0 });
+              }}
+            />
+          </label>
+          <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+            {t("arrange.bounceLen")}
+            <input
+              type="number"
+              min={0}
+              step={1}
+              className="w-12 bg-ink-800 border border-line rounded px-1 py-0.5 text-xs text-zinc-200"
+              value={bounceRange?.lengthBars ? bounceRange.lengthBars : ""}
+              placeholder={t("arrange.bounceAuto")}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const lengthBars = raw === "" ? 0 : Number(raw);
+                useStudio.getState().setBounceRange({ startBar: bounceRange?.startBar || 0, lengthBars });
+              }}
+            />
+          </label>
           {selected && selected.kind === "audio" && (
             <>
               <label className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
@@ -216,6 +278,7 @@ export function TimelinePanel() {
                 }}
               >
                 {lane.name}
+                {frozenLanes[lane.id] ? <span className="ml-1 text-[9px] text-zinc-400">{t("arrange.frozenBadge")}</span> : null}
               </button>
               <div
                 className="flex-1 relative bg-ink-900"
@@ -379,6 +442,9 @@ function ClipView({
       )}
       <div className="relative z-10 px-2 h-full flex items-center gap-1 pointer-events-none">
         <span className="truncate font-medium drop-shadow">{clip.name}</span>
+        {clip.frozen && (
+          <span className="shrink-0 bg-black/30 rounded px-1 font-mono uppercase">{t("arrange.frozenBadge")}</span>
+        )}
         {clip.kind === "audio" && (
           <>
             <span className="shrink-0 bg-black/20 rounded px-1 font-mono">

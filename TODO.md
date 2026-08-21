@@ -60,6 +60,9 @@
 - [x] MIDI learn 1:1 from the deck (hotcue / loop / PFL / play / cue, `channel:note`)
 - [x] Headphones cue window on the same bus; output list without getUserMedia
 - [x] Project history: graph revisions, restore points (list / pin / restore), Rec/Bounce provenance
+- [x] Freeze / flatten selected mixer lane to a 24-bit audio clip (insert rack only); Unfreeze from `frozenLanes`
+- [x] Rec places the take on the selected Arrange lane
+- [x] Bounce range (Arrange from/bars) + 24-bit / 48 kHz WAV (no dither)
 
 ## Honest leftovers (named heavy stacks, not missing product paths)
 - [x] Rubber Band WASM key lock — GPL worklet; WSOLA only if WASM fails to load

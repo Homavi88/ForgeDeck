@@ -1,10 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getEngine } from "../../audio-engine/AudioEngine";
 import { encodeWav, renderOfflineWav } from "../../audio-engine/offlineRender";
 import { api } from "../../api/client";
 import { LanguageSelect, t, useI18n, type MsgKey } from "../../i18n";
 import { KEY_OPTIONS } from "../../lib/musicTheory";
+import { arrangeIdForMix } from "../../lib/mix";
+import { durationBars } from "../../lib/renderSpan";
 import { HistoryMenu } from "./HistoryMenu";
 import { PowerOffButton } from "./PowerOffButton";
 import { useStudio } from "../../store/useStudio";
@@ -267,6 +269,7 @@ function RecordButton() {
   const [on, setOn] = useState(false);
   useI18n((s) => s.locale);
   const [hud, setHud] = useState({ elapsed: 0, peak: 0, bytes: 0 });
+  const startBarRef = useRef(0);
 
   useEffect(() => {
     if (!on) return;
@@ -296,8 +299,10 @@ function RecordButton() {
         }`}
         onClick={async () => {
           const eng = getEngine();
-          await useStudio.getState().bootAudio();
+          const st = useStudio.getState();
+          await st.bootAudio();
           if (!on) {
+            startBarRef.current = Math.max(0, st.currentStep / 16);
             eng.startRecording();
             setOn(true);
             return;
@@ -306,7 +311,7 @@ function RecordButton() {
           const buffer = eng.stopRecording();
           setOn(false);
           if (!buffer) return;
-          const blob = encodeWav(buffer);
+          const blob = encodeWav(buffer, 16);
           if (project) {
             await api.projects
               .uploadRender(project.id, blob, "live_rec", {
@@ -315,8 +320,24 @@ function RecordButton() {
                 bytes: stats.bytes,
                 sampleRate: buffer.sampleRate,
                 channels: buffer.numberOfChannels,
+                startBar: startBarRef.current,
+                mixId: st.selectedMixId,
               })
               .catch(() => undefined);
+          }
+          try {
+            const file = await useStudio.getState().ingestAudioBlob(blob, `${project?.name || "set"}-live.wav`, buffer);
+            const bars = durationBars(buffer.duration, useStudio.getState().bpm);
+            useStudio.getState().placeLoopOnArrange(
+              arrangeIdForMix(useStudio.getState().selectedMixId),
+              startBarRef.current,
+              file,
+              null,
+              { lengthBars: bars, name: t("arrange.recClip") },
+            );
+            useStudio.getState().pushToast({ id: "rec-clip", kind: "ok", text: t("toast.recClip"), ttl: 3200 });
+          } catch {
+            /* download still happens */
           }
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -334,25 +355,33 @@ function RecordButton() {
 
 function ExportButton() {
   const project = useStudio((s) => s.project);
-  const [busy, setBusy] = useState(false);
+  const busy = useStudio((s) => s.renderBusy);
   useI18n((s) => s.locale);
   return (
     <button
       type="button"
-      className="h-8 px-3 rounded-md bg-accent text-black text-xs font-semibold"
+      className="h-8 px-3 rounded-md bg-accent text-black text-xs font-semibold disabled:opacity-50"
+      disabled={busy}
       onClick={async () => {
         if (!project || busy) return;
-        setBusy(true);
+        useStudio.setState({ renderBusy: true });
         useStudio.getState().pushToast({ id: "bounce", kind: "info", text: t("toast.bounce"), ttl: 0 });
         try {
           await useStudio.getState().bootAudio();
-          const blob = await renderOfflineWav();
+          const range = useStudio.getState().bounceRange;
+          const blob = await renderOfflineWav({
+            bitDepth: 24,
+            ...(range ? { startBar: range.startBar, ...(range.lengthBars > 0 ? { lengthBars: range.lengthBars } : {}) } : {}),
+          });
           await api.projects.uploadRender(project.id, blob, "bounce", {
             bpm: useStudio.getState().bpm,
             musical_key: useStudio.getState().musicalKey,
             bytes: blob.size,
-            sampleRate: getEngine().ctx.sampleRate,
+            sampleRate: 48000,
             channels: 2,
+            bitDepth: 24,
+            startBar: range?.startBar ?? 0,
+            lengthBars: range?.lengthBars || null,
           });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -369,7 +398,7 @@ function ExportButton() {
           useStudio.getState().dismissToast("bounce");
           useStudio.getState().pushToast({ id: "bounce", kind: "warn", text: msg, ttl: 4500 });
         } finally {
-          setBusy(false);
+          useStudio.setState({ renderBusy: false });
         }
       }}
     >

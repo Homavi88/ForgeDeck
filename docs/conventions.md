@@ -12,6 +12,7 @@
 | Piano roll / гамма / штамп аккордов | `components/synth/PianoRollPanel.tsx`, теория `lib/musicTheory.ts`, операции `lib/pianoRoll.ts`, playback `audio-engine/PianoRoll.ts` |
 | Clip warp (BPM/key) | `lib/clipWarp.ts`, `audio-engine/clipPlayback.ts`, Rubber Band как на деке |
 | Arrange clip edit (snap/dup/fade/zoom) | `lib/clipEdit.ts`, `TimelinePanel.tsx`, `useStudio` clip helpers; fade в `clipPlayback.ts` |
+| Freeze / flatten / bounce range | `lib/freeze.ts`, `lib/renderSpan.ts`, `audio-engine/wav.ts` + `offlineRender.ts`; store `frozenLanes` / `bounceRange` |
 | Mouse automation | `lib/automation.ts`, `applyAutomation.ts`, `components/arrange/AutomationLane.tsx` |
 | FX send / return | `ChannelStrip.sendRev/sendDly`, `Mixer.returnRev/returnDly` |
 | Channel Rack (drums graph/fill) | `components/drums/DrumMachinePanel.tsx` |

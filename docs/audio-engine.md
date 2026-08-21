@@ -63,7 +63,11 @@ IR и кривые драйва: `analog.ts` (seeded, чтобы bounce был �
 5. Synth + timeline clips (**warped** через тот же `scheduleWarpedClip`, включая stem-клипы)
 6. Return reverb/delay как в live mixer
 7. Automation ramps (`scheduleAutomationLanes`) на volume / filter freq / EQ low
-8. WAV через `encodeWav`
+8. WAV: `wav.ts` `encodeWav` — default bounce **24-bit** PCM at the offline context rate (**48 kHz**). Rec still encodes 16-bit. No dither.
+
+**Freeze** (`soloLane`): disconnects master/xfader/returns and taps `ChannelStrip.duck` (after inserts, before mute/fader). Span = clips/notes/drums on that lane. Result is uploaded to the library and replaces that track’s clips; originals sit in `graph.frozenLanes` until Unfreeze. Flatten drops that snapshot. Frozen clips play as audio on bounce; the live deck/drums/synth for that lane is skipped so it does not double. Not master limiter, not send-returns, not VST.
+
+**Bounce range:** `startBar` / `lengthBars` on `renderOfflineWav`. Empty = auto duration (decks, clips, notes, drums, automation, cap 8 min) via `lib/renderSpan.ts`. Arrange toolbar writes `graph.bounceRange`.
 
 Не собирать урезанный EQ+delay «для экспорта» — это снова разъедет live и bounce.
 

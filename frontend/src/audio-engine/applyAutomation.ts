@@ -44,17 +44,26 @@ export function writeAutomationValue(mixer: Mixer, target: string, value: number
 export function scheduleAutomationLanes(
   mixer: Mixer,
   lanes: Array<{ target: string; points: AutomationPoint[] }>,
+  timeOffset = 0,
 ): void {
+  const at = (time: number) => Math.max(0, time - timeOffset);
   for (const lane of lanes) {
     if (!lane.points.length) continue;
     const pts = [...lane.points].sort((a, b) => a.time - b.time);
-    writeAutomationValue(mixer, lane.target, pts[0].value, 0);
-    writeAutomationValue(mixer, lane.target, pts[0].value, Math.max(0, pts[0].time));
+    let initial = pts[0];
+    for (const p of pts) {
+      if (p.time <= timeOffset) initial = p;
+      else break;
+    }
+    writeAutomationValue(mixer, lane.target, initial.value, 0);
+    writeAutomationValue(mixer, lane.target, initial.value, at(initial.time));
     const parsed = parseAutoTarget(lane.target);
     const ch = parsed ? channel(mixer, parsed.mixId) : null;
     if (!ch || !parsed) continue;
-    for (let i = 1; i < pts.length; i++) {
-      rampKind(ch, parsed.kind, pts[i].value, Math.max(0, pts[i].time));
+    for (const p of pts) {
+      if (p.time <= timeOffset && p !== initial) continue;
+      if (p === initial) continue;
+      rampKind(ch, parsed.kind, p.value, at(p.time));
     }
   }
 }

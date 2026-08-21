@@ -9,6 +9,8 @@ export function ProductionMixer() {
   const selectedMixId = useStudio((s) => s.selectedMixId);
   const levels = useStudio((s) => s.levels);
   const masterLevel = useStudio((s) => s.masterLevel);
+  const frozenLanes = useStudio((s) => s.frozenLanes);
+  const renderBusy = useStudio((s) => s.renderBusy);
   useI18n((s) => s.locale);
   const lanes = [...CORE_LANES, ...prodLanes];
 
@@ -16,12 +18,37 @@ export function ProductionMixer() {
     <section className="rounded-lg border border-line bg-ink-800 p-3 space-y-3 shadow-panel">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[10px] tracking-[0.3em] uppercase text-zinc-500">{t("mixer.production")}</div>
-        <button
-          className="text-[10px] uppercase tracking-wider bg-accent text-black font-semibold px-2 py-1 rounded"
-          onClick={() => useStudio.getState().addAudioLane()}
-        >
-          {t("mixer.addTrack")}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className="text-[10px] uppercase tracking-wider bg-ink-700 px-2 py-1 rounded disabled:opacity-40"
+            disabled={renderBusy || !!frozenLanes[selectedMixId]}
+            title={t("arrange.freezeHint")}
+            onClick={() => void useStudio.getState().freezeLane()}
+          >
+            {t("arrange.freeze")}
+          </button>
+          <button
+            className="text-[10px] uppercase tracking-wider bg-ink-700 px-2 py-1 rounded disabled:opacity-40"
+            disabled={!frozenLanes[selectedMixId]}
+            onClick={() => useStudio.getState().unfreezeLane()}
+          >
+            {t("arrange.unfreeze")}
+          </button>
+          <button
+            className="text-[10px] uppercase tracking-wider bg-ink-700 px-2 py-1 rounded disabled:opacity-40"
+            disabled={renderBusy}
+            title={t("arrange.flattenHint")}
+            onClick={() => void useStudio.getState().flattenLane()}
+          >
+            {t("arrange.flatten")}
+          </button>
+          <button
+            className="text-[10px] uppercase tracking-wider bg-accent text-black font-semibold px-2 py-1 rounded"
+            onClick={() => useStudio.getState().addAudioLane()}
+          >
+            {t("mixer.addTrack")}
+          </button>
+        </div>
       </div>
       <div className="flex gap-1 overflow-x-auto pb-1">
         {lanes.map((lane) => (
@@ -32,6 +59,7 @@ export function ProductionMixer() {
             color={lane.color}
             removable={!isCoreMixId(lane.id)}
             selected={selectedMixId === lane.id}
+            frozen={!!frozenLanes[lane.id]}
             level={levels[lane.id] || 0}
             volume={mixer[lane.id]?.volume ?? 0.85}
             mute={!!mixer[lane.id]?.mute}
@@ -54,6 +82,7 @@ function ProdStrip({
   color,
   removable,
   selected,
+  frozen,
   level,
   volume,
   mute,
@@ -64,6 +93,7 @@ function ProdStrip({
   color: string;
   removable: boolean;
   selected: boolean;
+  frozen?: boolean;
   level: number;
   volume: number;
   mute: boolean;
@@ -89,6 +119,7 @@ function ProdStrip({
         }}
       >
         {name}
+        {frozen ? <span className="block text-[8px] text-zinc-500">{t("arrange.frozenBadge")}</span> : null}
       </button>
       <Vu level={level} />
       <input

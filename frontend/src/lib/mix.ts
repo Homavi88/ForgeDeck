@@ -70,7 +70,10 @@ export function reorderInsert(order: readonly string[] | undefined, kind: Insert
   if (from < 0) return cur;
   const next = [...cur];
   next.splice(from, 1);
-  const clamped = Math.max(0, Math.min(next.length, toIndex));
+  // `toIndex` addresses the drop target in the pre-removal array. A target to
+  // the right shifts left by one when the dragged device is removed.
+  const target = from < toIndex ? toIndex - 1 : toIndex;
+  const clamped = Math.max(0, Math.min(next.length, target));
   next.splice(clamped, 0, kind);
   return normalizeInsertOrder(next);
 }

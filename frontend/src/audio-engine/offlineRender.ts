@@ -6,6 +6,7 @@ import { midiToFreq } from "./demo";
 import { applyKeyLock, createKeyLockNode } from "./rubberband";
 import { applyStripState, snapshotStrip } from "./stripState";
 import { scheduleWarpedClip } from "./clipPlayback";
+import { scheduleAutomationLanes } from "./applyAutomation";
 import type { MidiNote, SynthParams, TimelineClip } from "../types";
 import { useStudio } from "../store/useStudio";
 
@@ -38,6 +39,9 @@ export async function renderOfflineWav(): Promise<Blob> {
   for (const n of s.notes) {
     seconds = Math.max(seconds, ((n.startStep + n.length) / 16) * barSec);
   }
+  for (const lane of s.automation) {
+    for (const p of lane.points) seconds = Math.max(seconds, (p.time || 0) + 0.25);
+  }
   const hasDrums = PAD_IDS.some((id) => (s.drumSteps[id] || []).some((v) => v > 0));
   if (hasDrums) seconds = Math.max(seconds, 8 * barSec);
   seconds = Math.min(Math.max(seconds, 4), 8 * 60);
@@ -62,6 +66,7 @@ export async function renderOfflineWav(): Promise<Blob> {
   mixer.setReturnLevel("reverb", eng.mixer.returnRevLevel.gain.value);
   mixer.setReturnLevel("delay", eng.mixer.returnDlyLevel.gain.value);
   mixer.applySolo();
+  scheduleAutomationLanes(mixer, s.automation);
 
   const transplant = (buf: AudioBuffer): AudioBuffer => {
     const copy = offline.createBuffer(buf.numberOfChannels, buf.length, sr);

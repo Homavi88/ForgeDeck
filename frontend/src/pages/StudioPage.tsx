@@ -57,6 +57,7 @@ export default function StudioPage() {
     prodLanes,
     arrangeZoom,
     arrangeSnap,
+    automation,
     aiPanelOpen,
     libraryOpen,
     decksFullscreen,
@@ -114,6 +115,7 @@ export default function StudioPage() {
     prodLanes,
     arrangeZoom,
     arrangeSnap,
+    automation,
   ]);
 
   useEffect(() => {

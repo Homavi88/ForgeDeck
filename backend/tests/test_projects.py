@@ -160,3 +160,21 @@ def test_persist_session_extra_lane(client):
     slot = next(c for c in saved["session"] if c["trackId"] == "t-audio01" and c["scene"] == 0)
     assert slot["name"] == "Pad loop"
     assert slot["empty"] is False
+
+
+def test_persist_automation_points(client):
+    pid = client.post("/api/projects", json={"name": "Auto"}).json()["id"]
+    graph = {
+        "automation": [
+            {
+                "target": "deck_a.volume",
+                "points": [{"time": 0, "value": 0.85}, {"time": 8, "value": 0.2}],
+            }
+        ]
+    }
+    res = client.put(f"/api/projects/{pid}", json={"graph": graph})
+    assert res.status_code == 200, res.text
+    saved = client.get(f"/api/projects/{pid}").json()["graph"]
+    lane = saved["automation"][0]
+    assert lane["target"] == "deck_a.volume"
+    assert lane["points"][1]["value"] == 0.2

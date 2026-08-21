@@ -15,6 +15,7 @@ import { TimelineEngine } from "./Timeline";
 import { Transport } from "./Transport";
 import { warmupRubberBand } from "./rubberband";
 import { decodeUrl } from "./utils";
+import { writeAutomationValue } from "./applyAutomation";
 import { isCoreMixId, mixerIdForTrack } from "../lib/mix";
 import type { MidiNote, SessionClip, TimelineClip } from "../types";
 
@@ -122,20 +123,9 @@ export class AudioEngine {
   }
 
   applyAutomation(seconds: number): void {
-    const writeKnob = (ch: "A" | "B", v: number) => this.mixer.channels[ch].filter.setKnob(v * 2 - 1);
-    this.automation.apply("deck_a.filter.cutoff", seconds, (v) => writeKnob("A", v));
-    this.automation.apply("deck_b.filter.cutoff", seconds, (v) => writeKnob("B", v));
-    this.automation.apply("deck_a.eq.low", seconds, (v) => {
-      const eq = this.mixer.channels.A.eq;
-      eq.set(v, eq.mid.gain.value, eq.high.gain.value);
-    });
-    this.automation.apply("deck_b.eq.low", seconds, (v) => {
-      const eq = this.mixer.channels.B.eq;
-      eq.set(v, eq.mid.gain.value, eq.high.gain.value);
-    });
-    this.automation.apply("deck_a.volume", seconds, (v) => this.mixer.channels.A.setVolume(v));
-    this.automation.apply("deck_b.volume", seconds, (v) => this.mixer.channels.B.setVolume(v));
-    this.automation.apply("master.volume", seconds, (v) => this.mixer.master.setVolume(v));
+    for (const target of this.automation.lanes.keys()) {
+      this.automation.apply(target, seconds, (v) => writeAutomationValue(this.mixer, target, v));
+    }
   }
 
   playTimelineClip(clip: TimelineClip, when: number): void {
